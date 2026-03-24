@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/integration/ -m integration -v --tb=short)",
+      "Bash(python -m pytest tests/ --tb=short -q)",
+      "Bash(find c:/project4/Project-4-AI-Powered-Personalized-Learning-OS-Video-Chat-Voice-/frontend/src -name AuthContext*)"
+    ]
+  }
+}
