@@ -3,6 +3,46 @@ import json
 from app.core.ai_client import claude_client
 from app.services.syllabus_data import get_syllabus
 
+# Board-specific content generation guidelines
+BOARD_CONTENT_GUIDELINES: dict[str, str] = {
+    "CBSE": """Board-specific requirements (CBSE/NCERT):
+- Structure content exactly as NCERT textbooks: definitions → examples → applications
+- Use Indian context examples (rupees, Indian cities, cricket, Bollywood, etc.)
+- Include NCERT-style solved examples with "Given / Find / Solution" format
+- Highlight key terms exactly as NCERT bold them
+- Cover all NCERT in-text and exercise topics for this chapter
+- Mention NCERT chapter reference where applicable""",
+
+    "ICSE": """Board-specific requirements (ICSE/CISCE):
+- Follow Selina Concise / Frank textbook depth and analytical style
+- ICSE expects deeper conceptual treatment than CBSE — go into "why" not just "what"
+- Include proof-based and logical derivation steps where applicable
+- Use Indian context with wider international breadth
+- Questions should align with ICSE long-answer patterns (analytical, not rote)""",
+
+    "Cambridge IGCSE": """Board-specific requirements (Cambridge IGCSE/CAIE):
+- Align content strictly to Cambridge syllabus learning outcomes
+- Use internationally diverse, non-region-specific examples
+- Structure around Cambridge assessment objectives: Knowledge, Understanding, Analysis
+- Use Cambridge notation and terminology throughout
+- Include command words: describe, explain, calculate, evaluate, compare""",
+
+    "IB": """Board-specific requirements (IB MYP/Diploma):
+- Frame content around IB Key Concepts and Related Concepts
+- Connect to Global Contexts (e.g., Globalization, Scientific Innovation, etc.)
+- Promote inquiry: pose essential questions and encourage student reflection
+- Include ATL skill connections (Thinking, Research, Communication)
+- Use concept-based learning structure rather than topic-by-topic coverage
+- Encourage TOK connections where applicable""",
+
+    "Common Core": """Board-specific requirements (Common Core/CCSS):
+- Align content explicitly to relevant CCSS standards
+- For Math: emphasise conceptual understanding, procedural skill, and application
+- Use US units (inches, feet, miles, °F, dollars, oz, lb)
+- Apply Standards for Mathematical Practice where relevant
+- Structure for US grade-level expectations and assessment formats""",
+}
+
 
 async def generate_curriculum(
     subject_name: str,
@@ -94,14 +134,15 @@ async def generate_chapter_content(
     formulas (LaTeX), key concepts, and summary.
     """
     background_info = f"\nStudent background: {student_background}" if student_background else ""
-    board_info = f"\nBoard / curriculum framework: {board}" if board else ""
+    board_guidelines = BOARD_CONTENT_GUIDELINES.get(board or "", "")
+    board_section = f"\n\n{board_guidelines}" if board_guidelines else (f"\nBoard / curriculum framework: {board}" if board else "")
 
     prompt = f"""You are an expert K-12 educator. Generate comprehensive, engaging lesson content for:
 
 Subject: {subject_name}
 Grade: {grade}
 Chapter: {chapter_title}
-Description: {chapter_description}{board_info}{background_info}
+Description: {chapter_description}{board_section}{background_info}
 
 Create detailed, accurate educational content appropriate for grade {grade} students.
 
@@ -142,11 +183,21 @@ Guidelines:
     return json.loads(json_str)
 
 
+BOARD_ACTIVITY_GUIDELINES: dict[str, str] = {
+    "CBSE": "Design questions matching CBSE exam patterns: 1 mark (VSA), 2-3 mark (SA), 5 mark (LA). Use NCERT exercise style.",
+    "ICSE": "Design questions requiring analytical reasoning and conceptual depth, matching ICSE long-answer style.",
+    "Cambridge IGCSE": "Design questions using Cambridge command words (describe, explain, evaluate, calculate). Include mark allocations.",
+    "IB": "Design inquiry-based questions that require analysis and evaluation. Include at least one extended-response question.",
+    "Common Core": "Align questions to CCSS standards. Include multi-step problems requiring mathematical reasoning and real-world application.",
+}
+
+
 async def generate_activities(
     chapter_title: str,
     chapter_content: dict,
     subject_name: str,
     grade: str,
+    board: str | None = None,
 ) -> dict:
     """Generate activities for a chapter after the lesson content.
 
@@ -154,6 +205,8 @@ async def generate_activities(
     """
     key_concepts = chapter_content.get("key_concepts", [])
     summary = chapter_content.get("summary", "")
+    board_instruction = BOARD_ACTIVITY_GUIDELINES.get(board or "", "")
+    board_section = f"\nBoard: {board}\nActivity style: {board_instruction}" if board_instruction else (f"\nBoard: {board}" if board else "")
 
     prompt = f"""You are an expert K-12 educator. Generate a set of activities to assess student understanding of:
 
@@ -161,7 +214,7 @@ Subject: {subject_name}
 Grade: {grade}
 Chapter: {chapter_title}
 Key Concepts: {", ".join(key_concepts)}
-Chapter Summary: {summary}
+Chapter Summary: {summary}{board_section}
 
 Create a varied activity set that tests different levels of understanding.
 

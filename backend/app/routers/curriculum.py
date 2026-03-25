@@ -74,8 +74,7 @@ async def generate_curriculum_route(
             order_index=ch_data["order_index"],
             title=ch_data["title"],
             description=ch_data["description"],
-            # Only the first chapter is available; the rest are locked
-            status="available" if ch_data["order_index"] == 1 else "locked",
+            status="available",
         )
         db.add(chapter)
         await db.flush()

@@ -53,6 +53,7 @@ async def get_lesson_content(
         subject_name=subject.name if subject else "General",
         grade=student.grade if student else "8",
         student_background=student.background if student else None,
+        board=student.board if student else None,
     )
 
     # Cache generated content and update chapter status
@@ -72,6 +73,7 @@ async def get_lesson_content(
                 chapter_content=content_data,
                 subject_name=subject.name,
                 grade=student.grade if student else "8",
+                board=student.board if student else None,
             )
             activity = Activity(
                 chapter_id=chapter_uuid,
@@ -113,6 +115,7 @@ async def teaching_chat(
         raise HTTPException(status_code=404, detail="Chapter not found")
 
     student = await db.get(Student, student_id)
+    subject = await db.get(Subject, chapter.subject_id)
 
     # Persist the student's message
     student_msg = ChatMessage(
@@ -134,6 +137,8 @@ async def teaching_chat(
                 conversation_history=data.conversation_history,
                 student_grade=student.grade if student else "8",
                 student_background=student.background if student else None,
+                board=student.board if student else None,
+                subject_name=subject.name if subject else None,
             ):
                 full_response_parts.append(chunk)
                 yield f"data: {json.dumps({'text': chunk})}\n\n"

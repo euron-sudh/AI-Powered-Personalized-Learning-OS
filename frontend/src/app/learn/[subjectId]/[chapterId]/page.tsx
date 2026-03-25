@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPut } from "@/lib/api";
 import LessonContent from "@/app/learn/components/LessonContent";
 import VoiceChat from "@/app/learn/components/VoiceChat";
 import VideoFeed from "@/app/learn/components/VideoFeed";
@@ -37,7 +37,12 @@ export default function LessonPage({
   const [lesson, setLesson] = useState<LessonData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"content" | "chat" | "voice">("content");
+  const [activeTab, setActiveTab] = useState<"content" | "chat" | "voice" | "notes">("content");
+
+  // Notes state
+  const [notes, setNotes] = useState("");
+  const [notesSaved, setNotesSaved] = useState(false);
+  const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -61,11 +66,36 @@ export default function LessonPage({
       .then((history) => setMessages(history))
       .catch(() => setError("Failed to load lesson. Please go back and try again."))
       .finally(() => setLoading(false));
+
+    // Fetch notes (non-blocking)
+    apiGet<{ content: string }>(`/api/notes/${params.chapterId}`)
+      .then((d) => setNotes(d.content))
+      .catch(() => {});
   }, [user, authLoading, params.chapterId, router]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-save notes with 500ms debounce
+  const saveNotes = useCallback(
+    (content: string) => {
+      apiPut(`/api/notes/${params.chapterId}`, { content })
+        .then(() => {
+          setNotesSaved(true);
+          setTimeout(() => setNotesSaved(false), 2000);
+        })
+        .catch(() => {});
+    },
+    [params.chapterId]
+  );
+
+  function handleNotesChange(value: string) {
+    setNotes(value);
+    setNotesSaved(false);
+    if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
+    notesDebounceRef.current = setTimeout(() => saveNotes(value), 500);
+  }
 
   async function sendMessage() {
     if (!chatInput.trim() || chatStreaming) return;
@@ -194,7 +224,7 @@ export default function LessonPage({
         <div className="flex-1 flex flex-col min-w-0">
           {/* Tab buttons */}
           <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg w-fit">
-            {(["content", "chat", "voice"] as const).map((tab) => (
+            {(["content", "chat", "voice", "notes"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -202,7 +232,13 @@ export default function LessonPage({
                   activeTab === tab ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                {tab === "content" ? "📖 Lesson" : tab === "chat" ? "💬 Chat" : "🎙️ Voice"}
+                {tab === "content"
+                  ? "📖 Lesson"
+                  : tab === "chat"
+                  ? "💬 Chat"
+                  : tab === "voice"
+                  ? "🎙️ Voice"
+                  : "📝 Notes"}
               </button>
             ))}
           </div>
@@ -285,6 +321,27 @@ export default function LessonPage({
           {activeTab === "voice" && (
             <div className="flex-1 bg-white rounded-xl border p-6">
               <VoiceChat chapterId={params.chapterId} />
+            </div>
+          )}
+
+          {/* Notes tab */}
+          {activeTab === "notes" && (
+            <div className="flex-1 flex flex-col bg-white rounded-xl border overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b bg-gray-50">
+                <span className="text-sm font-medium text-gray-700">📝 My Notes</span>
+                {notesSaved && (
+                  <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                    <span>✓</span> Saved
+                  </span>
+                )}
+              </div>
+              <textarea
+                value={notes}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                placeholder="Take notes here… they're auto-saved."
+                className="flex-1 resize-none p-4 text-sm text-gray-800 font-mono leading-relaxed focus:outline-none focus:ring-0 border-0"
+                style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace" }}
+              />
             </div>
           )}
         </div>

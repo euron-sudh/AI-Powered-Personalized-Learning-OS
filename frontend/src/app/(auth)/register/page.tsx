@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,14 +28,39 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setError(error.message);
       setLoading(false);
       return;
     }
-    // After sign-up, send to onboarding to set up the student profile
+    // If Supabase requires email confirmation, session is null until confirmed
+    if (!data.session) {
+      setEmailSent(true);
+      setLoading(false);
+      return;
+    }
+    // Session available immediately (email confirmation disabled) — go to onboarding
     router.push("/onboarding");
+  }
+
+  if (emailSent) {
+    return (
+      <main className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-2xl shadow-sm border p-8 text-center">
+            <div className="text-4xl mb-4">📬</div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Check your email</h1>
+            <p className="text-gray-500 text-sm mb-4">
+              We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account, then come back to sign in.
+            </p>
+            <Link href="/login" className="text-blue-600 hover:underline font-medium text-sm">
+              Go to sign in
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (

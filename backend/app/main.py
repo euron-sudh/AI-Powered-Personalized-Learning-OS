@@ -13,6 +13,7 @@ from app.routers import (
     auth,
     curriculum,
     lessons,
+    notes,
     onboarding,
     progress,
     video,
@@ -56,6 +57,7 @@ app.include_router(voice.router, prefix="/api/voice", tags=["voice"])
 app.include_router(video.router, prefix="/api/video", tags=["video"])
 app.include_router(activities.router, prefix="/api/activities", tags=["activities"])
 app.include_router(progress.router, prefix="/api/progress", tags=["progress"])
+app.include_router(notes.router, prefix="/api/notes", tags=["notes"])
 
 
 @app.get("/api/health")

@@ -7,7 +7,11 @@ const config: Config = {
     "./src/hooks/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+      },
+    },
   },
   plugins: [require("@tailwindcss/typography")],
 };

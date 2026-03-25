@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/api";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
@@ -69,12 +69,14 @@ export default function OnboardingPage() {
   const [learningGoals, setLearningGoals] = useState("");
   const [marksheetFile, setMarksheetFile] = useState<File | null>(null);
 
-  if (authLoading) {
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [authLoading, user, router]);
+
+  if (authLoading || !user) {
     return <div className="flex min-h-screen items-center justify-center text-gray-500">Loading…</div>;
-  }
-  if (!user) {
-    router.push("/login");
-    return null;
   }
 
   function toggleSubject(subject: string) {
@@ -99,7 +101,6 @@ export default function OnboardingPage() {
         const { supabase } = await import("@/lib/supabase");
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          console.log("Access token used for marksheet upload:", session.access_token);
           await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/onboarding/marksheet`, {
             method: "POST",
             headers: { Authorization: `Bearer ${session.access_token}` },

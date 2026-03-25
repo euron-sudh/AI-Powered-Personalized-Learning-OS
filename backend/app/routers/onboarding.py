@@ -109,11 +109,14 @@ async def upload_marksheet(
     supabase = get_supabase_client()
     file_path = f"{student_id}/marksheet/{file.filename}"
 
-    supabase.storage.from_("marksheets").upload(
-        file_path,
-        content,
-        {"content-type": file.content_type or "application/octet-stream"},
-    )
+    try:
+        supabase.storage.from_("marksheets").upload(
+            file_path,
+            content,
+            {"content-type": file.content_type or "application/octet-stream"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")
 
     # Update student record with marksheet path
     student_uuid = uuid.UUID(student_id)
