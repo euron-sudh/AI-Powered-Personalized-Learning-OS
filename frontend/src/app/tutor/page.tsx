@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { apiGet } from "@/lib/api";
 import { SUBJECT_EMOJIS } from "@/lib/constants";
-import type { ProgressResponse, SubjectProgress } from "@/types/student";
+import { cn } from "@/lib/utils";
+import type { ProgressResponse } from "@/types/student";
 
 interface Chapter {
   id: string;
@@ -60,7 +61,12 @@ export default function TutorPage() {
           if (sub.total_chapters > 0) {
             try {
               const curriculum = await apiGet<CurriculumResponse>(`/api/curriculum/${sub.subject_id}`);
-              const available = curriculum.chapters.filter((c) => c.status !== "locked");
+              const seen = new Set<number>();
+              const available = curriculum.chapters.filter((c) => {
+                if (c.status === "locked" || seen.has(c.order_index)) return false;
+                seen.add(c.order_index);
+                return true;
+              });
               if (available.length > 0) {
                 withChapters.push({
                   subject_id: sub.subject_id,
@@ -171,8 +177,8 @@ export default function TutorPage() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full" />
+      <div className="flex min-h-[calc(100vh-64px)] bg-[#080d1a] items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-blue-900 border-t-blue-500 animate-spin" />
       </div>
     );
   }
@@ -180,41 +186,49 @@ export default function TutorPage() {
   if (!user) return null;
 
   return (
-    <main className="min-h-[calc(100vh-64px)] bg-gray-50 flex flex-col">
+    <main className="h-[calc(100vh-64px)] bg-[#080d1a] flex flex-col overflow-hidden">
       {/* Top bar */}
-      <div className="bg-white border-b px-4 py-3 flex items-center gap-3 flex-shrink-0">
-        <Link href="/dashboard" className="text-gray-500 hover:text-gray-700 text-sm">
-          ← Dashboard
+      <div className="bg-[#0a0f1e]/95 backdrop-blur-md border-b border-white/[0.06] px-4 py-3 flex items-center gap-3 flex-shrink-0">
+        <Link
+          href="/dashboard"
+          className="text-white/40 hover:text-white/70 text-sm transition-colors flex items-center gap-1.5"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 16 16">
+            <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Dashboard
         </Link>
-        <span className="text-gray-300">|</span>
-        <h1 className="font-semibold text-gray-900">🤖 AI Tutor</h1>
+        <span className="text-white/[0.12]">|</span>
+        <h1 className="font-semibold text-white text-sm">AI Tutor</h1>
         {selectedChapterTitle && (
           <>
-            <span className="text-gray-300">|</span>
-            <span className="text-gray-600 text-sm truncate max-w-xs">{selectedChapterTitle}</span>
+            <span className="text-white/[0.12]">|</span>
+            <span className="text-white/50 text-sm truncate max-w-xs">{selectedChapterTitle}</span>
           </>
         )}
       </div>
 
-      <div className="flex flex-1 overflow-hidden" style={{ height: "calc(100vh - 113px)" }}>
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Left sidebar */}
-        <div className="w-72 flex-shrink-0 bg-gray-900 text-white overflow-y-auto flex flex-col">
-          <div className="px-4 py-4 border-b border-gray-700">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Select a Chapter</p>
+        <div className="w-72 flex-shrink-0 bg-[#080d1a] border-r border-white/[0.06] overflow-y-auto flex flex-col">
+          <div className="px-4 py-4 border-b border-white/[0.06]">
+            <p className="text-xs font-semibold text-white/30 uppercase tracking-wider">Select a Chapter</p>
           </div>
 
           {loadingSubjects ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full" />
+              <div className="w-6 h-6 rounded-full border-2 border-blue-900 border-t-blue-500 animate-spin" />
             </div>
           ) : subjects.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <div className="text-3xl mb-3">📚</div>
-              <p className="text-sm text-gray-400 mb-3">No chapters available yet.</p>
-              <Link
-                href="/dashboard"
-                className="text-xs text-blue-400 hover:text-blue-300 underline"
-              >
+              <div className="w-12 h-12 rounded-2xl bg-white/[0.05] flex items-center justify-center mx-auto mb-3">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/30">
+                  <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                  <path d="M8 10h8M8 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+              <p className="text-sm text-white/40 mb-3">No chapters available yet.</p>
+              <Link href="/dashboard" className="text-xs text-blue-400 hover:text-blue-300">
                 Generate a curriculum first →
               </Link>
             </div>
@@ -222,9 +236,9 @@ export default function TutorPage() {
             <div className="flex-1 py-2">
               {subjects.map((sub) => (
                 <div key={sub.subject_id}>
-                  <div className="px-4 py-2 flex items-center gap-2">
+                  <div className="px-4 py-2.5 flex items-center gap-2">
                     <span className="text-base">{SUBJECT_EMOJIS[sub.subject_name] ?? "📚"}</span>
-                    <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
+                    <span className="text-xs font-semibold text-white/40 uppercase tracking-wide">
                       {sub.subject_name}
                     </span>
                   </div>
@@ -232,13 +246,14 @@ export default function TutorPage() {
                     <button
                       key={chapter.id}
                       onClick={() => selectChapter(sub.subject_id, chapter)}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition ${
+                      className={cn(
+                        "w-full text-left px-4 py-2.5 text-sm transition-all",
                         selectedChapterId === chapter.id
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-300 hover:bg-gray-800 hover:text-white"
-                      }`}
+                          ? "bg-blue-600/20 text-blue-300 border-r-2 border-blue-500"
+                          : "text-white/50 hover:bg-white/[0.04] hover:text-white/80"
+                      )}
                     >
-                      <span className="text-xs text-gray-500 mr-2">{chapter.order_index}.</span>
+                      <span className="text-white/20 mr-2 text-xs">{chapter.order_index}.</span>
                       {chapter.title}
                     </button>
                   ))}
@@ -249,13 +264,20 @@ export default function TutorPage() {
         </div>
 
         {/* Right: Chat panel */}
-        <div className="flex-1 flex flex-col min-w-0 bg-white">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#080d1a]">
           {!selectedChapterId ? (
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-center text-gray-400 max-w-sm px-4">
-                <div className="text-6xl mb-4">🤖</div>
-                <p className="font-semibold text-gray-600 text-lg mb-2">AI Tutor</p>
-                <p className="text-sm">
+              <div className="text-center max-w-sm px-4">
+                <div className="w-16 h-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-4">
+                  <svg width="28" height="28" viewBox="0 0 16 16" fill="none" className="text-blue-400">
+                    <path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v6A1.5 1.5 0 0112.5 11H9l-3 3v-3H3.5A1.5 1.5 0 012 9.5v-6z" stroke="currentColor" strokeWidth="1.4" fill="none" />
+                    <circle cx="5.5" cy="6.5" r="0.8" fill="currentColor" />
+                    <circle cx="8" cy="6.5" r="0.8" fill="currentColor" />
+                    <circle cx="10.5" cy="6.5" r="0.8" fill="currentColor" />
+                  </svg>
+                </div>
+                <p className="font-semibold text-white text-base mb-2">AI Tutor</p>
+                <p className="text-sm text-white/40">
                   Select a chapter from the sidebar to start a tutoring session.
                   Ask any question — your AI tutor uses the Socratic method to guide you.
                 </p>
@@ -266,31 +288,44 @@ export default function TutorPage() {
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {messages.length === 0 && (
-                  <div className="text-center text-gray-400 py-12">
-                    <div className="text-4xl mb-3">💬</div>
-                    <p className="font-medium text-gray-600">Ready to help!</p>
-                    <p className="text-sm mt-1">Ask anything about <strong>{selectedChapterTitle}</strong>.</p>
+                  <div className="text-center py-12">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-3">
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" className="text-blue-400">
+                        <path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v6A1.5 1.5 0 0112.5 11H9l-3 3v-3H3.5A1.5 1.5 0 012 9.5v-6z" stroke="currentColor" strokeWidth="1.4" fill="none" />
+                        <circle cx="5.5" cy="6.5" r="0.8" fill="currentColor" />
+                        <circle cx="8" cy="6.5" r="0.8" fill="currentColor" />
+                        <circle cx="10.5" cy="6.5" r="0.8" fill="currentColor" />
+                      </svg>
+                    </div>
+                    <p className="font-medium text-white/60">Ready to help!</p>
+                    <p className="text-sm text-white/30 mt-1">Ask anything about <span className="text-white/50">{selectedChapterTitle}</span>.</p>
                   </div>
                 )}
                 {messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === "student" ? "justify-end" : "justify-start"}`}>
+                  <div key={i} className={cn("flex", msg.role === "student" ? "justify-end" : "justify-start")}>
                     {msg.role === "tutor" && (
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm mr-2 flex-shrink-0 mt-0.5">
-                        🤖
+                      <div className="w-7 h-7 rounded-xl bg-blue-600/20 border border-blue-500/20 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" className="text-blue-400">
+                          <path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v6A1.5 1.5 0 0112.5 11H9l-3 3v-3H3.5A1.5 1.5 0 012 9.5v-6z" stroke="currentColor" strokeWidth="1.4" fill="none" />
+                          <circle cx="5.5" cy="6.5" r="0.7" fill="currentColor" />
+                          <circle cx="8" cy="6.5" r="0.7" fill="currentColor" />
+                          <circle cx="10.5" cy="6.5" r="0.7" fill="currentColor" />
+                        </svg>
                       </div>
                     )}
                     <div
-                      className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
+                      className={cn(
+                        "max-w-[75%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap",
                         msg.role === "student"
                           ? "bg-blue-600 text-white rounded-br-sm"
-                          : "bg-gray-100 text-gray-800 rounded-bl-sm"
-                      }`}
+                          : "bg-white/[0.07] text-white/80 rounded-bl-sm border border-white/[0.06]"
+                      )}
                     >
                       {msg.content || (chatStreaming && i === messages.length - 1 ? (
-                        <span className="flex gap-1">
-                          <span className="animate-bounce">●</span>
-                          <span className="animate-bounce" style={{ animationDelay: "0.1s" }}>●</span>
-                          <span className="animate-bounce" style={{ animationDelay: "0.2s" }}>●</span>
+                        <span className="flex gap-1 items-center h-4">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce" style={{ animationDelay: "0.1s" }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce" style={{ animationDelay: "0.2s" }} />
                         </span>
                       ) : "…")}
                     </div>
@@ -300,7 +335,7 @@ export default function TutorPage() {
               </div>
 
               {/* Input */}
-              <div className="border-t p-4 flex gap-3">
+              <div className="border-t border-white/[0.06] p-4 flex gap-3">
                 <input
                   type="text"
                   value={chatInput}
@@ -308,12 +343,12 @@ export default function TutorPage() {
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                   placeholder={`Ask about "${selectedChapterTitle}"…`}
                   disabled={chatStreaming}
-                  className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                  className="flex-1 rounded-xl bg-white/[0.06] border border-white/[0.1] px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 disabled:opacity-50 transition"
                 />
                 <button
                   onClick={sendMessage}
                   disabled={chatStreaming || !chatInput.trim()}
-                  className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+                  className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-500 disabled:opacity-40 transition-colors shadow-lg shadow-blue-900/30"
                 >
                   Send
                 </button>

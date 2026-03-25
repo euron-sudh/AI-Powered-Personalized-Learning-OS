@@ -9,14 +9,14 @@ export default function ProgressBar({ value, max, label }: ProgressBarProps) {
 
   return (
     <div className="w-full">
-      {label && <span className="text-sm text-gray-600">{label}</span>}
-      <div className="w-full bg-gray-200 rounded-full h-2.5">
+      {label && <span className="text-sm text-white/60">{label}</span>}
+      <div className="w-full bg-white/[0.08] rounded-full h-1.5">
         <div
-          className="bg-blue-600 h-2.5 rounded-full transition-all"
+          className="bg-gradient-to-r from-blue-500 to-blue-400 h-1.5 rounded-full transition-all duration-700"
           style={{ width: `${percentage}%` }}
         />
       </div>
-      <span className="text-xs text-gray-500">{percentage}%</span>
+      <span className="text-xs text-white/40">{percentage}%</span>
     </div>
   );
 }
