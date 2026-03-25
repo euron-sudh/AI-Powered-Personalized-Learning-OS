@@ -43,11 +43,27 @@ const SENTIMENT_LEGEND = [
   { label: "Drowsy",     color: "bg-slate-400",    description: "Suggest a short activity break" },
 ];
 
+// ─── Video type presets ────────────────────────────────────────────────────────
+
+const VIDEO_TYPES = [
+  { label: "Explanation",       suffix: "explained simply",    icon: "💡" },
+  { label: "Tutorial",          suffix: "full tutorial",       icon: "🎓" },
+  { label: "Practice Problems", suffix: "practice problems",   icon: "✏️" },
+  { label: "Animation",         suffix: "animated",            icon: "🎬" },
+  { label: "Exam Tips",         suffix: "exam tips tricks",    icon: "📝" },
+] as const;
+
+type VideoType = typeof VIDEO_TYPES[number]["label"];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function buildSearchQuery(subject: string, chapter: string, board?: string | null, grade?: string | null) {
+function buildBaseQuery(subject: string, chapter: string, board?: string | null, grade?: string | null) {
   const parts = [board, grade ? `grade ${grade}` : null, subject, chapter].filter(Boolean);
   return parts.join(" ");
+}
+
+function buildTypedQuery(base: string, suffix: string) {
+  return `${base} ${suffix}`;
 }
 
 function youtubeSearchEmbed(query: string) {
@@ -69,9 +85,10 @@ export default function VideoSessionPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
 
-  // Selected chapter for video embed
+  // Selected chapter + video type for embed
   const [selectedSubject, setSelectedSubject] = useState<SubjectWithChapters | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [videoType, setVideoType] = useState<VideoType>("Explanation");
 
   useEffect(() => {
     if (authLoading) return;
@@ -136,9 +153,12 @@ export default function VideoSessionPage() {
 
   if (!user) return null;
 
-  const searchQuery = selectedSubject && selectedChapter
-    ? buildSearchQuery(selectedSubject.subject_name, selectedChapter.title, profile?.board, profile?.grade)
+  const baseQuery = selectedSubject && selectedChapter
+    ? buildBaseQuery(selectedSubject.subject_name, selectedChapter.title, profile?.board, profile?.grade)
     : null;
+
+  const activeTypeSuffix = VIDEO_TYPES.find((t) => t.label === videoType)?.suffix ?? "";
+  const embedQuery = baseQuery ? buildTypedQuery(baseQuery, activeTypeSuffix) : null;
 
   return (
     <main className="h-[calc(100vh-64px)] bg-[#080d1a] flex flex-col overflow-hidden">
@@ -224,7 +244,7 @@ export default function VideoSessionPage() {
                       return (
                         <button
                           key={ch.id}
-                          onClick={() => { setSelectedSubject(sub); setSelectedChapter(ch); }}
+                          onClick={() => { setSelectedSubject(sub); setSelectedChapter(ch); setVideoType("Explanation"); }}
                           className={cn(
                             "w-full text-left px-4 py-2 text-xs transition-all",
                             isSelected
@@ -245,7 +265,7 @@ export default function VideoSessionPage() {
 
           {/* Main: video embed */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {!selectedChapter || !searchQuery ? (
+            {!selectedChapter || !baseQuery || !embedQuery ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-14 h-14 rounded-2xl bg-white/[0.05] flex items-center justify-center mx-auto mb-3">
@@ -259,48 +279,96 @@ export default function VideoSessionPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col h-full">
-                {/* Chapter info bar */}
-                <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between flex-shrink-0">
-                  <div>
-                    <p className="text-xs text-white/40 font-medium uppercase tracking-wide">
-                      {selectedSubject?.subject_name}
-                    </p>
-                    <h2 className="text-sm font-semibold text-white mt-0.5">
-                      {selectedChapter.order_index}. {selectedChapter.title}
-                    </h2>
+              <div className="flex flex-col h-full min-h-0">
+
+                {/* ── Chapter info + type filter ── */}
+                <div className="px-5 py-3 border-b border-white/[0.06] flex-shrink-0 space-y-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs text-white/40 font-medium uppercase tracking-wide">
+                        {selectedSubject?.subject_name}
+                      </p>
+                      <h2 className="text-sm font-semibold text-white mt-0.5 truncate">
+                        {selectedChapter.order_index}. {selectedChapter.title}
+                      </h2>
+                    </div>
+                    {/* YouTube open link for active type */}
+                    <a
+                      href={youtubeSearchUrl(embedQuery)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-600/20 transition-colors"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                      </svg>
+                      Open on YouTube
+                    </a>
                   </div>
-                  <a
-                    href={youtubeSearchUrl(searchQuery)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-600/20 transition-colors"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                    </svg>
-                    Open on YouTube
-                  </a>
+
+                  {/* Video type filter pills */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {VIDEO_TYPES.map((vt) => (
+                      <button
+                        key={vt.label}
+                        onClick={() => setVideoType(vt.label)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all",
+                          videoType === vt.label
+                            ? "bg-blue-600 text-white shadow shadow-blue-900/40"
+                            : "bg-white/[0.05] text-white/50 hover:bg-white/[0.09] hover:text-white/80 border border-white/[0.07]"
+                        )}
+                      >
+                        <span>{vt.icon}</span>
+                        {vt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {/* YouTube embed */}
+                {/* ── Embedded YouTube player ── */}
                 <div className="flex-1 bg-black relative min-h-0">
                   <iframe
-                    key={searchQuery}
-                    src={youtubeSearchEmbed(searchQuery)}
+                    key={embedQuery}
+                    src={youtubeSearchEmbed(embedQuery)}
                     className="w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
-                    title={`Videos for ${selectedChapter.title}`}
+                    title={`${videoType} – ${selectedChapter.title}`}
                   />
                 </div>
 
-                {/* Chapter description */}
-                {selectedChapter.description && (
-                  <div className="px-5 py-3 border-t border-white/[0.06] flex-shrink-0">
-                    <p className="text-xs text-white/40 leading-relaxed line-clamp-2">{selectedChapter.description}</p>
+                {/* ── Quick YouTube link cards ── */}
+                <div className="flex-shrink-0 border-t border-white/[0.06] px-4 py-3">
+                  <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-2.5">
+                    More on YouTube
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {VIDEO_TYPES.map((vt) => {
+                      const q = buildTypedQuery(baseQuery, vt.suffix);
+                      return (
+                        <a
+                          key={vt.label}
+                          href={youtubeSearchUrl(q)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                            videoType === vt.label
+                              ? "bg-red-600/15 border-red-500/30 text-red-300"
+                              : "bg-white/[0.04] border-white/[0.07] text-white/50 hover:bg-white/[0.08] hover:text-white/80 hover:border-white/[0.14]"
+                          )}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0 opacity-70">
+                            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                          </svg>
+                          {vt.icon} {vt.label}
+                        </a>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
+
               </div>
             )}
           </div>
