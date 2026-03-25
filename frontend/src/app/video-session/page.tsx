@@ -85,22 +85,28 @@ export default function VideoSessionPage() {
         ]);
         setProfile(prof);
 
+        const eligible = progress.subjects.filter((s) => s.total_chapters > 0);
+
+        // Fetch all curricula in parallel
+        const curriculumResults = await Promise.allSettled(
+          eligible.map((sub) =>
+            apiGet<CurriculumResponse>(`/api/curriculum/${sub.subject_id}`, 120_000)
+              .then((curriculum) => ({ sub, curriculum }))
+          )
+        );
+
         const withChapters: SubjectWithChapters[] = [];
-        for (const sub of progress.subjects) {
-          if (sub.total_chapters > 0) {
-            try {
-              const curriculum = await apiGet<CurriculumResponse>(`/api/curriculum/${sub.subject_id}`);
-              // deduplicate by order_index
-              const seen = new Set<number>();
-              const chapters = curriculum.chapters.filter((c) => {
-                if (seen.has(c.order_index)) return false;
-                seen.add(c.order_index);
-                return true;
-              });
-              if (chapters.length > 0) {
-                withChapters.push({ subject_id: sub.subject_id, subject_name: sub.subject_name, chapters });
-              }
-            } catch { /* skip */ }
+        for (const r of curriculumResults) {
+          if (r.status !== "fulfilled") continue;
+          const { sub, curriculum } = r.value;
+          const seen = new Set<number>();
+          const chapters = curriculum.chapters.filter((c) => {
+            if (seen.has(c.order_index)) return false;
+            seen.add(c.order_index);
+            return true;
+          });
+          if (chapters.length > 0) {
+            withChapters.push({ subject_id: sub.subject_id, subject_name: sub.subject_name, chapters });
           }
         }
 

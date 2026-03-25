@@ -55,28 +55,29 @@ export default function TutorPage() {
 
     async function loadSubjects() {
       try {
-        const progress = await apiGet<ProgressResponse>(`/api/progress/${user!.id}`);
+        const progress = await apiGet<ProgressResponse>(`/api/progress/${user!.id}`, 20_000);
+        const eligible = progress.subjects.filter((s) => s.total_chapters > 0);
+
+        // Fetch all curricula in parallel
+        const results = await Promise.allSettled(
+          eligible.map((sub) =>
+            apiGet<CurriculumResponse>(`/api/curriculum/${sub.subject_id}`, 120_000)
+              .then((curriculum) => ({ sub, curriculum }))
+          )
+        );
+
         const withChapters: SubjectWithChapters[] = [];
-        for (const sub of progress.subjects) {
-          if (sub.total_chapters > 0) {
-            try {
-              const curriculum = await apiGet<CurriculumResponse>(`/api/curriculum/${sub.subject_id}`);
-              const seen = new Set<number>();
-              const available = curriculum.chapters.filter((c) => {
-                if (c.status === "locked" || seen.has(c.order_index)) return false;
-                seen.add(c.order_index);
-                return true;
-              });
-              if (available.length > 0) {
-                withChapters.push({
-                  subject_id: sub.subject_id,
-                  subject_name: sub.subject_name,
-                  chapters: available,
-                });
-              }
-            } catch {
-              // skip subjects where curriculum fetch fails
-            }
+        for (const r of results) {
+          if (r.status !== "fulfilled") continue;
+          const { sub, curriculum } = r.value;
+          const seen = new Set<number>();
+          const available = curriculum.chapters.filter((c) => {
+            if (c.status === "locked" || seen.has(c.order_index)) return false;
+            seen.add(c.order_index);
+            return true;
+          });
+          if (available.length > 0) {
+            withChapters.push({ subject_id: sub.subject_id, subject_name: sub.subject_name, chapters: available });
           }
         }
         setSubjects(withChapters);

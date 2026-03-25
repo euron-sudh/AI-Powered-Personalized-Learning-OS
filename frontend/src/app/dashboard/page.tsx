@@ -246,13 +246,15 @@ export default function DashboardPage() {
     if (!user) { router.push("/login"); return; }
 
     async function load() {
-      let prof: StudentProfile | null = null;
+      // Fire profile + progress in parallel — saves one full round-trip
+      const [profResult, progressResult] = await Promise.allSettled([
+        apiGet<StudentProfile>("/api/onboarding/profile", 60_000),
+        apiGet<ProgressResponse>(`/api/progress/${user!.id}`, 20_000),
+      ]);
 
-      try {
-        prof = await apiGet<StudentProfile>("/api/onboarding/profile");
-        setProfile(prof);
-        if (!prof.onboarding_completed) { router.push("/onboarding"); return; }
-      } catch (err) {
+      // Handle profile
+      if (profResult.status === "rejected") {
+        const err = profResult.reason;
         if (err instanceof ApiError) {
           if (err.status === 404) { router.push("/onboarding"); return; }
           if (err.status === 401) { router.push("/login"); return; }
@@ -261,13 +263,17 @@ export default function DashboardPage() {
         setLoading(false);
         return;
       }
+      const prof = profResult.value;
+      setProfile(prof);
+      if (!prof.onboarding_completed) { router.push("/onboarding"); return; }
 
+      // Handle progress
       let progressSubjects: SubjectProgress[] = [];
-      try {
-        const progress = await apiGet<ProgressResponse>(`/api/progress/${user!.id}`);
-        progressSubjects = progress.subjects;
+      if (progressResult.status === "fulfilled") {
+        progressSubjects = progressResult.value.subjects;
         setSubjects(progressSubjects);
-      } catch (err) {
+      } else {
+        const err = progressResult.reason;
         if (!(err instanceof ApiError && err.status === 404)) {
           setError("Failed to load progress. Please refresh.");
         }

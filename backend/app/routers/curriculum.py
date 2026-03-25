@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -121,6 +121,7 @@ async def generate_curriculum_route(
 @router.get("/{subject_id}", response_model=CurriculumResponse)
 async def get_curriculum(
     subject_id: str,
+    response: Response,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -139,6 +140,7 @@ async def get_curriculum(
     )
     chapters = result.scalars().all()
 
+    response.headers["Cache-Control"] = "private, max-age=120"
     return CurriculumResponse(
         subject_id=str(subject.id),
         subject_name=subject.name,

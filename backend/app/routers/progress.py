@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +16,7 @@ router = APIRouter()
 @router.get("/{student_id}", response_model=ProgressResponse)
 async def get_progress(
     student_id: str,
+    response: Response,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -47,4 +48,5 @@ async def get_progress(
             )
         )
 
+    response.headers["Cache-Control"] = "private, max-age=30"
     return ProgressResponse(student_id=student_id, subjects=subjects)

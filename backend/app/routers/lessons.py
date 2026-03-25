@@ -1,12 +1,12 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_session
+from app.core.database import async_session, get_db_session
 from app.core.rate_limiter import limiter
 from app.dependencies import get_current_user
 from app.models.chapter import Chapter
@@ -20,9 +20,46 @@ from app.models.activity import Activity
 router = APIRouter()
 
 
+async def _generate_activity_bg(
+    chapter_id: uuid.UUID,
+    content_data: dict,
+    subject_name: str,
+    grade: str,
+    board: str | None,
+) -> None:
+    """Background task: generate and persist an activity after content is returned."""
+    async with async_session() as db:
+        # Check again in case a concurrent request already created one
+        result = await db.execute(
+            select(Activity).where(Activity.chapter_id == chapter_id)
+        )
+        if result.scalar_one_or_none():
+            return
+        try:
+            activity_data = await generate_activities(
+                chapter_title=content_data.get("title", ""),
+                chapter_content=content_data,
+                subject_name=subject_name,
+                grade=grade,
+                board=board,
+            )
+            activity = Activity(
+                chapter_id=chapter_id,
+                type="quiz",
+                prompt_json=activity_data,
+                status="pending",
+            )
+            db.add(activity)
+            await db.commit()
+        except Exception:
+            pass  # Non-critical
+
+
 @router.get("/{chapter_id}/content")
 async def get_lesson_content(
     chapter_id: str,
+    background_tasks: BackgroundTasks,
+    response: Response,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -34,8 +71,9 @@ async def get_lesson_content(
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    # Return cached content if already generated
+    # Return cached content immediately — no AI call needed
     if chapter.content_json:
+        response.headers["Cache-Control"] = "private, max-age=3600"
         return {
             "chapter_id": chapter_id,
             "title": chapter.title,
@@ -56,36 +94,20 @@ async def get_lesson_content(
         board=student.board if student else None,
     )
 
-    # Cache generated content and update chapter status
+    # Persist generated content and update status
     chapter.content_json = content_data
     chapter.status = "in_progress"
-
-    # Auto-generate an activity for this chapter if none exist
-    result = await db.execute(
-        select(Activity).where(Activity.chapter_id == chapter_uuid)
-    )
-    existing_activity = result.scalar_one_or_none()
-
-    if not existing_activity and subject:
-        try:
-            activity_data = await generate_activities(
-                chapter_title=chapter.title,
-                chapter_content=content_data,
-                subject_name=subject.name,
-                grade=student.grade if student else "8",
-                board=student.board if student else None,
-            )
-            activity = Activity(
-                chapter_id=chapter_uuid,
-                type="quiz",
-                prompt_json=activity_data,
-                status="pending",
-            )
-            db.add(activity)
-        except Exception:
-            pass  # Activity generation is non-blocking
-
     await db.commit()
+
+    # Generate activity in the background — does NOT block the response
+    background_tasks.add_task(
+        _generate_activity_bg,
+        chapter_uuid,
+        {**content_data, "title": chapter.title},
+        subject.name if subject else "General",
+        student.grade if student else "8",
+        student.board if student else None,
+    )
 
     return {
         "chapter_id": chapter_id,
@@ -171,6 +193,7 @@ async def teaching_chat(
 @router.get("/{chapter_id}/history")
 async def get_chat_history(
     chapter_id: str,
+    response: Response,
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -187,6 +210,7 @@ async def get_chat_history(
         .order_by(ChatMessage.created_at)
     )
     messages = result.scalars().all()
+    response.headers["Cache-Control"] = "private, max-age=60"
 
     return [
         {
