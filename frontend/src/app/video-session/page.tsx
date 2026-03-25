@@ -53,8 +53,6 @@ const VIDEO_TYPES = [
   { label: "Exam Tips",         suffix: "exam tips tricks",    icon: "📝" },
 ] as const;
 
-type VideoType = typeof VIDEO_TYPES[number]["label"];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function buildBaseQuery(subject: string, chapter: string, board?: string | null, grade?: string | null) {
@@ -64,10 +62,6 @@ function buildBaseQuery(subject: string, chapter: string, board?: string | null,
 
 function buildTypedQuery(base: string, suffix: string) {
   return `${base} ${suffix}`;
-}
-
-function youtubeSearchEmbed(query: string) {
-  return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}&rel=0&modestbranding=1`;
 }
 
 function youtubeSearchUrl(query: string) {
@@ -85,10 +79,9 @@ export default function VideoSessionPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
 
-  // Selected chapter + video type for embed
+  // Selected chapter for video cards
   const [selectedSubject, setSelectedSubject] = useState<SubjectWithChapters | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
-  const [videoType, setVideoType] = useState<VideoType>("Explanation");
 
   useEffect(() => {
     if (authLoading) return;
@@ -157,8 +150,6 @@ export default function VideoSessionPage() {
     ? buildBaseQuery(selectedSubject.subject_name, selectedChapter.title, profile?.board, profile?.grade)
     : null;
 
-  const activeTypeSuffix = VIDEO_TYPES.find((t) => t.label === videoType)?.suffix ?? "";
-  const embedQuery = baseQuery ? buildTypedQuery(baseQuery, activeTypeSuffix) : null;
 
   return (
     <main className="h-[calc(100vh-64px)] bg-[#080d1a] flex flex-col overflow-hidden">
@@ -244,7 +235,7 @@ export default function VideoSessionPage() {
                       return (
                         <button
                           key={ch.id}
-                          onClick={() => { setSelectedSubject(sub); setSelectedChapter(ch); setVideoType("Explanation"); }}
+                          onClick={() => { setSelectedSubject(sub); setSelectedChapter(ch); }}
                           className={cn(
                             "w-full text-left px-4 py-2 text-xs transition-all",
                             isSelected
@@ -265,7 +256,7 @@ export default function VideoSessionPage() {
 
           {/* Main: video embed */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {!selectedChapter || !baseQuery || !embedQuery ? (
+            {!selectedChapter || !baseQuery ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-14 h-14 rounded-2xl bg-white/[0.05] flex items-center justify-center mx-auto mb-3">
@@ -279,94 +270,88 @@ export default function VideoSessionPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col h-full min-h-0">
+              <div className="flex flex-col h-full min-h-0 overflow-y-auto">
 
-                {/* ── Chapter info + type filter ── */}
-                <div className="px-5 py-3 border-b border-white/[0.06] flex-shrink-0 space-y-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs text-white/40 font-medium uppercase tracking-wide">
-                        {selectedSubject?.subject_name}
-                      </p>
-                      <h2 className="text-sm font-semibold text-white mt-0.5 truncate">
-                        {selectedChapter.order_index}. {selectedChapter.title}
-                      </h2>
-                    </div>
-                    {/* YouTube open link for active type */}
-                    <a
-                      href={youtubeSearchUrl(embedQuery)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/10 border border-red-500/20 text-red-400 text-xs font-medium hover:bg-red-600/20 transition-colors"
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                      </svg>
-                      Open on YouTube
-                    </a>
-                  </div>
+                {/* ── Chapter header ── */}
+                <div className="px-6 pt-6 pb-4 flex-shrink-0">
+                  <p className="text-xs text-white/40 font-semibold uppercase tracking-wider mb-1">
+                    {selectedSubject?.subject_name}
+                  </p>
+                  <h2 className="text-lg font-bold text-white">
+                    {selectedChapter.order_index}. {selectedChapter.title}
+                  </h2>
+                  {selectedChapter.description && (
+                    <p className="text-sm text-white/40 mt-1 leading-relaxed line-clamp-2">
+                      {selectedChapter.description}
+                    </p>
+                  )}
+                </div>
 
-                  {/* Video type filter pills */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {VIDEO_TYPES.map((vt) => (
-                      <button
+                {/* ── Video type cards ── */}
+                <div className="px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {VIDEO_TYPES.map((vt) => {
+                    const q = buildTypedQuery(baseQuery, vt.suffix);
+                    const ytUrl = youtubeSearchUrl(q);
+                    const gradients: Record<string, string> = {
+                      "Explanation":       "from-blue-950/80 to-indigo-950/80 border-blue-500/20",
+                      "Tutorial":          "from-violet-950/80 to-purple-950/80 border-violet-500/20",
+                      "Practice Problems": "from-emerald-950/80 to-teal-950/80 border-emerald-500/20",
+                      "Animation":         "from-pink-950/80 to-rose-950/80 border-pink-500/20",
+                      "Exam Tips":         "from-amber-950/80 to-orange-950/80 border-amber-500/20",
+                    };
+                    const accentText: Record<string, string> = {
+                      "Explanation":       "text-blue-400",
+                      "Tutorial":          "text-violet-400",
+                      "Practice Problems": "text-emerald-400",
+                      "Animation":         "text-pink-400",
+                      "Exam Tips":         "text-amber-400",
+                    };
+                    const accentBg: Record<string, string> = {
+                      "Explanation":       "bg-blue-600 hover:bg-blue-500",
+                      "Tutorial":          "bg-violet-600 hover:bg-violet-500",
+                      "Practice Problems": "bg-emerald-600 hover:bg-emerald-500",
+                      "Animation":         "bg-pink-600 hover:bg-pink-500",
+                      "Exam Tips":         "bg-amber-600 hover:bg-amber-500",
+                    };
+                    return (
+                      <div
                         key={vt.label}
-                        onClick={() => setVideoType(vt.label)}
                         className={cn(
-                          "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all",
-                          videoType === vt.label
-                            ? "bg-blue-600 text-white shadow shadow-blue-900/40"
-                            : "bg-white/[0.05] text-white/50 hover:bg-white/[0.09] hover:text-white/80 border border-white/[0.07]"
+                          "rounded-2xl border bg-gradient-to-br p-5 flex flex-col gap-3",
+                          gradients[vt.label] ?? "from-slate-900 to-slate-800 border-white/[0.07]"
                         )}
                       >
-                        <span>{vt.icon}</span>
-                        {vt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                        {/* Icon + label */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{vt.icon}</span>
+                          <span className={cn("text-sm font-semibold", accentText[vt.label])}>
+                            {vt.label}
+                          </span>
+                        </div>
 
-                {/* ── Embedded YouTube player ── */}
-                <div className="flex-1 bg-black relative min-h-0">
-                  <iframe
-                    key={embedQuery}
-                    src={youtubeSearchEmbed(embedQuery)}
-                    className="w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                    title={`${videoType} – ${selectedChapter.title}`}
-                  />
-                </div>
+                        {/* Search query preview */}
+                        <p className="text-xs text-white/40 leading-relaxed line-clamp-2 font-mono bg-black/20 rounded-lg px-3 py-2">
+                          {q}
+                        </p>
 
-                {/* ── Quick YouTube link cards ── */}
-                <div className="flex-shrink-0 border-t border-white/[0.06] px-4 py-3">
-                  <p className="text-xs text-white/30 font-medium uppercase tracking-wider mb-2.5">
-                    More on YouTube
-                  </p>
-                  <div className="flex gap-2 flex-wrap">
-                    {VIDEO_TYPES.map((vt) => {
-                      const q = buildTypedQuery(baseQuery, vt.suffix);
-                      return (
+                        {/* CTA */}
                         <a
-                          key={vt.label}
-                          href={youtubeSearchUrl(q)}
+                          href={ytUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
-                            videoType === vt.label
-                              ? "bg-red-600/15 border-red-500/30 text-red-300"
-                              : "bg-white/[0.04] border-white/[0.07] text-white/50 hover:bg-white/[0.08] hover:text-white/80 hover:border-white/[0.14]"
+                            "flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs font-semibold text-white transition-colors",
+                            accentBg[vt.label] ?? "bg-blue-600 hover:bg-blue-500"
                           )}
                         >
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0 opacity-70">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                           </svg>
-                          {vt.icon} {vt.label}
+                          Search on YouTube
                         </a>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
               </div>
