@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
@@ -77,11 +78,33 @@ export default function Nav() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading } = useSupabaseAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close dropdown on route change
+  useEffect(() => { setDropdownOpen(false); }, [pathname]);
 
   async function handleSignOut() {
+    setDropdownOpen(false);
     await supabase.auth.signOut();
     router.push("/");
   }
+
+  // Get initials from email
+  const initials = user?.email ? user.email[0].toUpperCase() : "U";
+  const displayName = user?.user_metadata?.full_name ?? user?.email ?? "Account";
+  const displayEmail = user?.email ?? "";
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === href : pathname.startsWith(href);
@@ -135,16 +158,105 @@ export default function Nav() {
         <div className="flex items-center gap-2 shrink-0">
           {!loading && (
             user ? (
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white/60 hover:text-white border border-white/10 hover:border-white/20 hover:bg-white/[0.06] transition-all duration-150"
-              >
-                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="7.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
-                  <path d="M2 13c0-3.038 2.462-5.5 5.5-5.5S13 9.962 13 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" />
-                </svg>
-                Profile
-              </button>
+              <div className="relative" ref={dropdownRef}>
+                {/* Profile trigger */}
+                <button
+                  onClick={() => setDropdownOpen((o) => !o)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150",
+                    dropdownOpen
+                      ? "bg-white/[0.08] border-white/20 text-white"
+                      : "text-white/60 hover:text-white border-white/10 hover:border-white/20 hover:bg-white/[0.06]"
+                  )}
+                >
+                  {/* Avatar circle */}
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-[11px] font-bold text-white shrink-0">
+                    {initials}
+                  </div>
+                  <span className="hidden sm:block">Profile</span>
+                  <svg
+                    width="12" height="12" viewBox="0 0 12 12" fill="none"
+                    className={cn("transition-transform duration-200", dropdownOpen ? "rotate-180" : "")}
+                  >
+                    <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+
+                {/* Dropdown */}
+                {dropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-60 bg-[#0d1628] border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-50">
+                    {/* User info header */}
+                    <div className="px-4 py-3.5 border-b border-white/[0.07]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-sm font-bold text-white shrink-0">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+                          <p className="text-xs text-white/40 truncate">{displayEmail}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Menu items */}
+                    <div className="py-1.5">
+                      <Link
+                        href="/profile"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                          <circle cx="7.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.3" fill="none" />
+                          <path d="M2 13c0-3.038 2.462-5.5 5.5-5.5S13 9.962 13 13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+                        </svg>
+                        Profile Details
+                      </Link>
+                      <Link
+                        href="/analytics"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                          <path d="M2 11l3-3.5 2.5 2L10 5l3 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        </svg>
+                        My Progress
+                      </Link>
+                      <Link
+                        href="/learn"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                          <path d="M2 3a1 1 0 011-1h9a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" stroke="currentColor" strokeWidth="1.3" fill="none" />
+                          <path d="M5 6h5M5 8.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                        </svg>
+                        My Subjects
+                      </Link>
+                      <Link
+                        href="/onboarding"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                          <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.3" fill="none" />
+                          <path d="M7.5 5v2.5l1.5 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                        </svg>
+                        Edit Preferences
+                      </Link>
+                    </div>
+
+                    {/* Divider + sign out */}
+                    <div className="border-t border-white/[0.07] py-1.5">
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/[0.08] transition-colors"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                          <path d="M6 2H3a1 1 0 00-1 1v9a1 1 0 001 1h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                          <path d="M10 10l3-2.5L10 5M13 7.5H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <Link
