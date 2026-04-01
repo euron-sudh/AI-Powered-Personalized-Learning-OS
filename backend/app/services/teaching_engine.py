@@ -126,22 +126,19 @@ RESPONSE FORMATTING
 
     messages.append({"role": "user", "content": student_message})
 
-    # Try Claude with retries, fall back to OpenAI GPT-4o on persistent overload
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            async with claude_client.messages.stream(
-                model="claude-sonnet-4-6",
-                max_tokens=2048,
-                system=system_prompt,
-                messages=messages,
-            ) as stream:
-                async for text in stream.text_stream:
-                    yield text
-            return
-        except anthropic.OverloadedError:
-            if attempt < max_retries - 1:
-                await asyncio.sleep(2 ** attempt)  # 1s, 2s
+    # Try Claude once, fall back to OpenAI GPT-4o immediately on overload
+    try:
+        async with claude_client.messages.stream(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            system=system_prompt,
+            messages=messages,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text
+        return
+    except anthropic.OverloadedError:
+        pass  # Fall through to OpenAI immediately — no blocking sleep
 
     # Claude consistently overloaded — fall back to OpenAI GPT-4o
     openai_messages = [{"role": "system", "content": system_prompt}] + messages

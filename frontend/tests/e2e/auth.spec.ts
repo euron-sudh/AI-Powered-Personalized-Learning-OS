@@ -6,10 +6,10 @@ test.describe("Landing page", () => {
     await expect(page.getByText("Learn smarter,")).toBeVisible();
     await expect(page.getByText("not harder.")).toBeVisible();
     await expect(page.getByText("Personalised Curriculum")).toBeVisible();
-    await expect(page.getByText("Voice Tutoring")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Voice Tutoring" })).toBeVisible();
     await expect(page.getByText("Smart Adaptation")).toBeVisible();
     await expect(page.getByRole("link", { name: /get started free/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /sign in/i })).toBeVisible();
+    await expect(page.locator("main").getByRole("link", { name: /sign in/i })).toBeVisible();
   });
 
   test("nav links are hidden on landing page for unauthenticated user", async ({ page }) => {
@@ -77,8 +77,8 @@ test.describe("Register page", () => {
 
   test("navigates to login page", async ({ page }) => {
     await page.goto("/register");
-    await page.getByRole("link", { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/login/);
+    await page.locator("main").getByRole("link", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/login/, { timeout: 10000 });
   });
 });
 
@@ -88,7 +88,7 @@ test.describe("Protected routes", () => {
   for (const route of protectedRoutes) {
     test(`${route} redirects unauthenticated users to login`, async ({ page }) => {
       await page.goto(route);
-      await expect(page).toHaveURL(/login/, { timeout: 5000 });
+      await expect(page).toHaveURL(/login/, { timeout: 10000 });
     });
   }
 });

@@ -57,10 +57,10 @@ export function invalidateCache(pathPrefix?: string) {
 // ─── HTTP methods ──────────────────────────────────────────────────────────
 
 /**
- * @param ttlMs  How long to cache this response (default 30 s).
+ * @param ttlMs  How long to cache this response (default 5 min).
  *               Pass 0 to skip caching.
  */
-export async function apiGet<T>(path: string, ttlMs = 30_000): Promise<T> {
+export async function apiGet<T>(path: string, ttlMs = 300_000): Promise<T> {
   if (ttlMs > 0) {
     const cached = _cache.get(path);
     if (cached && Date.now() < cached.expiresAt) return cached.data as T;

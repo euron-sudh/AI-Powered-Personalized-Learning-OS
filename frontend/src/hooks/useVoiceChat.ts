@@ -56,6 +56,12 @@ function pcmToWav(pcmBytes: Uint8Array, sampleRate = 24000): ArrayBuffer {
 export interface UseVoiceChatOptions {
   lessonTitle?: string;
   chapterId?: string;
+  chapterDescription?: string;
+  keyConcepts?: string[];
+  summary?: string;
+  grade?: string;
+  board?: string;
+  subjectName?: string;
 }
 
 export function useVoiceChat(options: UseVoiceChatOptions = {}) {
@@ -138,17 +144,40 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
 
     ws.onopen = () => {
       setIsConnected(true);
-      const { lessonTitle } = optionsRef.current;
+      const { lessonTitle, chapterDescription, keyConcepts, summary, grade, board, subjectName } = optionsRef.current;
+
+      // Build a rich, lesson-aware system prompt
+      let instructions = `You are an expert AI tutor for K-12 students`;
+      if (grade) instructions += ` in Grade ${grade}`;
+      if (board) instructions += ` following the ${board} curriculum`;
+      instructions += `.\n\n`;
+
+      if (subjectName) instructions += `Subject: ${subjectName}\n`;
+      if (lessonTitle) instructions += `Current lesson: "${lessonTitle}"\n`;
+      if (chapterDescription) instructions += `Lesson overview: ${chapterDescription}\n`;
+
+      if (keyConcepts && keyConcepts.length > 0) {
+        instructions += `\nKey concepts covered in this lesson:\n${keyConcepts.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n`;
+      }
+
+      if (summary) instructions += `\nLesson summary: ${summary}\n`;
+
+      instructions += `
+Teaching approach:
+- Use the Socratic method — ask guiding questions rather than giving direct answers
+- Be patient, encouraging, and age-appropriate in language
+- Relate explanations to the key concepts listed above
+- After answering, check the student's understanding with a follow-up question
+- If the student seems confused, break the concept into smaller steps
+- Keep responses concise and conversational for voice format`;
+
       ws.send(
         JSON.stringify({
           type: "session.update",
           session: {
             modalities: ["audio", "text"],
-            instructions: lessonTitle
-              ? `You are a helpful AI tutor for K-12 students teaching the lesson "${lessonTitle}". Be patient and encouraging. Use the Socratic method — ask guiding questions rather than giving answers directly. Keep explanations age-appropriate.`
-              : "You are a helpful AI tutor for K-12 students. Be patient, encouraging, and use the Socratic method.",
+            instructions,
             voice: "alloy",
-            // Enable transcription so conversation.item.input_audio_transcription.completed fires
             input_audio_transcription: { model: "whisper-1" },
             turn_detection: {
               type: "server_vad",

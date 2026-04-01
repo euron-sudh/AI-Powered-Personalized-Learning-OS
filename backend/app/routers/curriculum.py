@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.post("/generate", response_model=CurriculumResponse)
-@limiter.limit("10/minute")
+@limiter.limit("100/minute")
 async def generate_curriculum_route(
     request: Request,
     data: CurriculumGenerateRequest,

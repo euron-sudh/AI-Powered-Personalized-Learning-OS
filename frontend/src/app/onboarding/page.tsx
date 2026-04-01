@@ -124,7 +124,12 @@ export default function OnboardingPage() {
 
       router.push("/dashboard");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      let msg = "Something went wrong. Please try again.";
+      if (err instanceof Error) {
+        try { msg = (JSON.parse(err.message) as { detail?: string }).detail ?? err.message; }
+        catch { msg = err.message; }
+      }
+      setError(msg);
       setSubmitting(false);
     }
   }

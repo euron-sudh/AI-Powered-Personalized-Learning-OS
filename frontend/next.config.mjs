@@ -3,6 +3,8 @@ import { withSentryConfig } from "@sentry/nextjs";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Set NEXT_OUTPUT=standalone in Docker/ECS builds for minimal self-contained output
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   images: {
     remotePatterns: [
       // Supabase Storage

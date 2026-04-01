@@ -22,6 +22,12 @@ interface LessonData {
   summary: string;
 }
 
+interface StudentProfile {
+  name: string;
+  grade: string;
+  board: string;
+}
+
 interface ChatMessage {
   role: "student" | "tutor";
   content: string;
@@ -35,6 +41,7 @@ export default function LessonPage({
   const router = useRouter();
   const { user, loading: authLoading } = useSupabaseAuth();
   const [lesson, setLesson] = useState<LessonData | null>(null);
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"content" | "chat" | "voice" | "notes">("content");
@@ -58,10 +65,14 @@ export default function LessonPage({
     if (!user) { router.push("/login"); return; }
 
     setLoading(true);
-    apiGet<LessonData>(`/api/lessons/${params.chapterId}/content`)
-      .then((data) => {
+    Promise.all([
+      apiGet<LessonData>(`/api/lessons/${params.chapterId}/content`),
+      apiGet<StudentProfile>("/api/onboarding/profile").catch(() => null),
+    ])
+      .then(([data, prof]) => {
         setLesson(data);
-        return apiGet<ChatMessage[]>(`/api/lessons/${params.chapterId}/history`);
+        setProfile(prof);
+        return apiGet<ChatMessage[]>(`/api/lessons/${params.chapterId}/history`, 0);
       })
       .then((history) => setMessages(history))
       .catch(() => setError("Failed to load lesson. Please go back and try again."))
@@ -327,7 +338,15 @@ export default function LessonPage({
           {/* Voice tab */}
           {activeTab === "voice" && (
             <div className="flex-1 bg-white rounded-xl border p-6">
-              <VoiceChat chapterId={params.chapterId} lessonTitle={lesson.title} />
+              <VoiceChat
+                chapterId={params.chapterId}
+                lessonTitle={lesson.title}
+                chapterDescription={lesson.description}
+                keyConcepts={lesson.key_concepts}
+                summary={lesson.summary}
+                grade={profile?.grade}
+                board={profile?.board}
+              />
             </div>
           )}
 

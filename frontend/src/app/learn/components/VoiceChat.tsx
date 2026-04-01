@@ -6,9 +6,24 @@ import { useVoiceChat } from "@/hooks/useVoiceChat";
 interface VoiceChatProps {
   chapterId: string;
   lessonTitle?: string;
+  chapterDescription?: string;
+  keyConcepts?: string[];
+  summary?: string;
+  grade?: string;
+  board?: string;
+  subjectName?: string;
 }
 
-export default function VoiceChat({ chapterId, lessonTitle }: VoiceChatProps) {
+export default function VoiceChat({
+  chapterId,
+  lessonTitle,
+  chapterDescription,
+  keyConcepts,
+  summary,
+  grade,
+  board,
+  subjectName,
+}: VoiceChatProps) {
   const {
     isConnected,
     isListening,
@@ -18,7 +33,7 @@ export default function VoiceChat({ chapterId, lessonTitle }: VoiceChatProps) {
     connect,
     disconnect,
     toggleListening,
-  } = useVoiceChat({ chapterId, lessonTitle });
+  } = useVoiceChat({ chapterId, lessonTitle, chapterDescription, keyConcepts, summary, grade, board, subjectName });
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 

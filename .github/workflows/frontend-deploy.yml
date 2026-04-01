@@ -1,0 +1,41 @@
+name: Frontend — Trigger Amplify Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "amplify.yml"
+      - ".github/workflows/frontend-deploy.yml"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1                          # Change to your region
+  AMPLIFY_APP_ID: ${{ secrets.AMPLIFY_APP_ID }}   # From Amplify console
+
+jobs:
+  deploy:
+    name: Trigger Amplify Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Trigger Amplify deployment
+        run: |
+          JOB_ID=$(aws amplify start-job \
+            --app-id $AMPLIFY_APP_ID \
+            --branch-name main \
+            --job-type RELEASE \
+            --query 'jobSummary.jobId' \
+            --output text)
+          echo "Amplify job started: $JOB_ID"
+          echo "Monitor at: https://${{ env.AWS_REGION }}.console.aws.amazon.com/amplify/home#/apps/$AMPLIFY_APP_ID"
+
+      - name: Deployment summary
+        run: echo "✅ Amplify build triggered for branch: main"

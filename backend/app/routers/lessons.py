@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 
@@ -81,9 +82,11 @@ async def get_lesson_content(
             **chapter.content_json,
         }
 
-    # Generate content with Claude
-    student = await db.get(Student, student_id)
-    subject = await db.get(Subject, chapter.subject_id)
+    # Fetch student and subject in parallel — saves one DB round-trip
+    student, subject = await asyncio.gather(
+        db.get(Student, student_id),
+        db.get(Subject, chapter.subject_id),
+    )
 
     content_data = await generate_chapter_content(
         chapter_title=chapter.title,
@@ -132,11 +135,14 @@ async def teaching_chat(
     student_id = uuid.UUID(user["sub"])
     chapter_uuid = uuid.UUID(chapter_id)
 
-    chapter = await db.get(Chapter, chapter_uuid)
+    # Fetch chapter and student in parallel
+    chapter, student = await asyncio.gather(
+        db.get(Chapter, chapter_uuid),
+        db.get(Student, student_id),
+    )
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    student = await db.get(Student, student_id)
     subject = await db.get(Subject, chapter.subject_id)
 
     # Persist the student's message
@@ -150,6 +156,17 @@ async def teaching_chat(
     await db.commit()
 
     full_response_parts: list[str] = []
+
+    async def _persist_tutor_msg(content: str) -> None:
+        """Persist tutor message after streaming completes — does not block the SSE response."""
+        async with async_session() as bg_db:
+            bg_db.add(ChatMessage(
+                chapter_id=chapter_uuid,
+                student_id=student_id,
+                role="tutor",
+                content=content,
+            ))
+            await bg_db.commit()
 
     async def event_stream():
         try:
@@ -165,15 +182,8 @@ async def teaching_chat(
                 full_response_parts.append(chunk)
                 yield f"data: {json.dumps({'text': chunk})}\n\n"
 
-            # Persist the tutor's full response
-            tutor_msg = ChatMessage(
-                chapter_id=chapter_uuid,
-                student_id=student_id,
-                role="tutor",
-                content="".join(full_response_parts),
-            )
-            db.add(tutor_msg)
-            await db.commit()
+            # Persist tutor message as a background task — does not delay [DONE]
+            background_tasks.add_task(_persist_tutor_msg, "".join(full_response_parts))
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
         finally:

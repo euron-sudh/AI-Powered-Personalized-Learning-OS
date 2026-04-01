@@ -77,7 +77,7 @@ export default function DashboardPage() {
         );
         if (results.some((r) => r.status === "fulfilled")) {
           try {
-            const updated = await apiGet<ProgressResponse>(`/api/progress/${user!.id}`);
+            const updated = await apiGet<ProgressResponse>(`/api/progress/${user!.id}`, 0);
             setSubjects(updated.subjects);
           } catch { /* silent */ }
         }
@@ -97,7 +97,7 @@ export default function DashboardPage() {
         filter: `student_id=eq.${user.id}`,
       }, async () => {
         try {
-          const progress = await apiGet<ProgressResponse>(`/api/progress/${user.id}`);
+          const progress = await apiGet<ProgressResponse>(`/api/progress/${user.id}`, 0);
           setSubjects(progress.subjects);
         } catch { /* silent */ }
       })
@@ -115,7 +115,7 @@ export default function DashboardPage() {
         board: profile?.board ?? null,
         grade: profile?.grade ?? null,
       });
-      const progress = await apiGet<ProgressResponse>(`/api/progress/${user!.id}`);
+      const progress = await apiGet<ProgressResponse>(`/api/progress/${user!.id}`, 0);
       setSubjects(progress.subjects);
     } catch {
       setError(`Failed to generate curriculum for ${subjectName}. Please try again.`);
