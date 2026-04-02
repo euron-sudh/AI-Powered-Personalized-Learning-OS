@@ -34,7 +34,7 @@ async def _generate_activity_bg(
         result = await db.execute(
             select(Activity).where(Activity.chapter_id == chapter_id)
         )
-        if result.scalar_one_or_none():
+        if result.scalars().first():
             return
         try:
             activity_data = await generate_activities(
@@ -82,11 +82,9 @@ async def get_lesson_content(
             **chapter.content_json,
         }
 
-    # Fetch student and subject in parallel — saves one DB round-trip
-    student, subject = await asyncio.gather(
-        db.get(Student, student_id),
-        db.get(Subject, chapter.subject_id),
-    )
+    # Fetch student and subject sequentially (async sessions don't support concurrent access)
+    student = await db.get(Student, student_id)
+    subject = await db.get(Subject, chapter.subject_id)
 
     content_data = await generate_chapter_content(
         chapter_title=chapter.title,
@@ -126,8 +124,8 @@ async def teaching_chat(
     request: Request,
     chapter_id: str,
     data: ChatRequest,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
 ):
     """Streaming teaching chat via SSE."""
     from app.services.teaching_engine import stream_teaching_response
@@ -135,30 +133,36 @@ async def teaching_chat(
     student_id = uuid.UUID(user["sub"])
     chapter_uuid = uuid.UUID(chapter_id)
 
-    # Fetch chapter and student in parallel
-    chapter, student = await asyncio.gather(
-        db.get(Chapter, chapter_uuid),
-        db.get(Student, student_id),
-    )
-    if not chapter:
-        raise HTTPException(status_code=404, detail="Chapter not found")
+    # Do all DB work up-front in a short-lived session that closes before streaming starts
+    async with async_session() as db:
+        chapter = await db.get(Chapter, chapter_uuid)
+        if not chapter:
+            raise HTTPException(status_code=404, detail="Chapter not found")
 
-    subject = await db.get(Subject, chapter.subject_id)
+        student = await db.get(Student, student_id)
+        subject = await db.get(Subject, chapter.subject_id)
 
-    # Persist the student's message
-    student_msg = ChatMessage(
-        chapter_id=chapter_uuid,
-        student_id=student_id,
-        role="student",
-        content=data.message,
-    )
-    db.add(student_msg)
-    await db.commit()
+        # Snapshot values needed for streaming (avoid holding session open)
+        chapter_content = chapter.content_json or {}
+        student_grade = student.grade if student else "8"
+        student_background = student.background if student else None
+        student_board = student.board if student else None
+        subject_name = subject.name if subject else None
+
+        # Persist the student's message
+        db.add(ChatMessage(
+            chapter_id=chapter_uuid,
+            student_id=student_id,
+            role="student",
+            content=data.message,
+        ))
+        await db.commit()
+    # DB session is now closed — stream can begin without holding a connection
 
     full_response_parts: list[str] = []
 
     async def _persist_tutor_msg(content: str) -> None:
-        """Persist tutor message after streaming completes — does not block the SSE response."""
+        """Persist tutor message after streaming completes."""
         async with async_session() as bg_db:
             bg_db.add(ChatMessage(
                 chapter_id=chapter_uuid,
@@ -171,18 +175,17 @@ async def teaching_chat(
     async def event_stream():
         try:
             async for chunk in stream_teaching_response(
-                chapter_content=chapter.content_json or {},
+                chapter_content=chapter_content,
                 student_message=data.message,
                 conversation_history=data.conversation_history,
-                student_grade=student.grade if student else "8",
-                student_background=student.background if student else None,
-                board=student.board if student else None,
-                subject_name=subject.name if subject else None,
+                student_grade=student_grade,
+                student_background=student_background,
+                board=student_board,
+                subject_name=subject_name,
             ):
                 full_response_parts.append(chunk)
                 yield f"data: {json.dumps({'text': chunk})}\n\n"
 
-            # Persist tutor message as a background task — does not delay [DONE]
             background_tasks.add_task(_persist_tutor_msg, "".join(full_response_parts))
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"

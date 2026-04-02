@@ -126,7 +126,7 @@ RESPONSE FORMATTING
 
     messages.append({"role": "user", "content": student_message})
 
-    # Try Claude once, fall back to OpenAI GPT-4o immediately on overload
+    # Try Claude once, fall back to OpenAI GPT-4o on overload or any error
     try:
         async with claude_client.messages.stream(
             model="claude-sonnet-4-6",
@@ -137,8 +137,8 @@ RESPONSE FORMATTING
             async for text in stream.text_stream:
                 yield text
         return
-    except anthropic.OverloadedError:
-        pass  # Fall through to OpenAI immediately — no blocking sleep
+    except (anthropic.APIStatusError, anthropic.APIConnectionError, anthropic.RateLimitError, Exception):
+        pass  # Fall through to OpenAI immediately
 
     # Claude consistently overloaded — fall back to OpenAI GPT-4o
     openai_messages = [{"role": "system", "content": system_prompt}] + messages

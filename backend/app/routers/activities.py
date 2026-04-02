@@ -29,9 +29,9 @@ async def get_chapter_activity(
     chapter_uuid = uuid.UUID(chapter_id)
 
     result = await db.execute(
-        select(Activity).where(Activity.chapter_id == chapter_uuid)
+        select(Activity).where(Activity.chapter_id == chapter_uuid).limit(1)
     )
-    activity = result.scalar_one_or_none()
+    activity = result.scalars().first()
     if not activity:
         raise HTTPException(status_code=404, detail="No activity found for this chapter")
 
