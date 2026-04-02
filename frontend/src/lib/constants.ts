@@ -1,6 +1,6 @@
 export const APP_NAME = "LearnOS";
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-export const WS_URL = API_URL.replace(/^http/, "ws");
+export const API_URL = "/api/proxy";
+export const WS_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws");
 
 export const GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 

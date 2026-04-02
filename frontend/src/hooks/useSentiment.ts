@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const WS_URL = API_URL.replace(/^http/, "ws");
+const API_URL = "/api/proxy";
+const WS_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws");
 
 export interface SentimentData {
   emotion: string;

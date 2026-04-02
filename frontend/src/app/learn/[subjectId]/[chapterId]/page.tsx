@@ -126,7 +126,7 @@ export default function LessonPage({
       if (!session) return;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/lessons/${params.chapterId}/chat`,
+        `/api/proxy/api/lessons/${params.chapterId}/chat`,
         {
           method: "POST",
           headers: {

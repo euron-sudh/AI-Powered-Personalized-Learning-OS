@@ -105,7 +105,7 @@ export default function OnboardingPage() {
         const { supabase } = await import("@/lib/supabase");
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/onboarding/marksheet`, {
+          await fetch(`/api/proxy/api/onboarding/marksheet`, {
             method: "POST",
             headers: { Authorization: `Bearer ${session.access_token}` },
             body: formData,
