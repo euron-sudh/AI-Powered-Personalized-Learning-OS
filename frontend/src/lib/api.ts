@@ -1,6 +1,8 @@
 import { supabase } from "./supabase";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// All API calls go through the Next.js proxy route (/api/proxy) to avoid
+// mixed-content issues. The proxy reads BACKEND_URL server-side and forwards.
+const API_URL = "/api/proxy";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
