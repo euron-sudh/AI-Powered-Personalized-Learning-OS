@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL =
+  process.env.BACKEND_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://learnos-alb-822082048.ap-south-1.elb.amazonaws.com";
 
 async function handler(req: NextRequest, { params }: { params: { path: string[] } }) {
   const { path } = params;
