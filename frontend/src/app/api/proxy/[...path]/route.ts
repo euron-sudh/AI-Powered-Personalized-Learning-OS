@@ -26,6 +26,9 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
       method: req.method,
       headers,
       body: body && body.byteLength > 0 ? body : undefined,
+      // Required for Node.js fetch to support streaming response on POST requests
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...(hasBody ? { duplex: "half" } as any : {}),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -38,6 +41,13 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
   const resHeaders = new Headers();
   const ct = backendRes.headers.get("content-type");
   if (ct) resHeaders.set("content-type", ct);
+  // Pass through SSE/streaming headers
+  const cacheControl = backendRes.headers.get("cache-control");
+  if (cacheControl) resHeaders.set("cache-control", cacheControl);
+  const xAccel = backendRes.headers.get("x-accel-buffering");
+  if (xAccel) resHeaders.set("x-accel-buffering", xAccel);
+  const transferEncoding = backendRes.headers.get("transfer-encoding");
+  if (transferEncoding) resHeaders.set("transfer-encoding", transferEncoding);
 
   return new NextResponse(backendRes.body, {
     status: backendRes.status,

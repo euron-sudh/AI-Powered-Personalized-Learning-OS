@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const API_URL = "/api/proxy";
-const WS_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws");
+const WS_URL = (process.env.NEXT_PUBLIC_API_URL || "http://learnos-alb-822082048.ap-south-1.elb.amazonaws.com").replace(/^http/, "ws");
 
 // Safely decode base64 to Uint8Array without spread-overflow risk
 function base64ToUint8Array(base64: string): Uint8Array {
