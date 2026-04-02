@@ -17,11 +17,20 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
   const hasBody = req.method !== "GET" && req.method !== "HEAD";
   const body = hasBody ? await req.arrayBuffer() : undefined;
 
-  const backendRes = await fetch(url, {
-    method: req.method,
-    headers,
-    body: body && body.byteLength > 0 ? body : undefined,
-  });
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(url, {
+      method: req.method,
+      headers,
+      body: body && body.byteLength > 0 ? body : undefined,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { error: "Proxy fetch failed", detail: message, url },
+      { status: 502 }
+    );
+  }
 
   const resHeaders = new Headers();
   const ct = backendRes.headers.get("content-type");
