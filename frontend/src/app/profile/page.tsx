@@ -105,7 +105,7 @@ export default function ProfilePage() {
             <ActionRow
               label="Edit Preferences"
               description="Update your grade, subjects, and learning goals"
-              href="/onboarding"
+              href="/preferences"
             />
             <ActionRow
               label="View Analytics"
