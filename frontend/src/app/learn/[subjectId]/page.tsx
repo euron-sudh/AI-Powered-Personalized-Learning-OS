@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
@@ -56,12 +56,14 @@ function ChapterRow({
   const [content, setContent] = useState<ChapterContent | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState(false);
+  const loadedRef = useRef(false);
 
   const cfg = STATUS[chapter.status];
 
-  // Lazy-load content on first open
+  // Lazy-load content on first open — only once per mount
   const loadContent = useCallback(async () => {
-    if (content || contentLoading) return;
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     setContentLoading(true);
     setContentError(false);
     try {
@@ -69,10 +71,11 @@ function ChapterRow({
       setContent(data);
     } catch {
       setContentError(true);
+      loadedRef.current = false; // allow manual retry
     } finally {
       setContentLoading(false);
     }
-  }, [chapter.id, content, contentLoading]);
+  }, [chapter.id]);
 
   useEffect(() => {
     if (isOpen) loadContent();
