@@ -79,6 +79,8 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
   // Accumulate PCM chunks for the current response; play all at once on response.audio.done
   const audioChunksRef = useRef<Uint8Array[]>([]);
   const isAISpeakingRef = useRef(false);
+  // When true, next tutor transcript delta must start a new line (don't append to cancelled partial)
+  const newTutorLineRef = useRef(true);
   // Keep options in a ref so callbacks don't go stale
   const optionsRef = useRef(options);
   useEffect(() => {
@@ -129,6 +131,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
   const cancelAIResponse = useCallback(() => {
     audioChunksRef.current = [];
     isAISpeakingRef.current = false;
+    newTutorLineRef.current = true; // force new line after cancel
     setIsAISpeaking(false);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "response.cancel" }));
@@ -186,12 +189,14 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
 
       instructions += `
 Teaching approach:
+- ALWAYS respond in English regardless of what language the student speaks
 - Use the Socratic method — ask guiding questions rather than giving direct answers
 - Be patient, encouraging, and age-appropriate in language
 - Relate explanations to the key concepts listed above
 - After answering, check the student's understanding with a follow-up question
 - If the student seems confused, break the concept into smaller steps
-- Keep responses concise and conversational for voice format`;
+- Keep responses concise and conversational for voice format
+- Ignore background noise, filler words, or off-topic utterances — only respond to genuine lesson-related questions`;
 
       ws.send(
         JSON.stringify({
@@ -203,8 +208,9 @@ Teaching approach:
             input_audio_transcription: { model: "whisper-1" },
             turn_detection: {
               type: "server_vad",
-              threshold: 0.5,
-              silence_duration_ms: 800,
+              threshold: 0.75,
+              silence_duration_ms: 1000,
+              prefix_padding_ms: 300,
             },
           },
         })
@@ -255,13 +261,24 @@ Teaching approach:
           (msg.type === "response.audio_transcript.delta" || msg.type === "response.text.delta") &&
           msg.delta
         ) {
-          setTranscript((prev) => {
-            const last = prev[prev.length - 1];
-            if (last?.startsWith("Tutor:")) {
-              return [...prev.slice(0, -1), last + msg.delta];
-            }
-            return [...prev, `Tutor: ${msg.delta}`];
-          });
+          if (newTutorLineRef.current) {
+            // Start a fresh tutor line (first delta of a new response)
+            newTutorLineRef.current = false;
+            setTranscript((prev) => [...prev, `Tutor: ${msg.delta}`]);
+          } else {
+            setTranscript((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.startsWith("Tutor:")) {
+                return [...prev.slice(0, -1), last + msg.delta];
+              }
+              return [...prev, `Tutor: ${msg.delta}`];
+            });
+          }
+        }
+
+        // Mark that the next response needs a fresh tutor line
+        if (msg.type === "response.done") {
+          newTutorLineRef.current = true;
         }
 
         // Surface API-level errors to the user
