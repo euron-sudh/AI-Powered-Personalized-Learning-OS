@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, invalidateCache } from "@/lib/api";
 
 interface Question {
   id: string;
@@ -86,6 +86,9 @@ export default function ActivityPage({
       );
       setEvaluation(result);
       setPhase("evaluated");
+      // Invalidate cached progress and curriculum so dashboard updates immediately
+      invalidateCache("/api/progress");
+      invalidateCache("/api/curriculum");
     } catch {
       setError("Failed to submit. Please try again.");
     } finally {
