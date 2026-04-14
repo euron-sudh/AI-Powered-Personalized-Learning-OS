@@ -41,3 +41,10 @@ frontend/coverage
 
 # TypeScript
 frontend/tsconfig.tsbuildinfo
+
+# Local databases / runtime data
+*.db
+*.db-journal
+backend/data/
+backend/backend/
+/data/

@@ -186,8 +186,9 @@ Guidelines:
 - key_concepts: 4-6 key concepts students MUST understand to master this chapter.
 - summary: Concise but complete recap of the chapter."""
 
-    # Try Claude first, fall back to GPT-4o on any error
+    # Try Claude first, fall back to GPT-4o only on API errors (not parse errors)
     raw = ""
+    claude_failed = False
     try:
         message = await claude_client.messages.create(
             model="claude-sonnet-4-6",
@@ -195,9 +196,11 @@ Guidelines:
             messages=[{"role": "user", "content": prompt}],
         )
         raw = message.content[0].text
-        return _parse_content_json(raw)
     except Exception:
-        pass  # Fall through to GPT-4o
+        claude_failed = True
+
+    if not claude_failed:
+        return _parse_content_json(raw)
 
     response = await openai_client.chat.completions.create(
         model="gpt-4o",

@@ -8,6 +8,8 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIASGIMiddleware
 
 from app.config import settings
+from app.learning_os.service import learning_os_service
+from app.learning_os.router import router as learning_os_router
 
 if settings.sentry_dsn:
     sentry_sdk.init(
@@ -31,7 +33,8 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup — seed the adaptive learning OS engine
+    learning_os_service.initialize()
     yield
     # Shutdown
 
@@ -68,7 +71,13 @@ app.include_router(activities.router, prefix="/api/activities", tags=["activitie
 app.include_router(progress.router, prefix="/api/progress", tags=["progress"])
 app.include_router(notes.router, prefix="/api/notes", tags=["notes"])
 
+# Adaptive Learning OS — multi-agent engine routes (/api/system/*)
+app.include_router(learning_os_router)
+
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "default_learner_id": settings.default_learner_id,
+    }

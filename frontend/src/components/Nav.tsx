@@ -10,44 +10,22 @@ import { cn } from "@/lib/utils";
 const NAV_LINKS = [
   {
     href: "/dashboard",
-    label: "Dashboard",
+    label: "Learn",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
-        <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6" />
-        <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6" />
-        <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
+        <path d="M8 1.5L1.5 5l6.5 3.5L14.5 5 8 1.5z" fill="currentColor" opacity="0.9" />
+        <path d="M1.5 9.5L8 13l6.5-3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.55" />
+        <path d="M1.5 7L8 10.5 14.5 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.3" />
       </svg>
     ),
   },
   {
-    href: "/learn",
-    label: "Subjects",
+    href: "/practice",
+    label: "Practice",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3z" stroke="currentColor" strokeWidth="1.4" fill="none" />
-        <path d="M5 6h6M5 8.5h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    href: "/courses",
-    label: "Courses",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M8 2L1.5 5.5l6.5 3.5 6.5-3.5L8 2z" fill="currentColor" opacity="0.85" />
-        <path d="M1.5 9.5L8 13l6.5-3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.6" />
-        <path d="M1.5 7L8 10.5 14.5 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.4" />
-      </svg>
-    ),
-  },
-  {
-    href: "/video-session",
-    label: "Videos",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="3" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
-        <path d="M11 6.5l3-2v7l-3-2V6.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
+        <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
+        <path d="M6 7l2 2 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -66,10 +44,12 @@ const NAV_LINKS = [
   },
   {
     href: "/analytics",
-    label: "Analytics",
+    label: "Progress",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M2 12l3.5-4 3 2.5 3-5.5 2.5 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        <path d="M2 11.5l3-3.5 2.5 2 3-5 2.5 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        <circle cx="2" cy="11.5" r="1" fill="currentColor" opacity="0.7" />
+        <circle cx="13" cy="8.5" r="1" fill="currentColor" opacity="0.7" />
       </svg>
     ),
   },
@@ -110,8 +90,10 @@ export default function Nav() {
   const displayName = user?.user_metadata?.full_name ?? user?.email ?? "Account";
   const displayEmail = user?.email ?? "";
 
-  const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+  const isActive = (href: string) => {
+    if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/learn");
+    return pathname.startsWith(href);
+  };
 
   const showNav = !loading && user && !['/', '/login', '/register'].includes(pathname);
 
@@ -222,7 +204,7 @@ export default function Nav() {
                           <Link href="/profile" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">Profile Details</Link>
                           <Link href="/analytics" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">My Progress</Link>
                           <Link href="/learn" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">My Subjects</Link>
-                          <Link href="/preferences" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">Edit Preferences</Link>
+                          <Link href="/practice" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">Practice</Link>
                         </div>
                         <div className="border-t border-white/[0.07] py-1.5">
                           <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/[0.08] transition-colors">Sign Out</button>

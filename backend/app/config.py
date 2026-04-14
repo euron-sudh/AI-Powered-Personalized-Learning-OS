@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     sentiment_frame_interval_ms: int = 5000
     sentiment_confidence_threshold: float = 0.6
 
+    # Adaptive Learning OS (learning_os engine)
+    app_name: str = "LearnOS"
+    local_db_path: str = "data/learning_os_v2.db"
+    rag_embedding_dimensions: int = 512  # 192 for hash fallback, 512 for text-embedding-3-small
+    default_learner_id: str = "demo-learner"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

@@ -1,10 +1,6 @@
 import json
 
-from openai import AsyncOpenAI
-
-from app.core.ai_client import claude_client
-
-_openai_client = AsyncOpenAI()
+from app.core.ai_client import claude_client, openai_client as _openai_client
 
 
 async def evaluate_submission(
@@ -96,6 +92,7 @@ Rules:
 - Be encouraging. Acknowledge effort even for wrong answers."""
 
     content = ""
+    claude_failed = False
     try:
         message = await claude_client.messages.create(
             model="claude-opus-4-6",
@@ -104,6 +101,9 @@ Rules:
         )
         content = message.content[0].text
     except Exception:
+        claude_failed = True
+
+    if claude_failed:
         # Fallback to GPT-4o if Claude is unavailable or overloaded
         response = await _openai_client.chat.completions.create(
             model="gpt-4o",

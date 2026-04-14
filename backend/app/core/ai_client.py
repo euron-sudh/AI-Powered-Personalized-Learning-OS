@@ -13,3 +13,9 @@ openai_client = openai.AsyncOpenAI(
     timeout=60.0,
     max_retries=0,
 )
+# Synchronous client used by the retrieval/embedding pipeline (which runs in sync context)
+openai_sync_client = openai.OpenAI(
+    api_key=settings.openai_api_key,
+    timeout=30.0,
+    max_retries=0,
+)

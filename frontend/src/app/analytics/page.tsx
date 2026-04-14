@@ -12,6 +12,7 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { apiGet } from "@/lib/api";
 import { SUBJECT_EMOJIS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { getWorkspace, type Workspace } from "@/lib/learning-os";
 import type { ProgressResponse, SubjectProgress } from "@/types/student";
 
 interface SentimentEntry {
@@ -85,6 +86,7 @@ export default function AnalyticsPage() {
   const { user, loading: authLoading } = useSupabaseAuth();
   const [subjects, setSubjects] = useState<SubjectProgress[]>([]);
   const [sentimentLogs, setSentimentLogs] = useState<SentimentEntry[]>([]);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [liveIndicator, setLiveIndicator] = useState(false);
@@ -110,10 +112,12 @@ export default function AnalyticsPage() {
     Promise.allSettled([
       apiGet<ProgressResponse>(`/api/progress/${user.id}`, 20_000),
       apiGet<SentimentEntry[]>("/api/video/sentiment/history?limit=200", 0),
-    ]).then(([progressResult, sentimentResult]) => {
+      getWorkspace(),
+    ]).then(([progressResult, sentimentResult, workspaceResult]) => {
       if (progressResult.status === "fulfilled") setSubjects(progressResult.value.subjects);
-      else setError("Failed to load analytics. Please try again.");
+      else setError("Failed to load progress. Please try again.");
       if (sentimentResult.status === "fulfilled") setSentimentLogs(sentimentResult.value);
+      if (workspaceResult.status === "fulfilled") setWorkspace(workspaceResult.value);
     }).finally(() => setLoading(false));
   }, [user, authLoading, router]);
 
@@ -194,20 +198,10 @@ export default function AnalyticsPage() {
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/70 transition-colors mb-6"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 16 16">
-            <path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Dashboard
-        </Link>
-
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Analytics</h1>
-            <p className="text-sm text-white/40 mt-1">Track your learning progress across all subjects.</p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Your Progress</h1>
+            <p className="text-sm text-white/40 mt-1">Track mastery, streaks, and achievements across all subjects.</p>
           </div>
           <div className="flex items-center gap-2">
             {liveIndicator && (
@@ -236,13 +230,62 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* Stats row */}
+        {/* Workspace stats row */}
         <section className="mb-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard value={activeSubjects.length} label="Active Subjects" color="text-blue-400" />
-          <StatCard value={totalChaptersDone} label="Chapters Done" color="text-emerald-400" />
-          <StatCard value={totalChapters} label="Total Chapters" color="text-violet-400" />
-          <StatCard value={avgScore !== null ? `${avgScore}%` : "—"} label="Avg Score" color="text-amber-400" />
+          <StatCard value={workspace ? workspace.learner.xp.toLocaleString() : "—"} label="Total XP" color="text-amber-400" />
+          <StatCard value={workspace ? `Level ${workspace.learner.level}` : "—"} label="Current Level" color="text-blue-400" />
+          <StatCard value={workspace ? `${workspace.learner.streak_days} 🔥` : "—"} label="Day Streak" color="text-orange-400" />
+          <StatCard value={workspace ? `${Math.round(workspace.analytics.average_mastery * 100)}%` : avgScore !== null ? `${avgScore}%` : "—"} label="Avg Mastery" color="text-emerald-400" />
         </section>
+
+        {/* Achievements */}
+        {workspace && workspace.achievements.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Achievements</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {workspace.achievements.map((a) => (
+                <div key={a.code} className="bg-gradient-to-br from-amber-950/60 to-orange-950/60 border border-amber-500/20 rounded-2xl p-4 flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0 text-lg">🏆</div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-amber-300">{a.title}</p>
+                    <p className="text-xs text-white/40 mt-0.5 leading-relaxed">{a.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Mastery snapshot */}
+        {workspace && workspace.mastery_snapshot.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Topic Mastery</h2>
+            <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-6 space-y-4">
+              {workspace.mastery_snapshot.slice(0, 8).map((t) => {
+                const pct = Math.round(t.score * 100);
+                const barColor = pct >= 80 ? "from-emerald-500 to-green-400" : pct >= 50 ? "from-blue-500 to-blue-400" : "from-orange-500 to-amber-400";
+                const trendIcon = t.trend === "improving" ? "↑" : t.trend === "declining" ? "↓" : "→";
+                const trendColor = t.trend === "improving" ? "text-emerald-400" : t.trend === "declining" ? "text-red-400" : "text-white/30";
+                return (
+                  <div key={t.topic_id} className="flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between text-sm mb-1.5">
+                        <span className="font-medium text-white/80 truncate">{t.title}</span>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className={cn("text-xs font-bold", trendColor)}>{trendIcon}</span>
+                          <span className="text-white/40">{pct}%</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
+                        <div className={cn("h-full bg-gradient-to-r rounded-full transition-all duration-700", barColor)} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* ── Score bar chart ── */}
         {scoreBarData.length > 0 && (
@@ -425,27 +468,7 @@ export default function AnalyticsPage() {
           </>
         )}
 
-        {/* No sentiment yet */}
-        {sentimentLogs.length === 0 && (
-          <section className="mb-8">
-            <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Engagement History</h2>
-            <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-8 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-white/[0.05] flex items-center justify-center mx-auto mb-3">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/30">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                  <path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  <circle cx="9" cy="10" r="1" fill="currentColor" />
-                  <circle cx="15" cy="10" r="1" fill="currentColor" />
-                </svg>
-              </div>
-              <p className="font-medium text-white/60">No sentiment data yet</p>
-              <p className="text-sm text-white/30 mt-1">Enable your camera during a lesson to start tracking engagement.</p>
-              <Link href="/video-session" className="mt-4 inline-block text-sm text-blue-400 hover:text-blue-300 transition-colors">
-                Start a video session →
-              </Link>
-            </div>
-          </section>
-        )}
+
 
         {/* Learning profile */}
         {(allStrengths.length > 0 || allWeaknesses.length > 0) && (

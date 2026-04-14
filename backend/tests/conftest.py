@@ -104,24 +104,54 @@ def mock_claude_message_factory():
     return _make
 
 
+_CLAUDE_PATCH_TARGETS = [
+    "app.core.ai_client.claude_client",
+    "app.services.activity_evaluator.claude_client",
+    "app.services.curriculum_generator.claude_client",
+    "app.services.teaching_engine.claude_client",
+    "app.services.sentiment_analyzer.claude_client",
+]
+
+_OPENAI_PATCH_TARGETS = [
+    "app.core.ai_client.openai_client",
+    "app.services.activity_evaluator._openai_client",
+    "app.services.teaching_engine.openai_client",
+    "app.services.sentiment_analyzer.openai_client",
+]
+
+
 @pytest.fixture
 def mock_claude_client(mock_claude_message_factory):
-    """Patch app.core.ai_client.claude_client with an AsyncMock."""
-    with patch("app.core.ai_client.claude_client") as mock:
-        mock.messages.create = AsyncMock(
-            return_value=mock_claude_message_factory('{"chapters": []}')
-        )
-        # Default streaming mock — yields nothing
-        stream_ctx = MagicMock()
-        stream_ctx.__aenter__ = AsyncMock(return_value=stream_ctx)
-        stream_ctx.__aexit__ = AsyncMock(return_value=False)
-        stream_ctx.text_stream = _async_text_generator([])
-        mock.messages.stream = MagicMock(return_value=stream_ctx)
+    """Patch claude_client everywhere services import it."""
+    mock = MagicMock()
+    mock.messages.create = AsyncMock(
+        return_value=mock_claude_message_factory('{"chapters": []}')
+    )
+    stream_ctx = MagicMock()
+    stream_ctx.__aenter__ = AsyncMock(return_value=stream_ctx)
+    stream_ctx.__aexit__ = AsyncMock(return_value=False)
+    stream_ctx.text_stream = _async_text_generator([])
+    mock.messages.stream = MagicMock(return_value=stream_ctx)
+
+    patchers = [patch(target, mock) for target in _CLAUDE_PATCH_TARGETS]
+    for p in patchers:
+        p.start()
+    try:
         yield mock
+    finally:
+        for p in patchers:
+            p.stop()
 
 
 @pytest.fixture
 def mock_openai_client():
-    """Patch app.core.ai_client.openai_client with an AsyncMock."""
-    with patch("app.core.ai_client.openai_client") as mock:
+    """Patch openai_client everywhere services import it."""
+    mock = MagicMock()
+    patchers = [patch(target, mock) for target in _OPENAI_PATCH_TARGETS]
+    for p in patchers:
+        p.start()
+    try:
         yield mock
+    finally:
+        for p in patchers:
+            p.stop()
