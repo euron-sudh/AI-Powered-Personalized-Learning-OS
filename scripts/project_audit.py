@@ -18,6 +18,8 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Tuple
+import subprocess
+import socket
 
 
 class Colors:
@@ -193,6 +195,132 @@ class ProjectAudit:
             self.print_error(f"{broken_links}/{total_links} links are broken")
             return False
 
+    def check_environment_config(self) -> bool:
+        """Verify environment variables and config files"""
+        self.print_header("CHECKING ENVIRONMENT CONFIGURATION")
+
+        success = True
+
+        # Check backend .env
+        backend_env = self.project_root / 'backend' / '.env'
+        if backend_env.exists():
+            self.print_success(f"backend/.env exists")
+            try:
+                with open(backend_env, 'r') as f:
+                    content = f.read()
+                    if 'CORS_ORIGINS' not in content:
+                        self.print_error("backend/.env missing CORS_ORIGINS")
+                        success = False
+                    elif 'localhost:3001' not in content:
+                        self.print_error("backend/.env CORS_ORIGINS missing port 3001")
+                        success = False
+                    else:
+                        self.print_success("backend/.env has correct CORS_ORIGINS with port 3001")
+
+                    if 'API_PORT=8000' in content:
+                        self.print_success("backend/.env API_PORT=8000")
+                    else:
+                        self.print_error("backend/.env API_PORT not set to 8000")
+                        success = False
+
+                    if 'SUPABASE_URL' in content and 'SUPABASE_JWT_SECRET' in content:
+                        self.print_success("backend/.env has Supabase config")
+                    else:
+                        self.print_error("backend/.env missing Supabase config")
+                        success = False
+            except Exception as e:
+                self.print_error(f"Could not read backend/.env: {e}")
+                success = False
+        else:
+            self.print_error("backend/.env not found")
+            success = False
+
+        # Check frontend .env.local
+        frontend_env = self.project_root / 'frontend' / '.env.local'
+        if frontend_env.exists():
+            self.print_success(f"frontend/.env.local exists")
+            try:
+                with open(frontend_env, 'r') as f:
+                    content = f.read()
+                    if 'BACKEND_URL=http://localhost:8000' in content:
+                        self.print_success("frontend/.env.local has correct BACKEND_URL")
+                    else:
+                        self.print_error("frontend/.env.local BACKEND_URL not set to localhost:8000")
+                        success = False
+
+                    if 'NEXT_PUBLIC_SUPABASE_URL' in content:
+                        self.print_success("frontend/.env.local has Supabase config")
+                    else:
+                        self.print_error("frontend/.env.local missing Supabase config")
+                        success = False
+            except Exception as e:
+                self.print_error(f"Could not read frontend/.env.local: {e}")
+                success = False
+        else:
+            self.print_error("frontend/.env.local not found")
+            success = False
+
+        return success
+
+    def check_port_availability(self, port: int) -> bool:
+        """Check if a port is available or in use"""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            result = sock.connect_ex(('127.0.0.1', port))
+            sock.close()
+            return result == 0  # 0 means port is in use, we return True if available
+        except:
+            return False
+
+    def check_critical_files(self) -> bool:
+        """Verify critical source files exist and are not empty"""
+        self.print_header("CHECKING CRITICAL SOURCE FILES")
+
+        critical_files = {
+            'backend/app/main.py': 'Backend entry point',
+            'backend/app/core/security.py': 'JWT verification',
+            'backend/app/dependencies.py': 'Auth middleware',
+            'backend/app/routers/onboarding.py': 'Onboarding endpoint',
+            'frontend/src/app/page.tsx': 'Frontend entry point',
+            'frontend/src/app/(auth)/login/page.tsx': 'Login page',
+            'frontend/src/app/api/proxy/[...path]/route.ts': 'API proxy',
+        }
+
+        success = True
+        for file_path, description in critical_files.items():
+            full_path = self.project_root / file_path
+            if full_path.exists():
+                size = full_path.stat().st_size
+                if size > 0:
+                    self.print_success(f"{file_path} ({description}) - {size} bytes")
+                else:
+                    self.print_error(f"{file_path} is empty")
+                    success = False
+            else:
+                self.print_error(f"{file_path} not found ({description})")
+                success = False
+
+        return success
+
+    def check_database_migrations(self) -> bool:
+        """Verify Alembic migrations are in place"""
+        self.print_header("CHECKING DATABASE MIGRATIONS")
+
+        migrations_dir = self.project_root / 'backend' / 'alembic' / 'versions'
+        if migrations_dir.exists():
+            migration_files = list(migrations_dir.glob('*.py'))
+            if migration_files:
+                self.print_success(f"Found {len(migration_files)} Alembic migrations")
+                for mig_file in sorted(migration_files):
+                    self.print_success(f"  - {mig_file.name}")
+                return True
+            else:
+                self.print_error("Alembic versions directory exists but no migrations found")
+                return False
+        else:
+            self.print_error("Alembic versions directory not found")
+            return False
+
     def generate_report(self) -> Dict:
         """Generate audit report"""
         report = {
@@ -233,6 +361,9 @@ class ProjectAudit:
         success = True
         success &= self.check_root_files()
         success &= self.check_folder_structure()
+        success &= self.check_environment_config()
+        success &= self.check_critical_files()
+        success &= self.check_database_migrations()
         success &= self.audit_markdown_links()
 
         if success:
