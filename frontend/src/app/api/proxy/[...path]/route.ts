@@ -9,53 +9,76 @@ const BACKEND_URL =
   "http://learnos-alb-822082048.ap-south-1.elb.amazonaws.com";
 
 async function handler(req: NextRequest, { params }: { params: { path: string[] } }) {
-  const { path } = params;
-  const backendPath = "/" + path.join("/");
-  const search = req.nextUrl.search;
-  const url = `${BACKEND_URL}${backendPath}${search}`;
-
-  const headers: Record<string, string> = {};
-  const authorization = req.headers.get("authorization");
-  if (authorization) headers["authorization"] = authorization;
-  const contentType = req.headers.get("content-type");
-  if (contentType) headers["content-type"] = contentType;
-
-  const hasBody = req.method !== "GET" && req.method !== "HEAD";
-  const body = hasBody ? await req.arrayBuffer() : undefined;
-
-  let backendRes: Response;
   try {
-    backendRes = await fetch(url, {
-      method: req.method,
-      headers,
-      body: body && body.byteLength > 0 ? body : undefined,
-      // Required for Node.js fetch to support streaming response on POST requests
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ...(hasBody ? { duplex: "half" } as any : {}),
+    const { path } = params;
+    const backendPath = "/" + path.join("/");
+    const search = req.nextUrl.search;
+    const url = `${BACKEND_URL}${backendPath}${search}`;
+
+    console.log(`[Proxy] ${req.method} ${url}`);
+
+    const headers: Record<string, string> = {};
+    const authorization = req.headers.get("authorization");
+    if (authorization) headers["authorization"] = authorization;
+    const contentType = req.headers.get("content-type");
+    if (contentType) headers["content-type"] = contentType;
+
+    const hasBody = req.method !== "GET" && req.method !== "HEAD";
+    let body: ArrayBuffer | undefined;
+    try {
+      body = hasBody ? await req.arrayBuffer() : undefined;
+    } catch (err) {
+      console.error(`[Proxy] Failed to read request body:`, err);
+      return NextResponse.json(
+        { error: "Failed to read request body", detail: String(err) },
+        { status: 400 }
+      );
+    }
+
+    let backendRes: Response;
+    try {
+      backendRes = await fetch(url, {
+        method: req.method,
+        headers,
+        body: body && body.byteLength > 0 ? body : undefined,
+        // Required for Node.js fetch to support streaming response on POST requests
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(hasBody ? { duplex: "half" } as any : {}),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[Proxy] Fetch failed:`, message);
+      return NextResponse.json(
+        { error: "Proxy fetch failed", detail: message, url },
+        { status: 502 }
+      );
+    }
+
+    console.log(`[Proxy] Backend responded with status ${backendRes.status}`);
+
+    const resHeaders = new Headers();
+    const ct = backendRes.headers.get("content-type");
+    if (ct) resHeaders.set("content-type", ct);
+    // Pass through SSE/streaming headers
+    const cacheControl = backendRes.headers.get("cache-control");
+    if (cacheControl) resHeaders.set("cache-control", cacheControl);
+    const xAccel = backendRes.headers.get("x-accel-buffering");
+    if (xAccel) resHeaders.set("x-accel-buffering", xAccel);
+    const transferEncoding = backendRes.headers.get("transfer-encoding");
+    if (transferEncoding) resHeaders.set("transfer-encoding", transferEncoding);
+
+    return new NextResponse(backendRes.body, {
+      status: backendRes.status,
+      headers: resHeaders,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    console.error(`[Proxy] Handler error:`, message, err);
     return NextResponse.json(
-      { error: "Proxy fetch failed", detail: message, url },
-      { status: 502 }
+      { error: "Proxy handler error", detail: message },
+      { status: 500 }
     );
   }
-
-  const resHeaders = new Headers();
-  const ct = backendRes.headers.get("content-type");
-  if (ct) resHeaders.set("content-type", ct);
-  // Pass through SSE/streaming headers
-  const cacheControl = backendRes.headers.get("cache-control");
-  if (cacheControl) resHeaders.set("cache-control", cacheControl);
-  const xAccel = backendRes.headers.get("x-accel-buffering");
-  if (xAccel) resHeaders.set("x-accel-buffering", xAccel);
-  const transferEncoding = backendRes.headers.get("transfer-encoding");
-  if (transferEncoding) resHeaders.set("transfer-encoding", transferEncoding);
-
-  return new NextResponse(backendRes.body, {
-    status: backendRes.status,
-    headers: resHeaders,
-  });
 }
 
 export const GET = handler;

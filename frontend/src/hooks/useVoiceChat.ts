@@ -63,6 +63,7 @@ export interface UseVoiceChatOptions {
   grade?: string;
   board?: string;
   subjectName?: string;
+  onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
 }
 
 export function useVoiceChat(options: UseVoiceChatOptions = {}) {
@@ -200,6 +201,50 @@ Teaching approach:
 - Keep responses concise and conversational for voice format
 - Ignore background noise, filler words, or off-topic utterances — only respond to genuine lesson-related questions`;
 
+      // Define tools for the AI tutor to call
+      const tools = [
+        {
+          type: "function",
+          name: "show_youtube_video",
+          description: "Show an educational YouTube video to visually explain a concept. Use your knowledge to pick a specific video_id from channels like Khan Academy, CrashCourse, Kurzgesagt, TED-Ed that explains the current concept.",
+          parameters: {
+            type: "object",
+            properties: {
+              video_id: { type: "string", description: "YouTube video ID (e.g. 'kosggg5uXFo')" },
+              title: { type: "string", description: "Display title for the embed" },
+              concept: { type: "string", description: "What concept this explains" }
+            },
+            required: ["video_id", "title"]
+          }
+        },
+        {
+          type: "function",
+          name: "show_diagram",
+          description: "Render a Mermaid.js diagram to explain a process, cycle, or relationship visually.",
+          parameters: {
+            type: "object",
+            properties: {
+              mermaid_code: { type: "string", description: "Valid Mermaid.js markup" },
+              title: { type: "string", description: "Diagram title" }
+            },
+            required: ["mermaid_code", "title"]
+          }
+        },
+        {
+          type: "function",
+          name: "ask_comprehension_question",
+          description: "Pause and ask the student a question to check understanding. The student can answer verbally or by typing.",
+          parameters: {
+            type: "object",
+            properties: {
+              question: { type: "string", description: "The question to ask" },
+              hint: { type: "string", description: "Optional hint if student struggles" }
+            },
+            required: ["question"]
+          }
+        }
+      ];
+
       ws.send(
         JSON.stringify({
           type: "session.update",
@@ -214,9 +259,24 @@ Teaching approach:
               silence_duration_ms: 1000,
               prefix_padding_ms: 300,
             },
+            tools: tools,
+            tool_choice: "auto"
           },
         })
       );
+
+      // Auto-initiate conversation: send opening message + trigger first response
+      setTimeout(() => {
+        ws.send(JSON.stringify({
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "Please start the lesson now." }]
+          }
+        }));
+        ws.send(JSON.stringify({ type: "response.create" }));
+      }, 100);
     };
 
     ws.onmessage = (event) => {
@@ -255,6 +315,30 @@ Teaching approach:
         if (msg.type === "response.done") {
           isAISpeakingRef.current = false;
           // setIsAISpeaking(false) is deferred until audio playback ends (in source.onended)
+        }
+
+        // Tool/function call from AI — send to parent component handler
+        if (msg.type === "response.output_item.done" && msg.item?.type === "function_call") {
+          const toolName = msg.item.name;
+          const toolArgs = msg.item.arguments ? JSON.parse(msg.item.arguments) : {};
+
+          // Call parent's tool handler
+          if (optionsRef.current.onToolCall) {
+            optionsRef.current.onToolCall(toolName, toolArgs);
+          }
+
+          // Send function output back to continue conversation
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: "conversation.item.create",
+              item: {
+                type: "function_call_output",
+                call_id: msg.item.id,
+                output: JSON.stringify({ status: "success", tool: toolName })
+              }
+            }));
+            ws.send(JSON.stringify({ type: "response.create" }));
+          }
         }
 
         // Student speech transcript — replace the placeholder at the correct position
@@ -389,6 +473,23 @@ Teaching approach:
     }
   }, [isListening]);
 
+  const injectSentimentContext = useCallback((emotion: string, confidence: number) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+    // Send emotion context as a hidden system message (user message, but understood as context)
+    const contextMessage = `[Context: Student appears ${emotion} (confidence: ${(confidence * 100).toFixed(0)}%). Please adjust your teaching approach accordingly.]`;
+
+    wsRef.current.send(JSON.stringify({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: contextMessage }]
+      }
+    }));
+    // Do NOT send response.create here — let the AI adapt naturally in its next turn
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -405,5 +506,6 @@ Teaching approach:
     connect,
     disconnect,
     toggleListening,
+    injectSentimentContext,
   };
 }

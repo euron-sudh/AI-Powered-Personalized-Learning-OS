@@ -4,8 +4,24 @@ import { useEffect, useRef } from "react";
 import { useVideoFeed } from "@/hooks/useVideoFeed";
 import { useSentiment } from "@/hooks/useSentiment";
 
+interface SentimentData {
+  emotion: string;
+  confidence: number;
+  action_taken?: string | null;
+}
+
+interface ExternalSentimentContext {
+  currentSentiment: SentimentData | null;
+  sendFrame: (frame: string, chapterId: string) => void;
+  analyzing: boolean;
+  history: SentimentData[];
+  connect: (chapterId: string) => void;
+  disconnect: () => void;
+}
+
 interface VideoFeedProps {
   chapterId: string;
+  externalSentiment?: ExternalSentimentContext;
 }
 
 const EMOTION_CONFIG: Record<string, { color: string; bg: string; label: string; emoji: string }> = {
@@ -22,9 +38,11 @@ const HISTORY_COLORS: Record<string, string> = {
   bored: "bg-orange-400", frustrated: "bg-red-500", drowsy: "bg-slate-500",
 };
 
-export default function VideoFeed({ chapterId }: VideoFeedProps) {
+export default function VideoFeed({ chapterId, externalSentiment }: VideoFeedProps) {
   const { isActive, videoRef, startCamera, stopCamera, captureFrame } = useVideoFeed();
-  const { currentSentiment, history, analyzing, connect, disconnect, sendFrame } = useSentiment();
+  // Use external sentiment if provided, otherwise create internal instance
+  const internalSentiment = useSentiment();
+  const { currentSentiment, history, analyzing, connect, disconnect, sendFrame } = externalSentiment || internalSentiment;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {

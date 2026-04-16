@@ -1,27 +1,48 @@
-# LearnOS — AI-Powered Personalized Learning Platform
+# 🎓 LearnOS — AI-Powered Personalized Learning Platform
 
-A Netflix-style K-12 education platform that adapts in real time using speech-to-speech conversation, live video sentiment analysis, and AI-generated personalized curricula.
+An intelligent tutoring system that adapts to each student in real time using:
+- **🎙️ Voice Chat** — Speak naturally with an AI tutor
+- **📚 Smart Lessons** — AI generates personalized curriculum
+- **😊 Emotion Detection** — Camera analyzes student engagement and adapts
+- **🎯 Adaptive Learning** — Content difficulty adjusts based on performance
 
----
+## ⚡ Quick Links
 
-## Table of Contents
-
-- [Features](#features)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-- [Environment Variables](#environment-variables)
-- [Database Schema](#database-schema)
-- [API Reference](#api-reference)
-- [Pages & Routes](#pages--routes)
-- [AI Integration](#ai-integration)
-- [Deployment](#deployment)
-- [Privacy & Security](#privacy--security)
+- **[Getting Started Guide](GETTING_STARTED.md)** ← **Start here if you're new!**
+- [Full Documentation](docs/CLAUDE.md)
+- [Troubleshooting](GETTING_STARTED.md#-troubleshooting)
+- [Project Status](docs/CHANGELOG.md)
 
 ---
 
-## Features
+## 🚀 Start in 2 Minutes
+
+```bash
+# Terminal 1: Backend
+cd backend && python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python -m uvicorn app.main:app --port 9000
+
+# Terminal 2: Frontend  
+cd frontend && npm install && npm run dev
+```
+
+Visit: **http://localhost:3001**
+
+---
+
+## 📋 System Requirements
+
+- Python 3.11+
+- Node.js 18+
+- Supabase Account (free tier works)
+- OpenAI API Key
+- Anthropic API Key
+
+---
+
+## ✨ Features
 
 ### Authentication
 - Email/password registration and login via Supabase Auth

@@ -12,6 +12,7 @@ interface VoiceChatProps {
   grade?: string;
   board?: string;
   subjectName?: string;
+  onToolCall?: (toolName: string, toolInput: Record<string, unknown>) => void;
 }
 
 export default function VoiceChat({
@@ -23,6 +24,7 @@ export default function VoiceChat({
   grade,
   board,
   subjectName,
+  onToolCall,
 }: VoiceChatProps) {
   const {
     isConnected,
@@ -33,7 +35,7 @@ export default function VoiceChat({
     connect,
     disconnect,
     toggleListening,
-  } = useVoiceChat({ chapterId, lessonTitle, chapterDescription, keyConcepts, summary, grade, board, subjectName });
+  } = useVoiceChat({ chapterId, lessonTitle, chapterDescription, keyConcepts, summary, grade, board, subjectName, onToolCall });
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 

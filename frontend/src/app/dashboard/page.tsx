@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -51,10 +52,15 @@ export default function DashboardPage() {
       if (progressResult.status === "fulfilled") {
         progressSubjects = progressResult.value.subjects;
         setSubjects(progressSubjects);
+        // First login if no progress yet
+        setIsFirstLogin(progressSubjects.length === 0);
       } else {
         const err = progressResult.reason;
         if (!(err instanceof ApiError && err.status === 404)) {
           setError("Failed to load progress. Please refresh.");
+        } else {
+          // No progress found = first login
+          setIsFirstLogin(true);
         }
       }
 
@@ -160,6 +166,27 @@ export default function DashboardPage() {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-[#080d1a]">
       <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
+
+        {/* Welcome Banner (First Login) */}
+        {isFirstLogin && profile?.name && (
+          <div className="rounded-2xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 px-6 py-4 text-center space-y-2">
+            <p className="text-2xl font-bold text-white">
+              🎉 Welcome, {profile.name}!
+            </p>
+            <p className="text-sm text-white/70">
+              Let's start your personalized learning journey. Pick a subject and dive into your first lesson!
+            </p>
+          </div>
+        )}
+
+        {/* Welcome Back Banner (Returning User) */}
+        {!isFirstLogin && profile?.name && (
+          <div className="rounded-2xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 px-6 py-4 text-center">
+            <p className="text-lg font-semibold text-white">
+              👋 Welcome back, {profile.name}! Ready to continue?
+            </p>
+          </div>
+        )}
 
         {/* Error banner */}
         {error && (
