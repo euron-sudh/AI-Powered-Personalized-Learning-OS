@@ -54,6 +54,8 @@ async def save_onboarding(
                 onboarding_completed=True,
             )
             db.add(student)
+            # Flush to ensure student exists before inserting subjects with FK constraint
+            await db.flush()
 
         # Create a subject entry + seed chapters for each area of interest
         subjects_created = []
