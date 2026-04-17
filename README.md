@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-17 15:45
+**Last Updated:** 2026-04-17 16:00
 
 # 🎓 LearnOS — AI-Powered Personalized Learning Platform
 
@@ -127,10 +127,19 @@ Visit: **http://localhost:3001**
 - Learning profile: AI-identified strengths and areas for improvement
 - **Live updates via Supabase Realtime**
 
-### Profile & Navigation
-- Profile dropdown in the nav: avatar, email, Profile Details, My Progress, My Subjects, Edit Preferences, Sign Out
-- Dedicated `/profile` page showing account details and learning profile
-- Nav tabs: Dashboard · Subjects · Courses · Videos · AI Tutor · Analytics
+### Navigation (Session-First)
+- **Home** → Dashboard overview, today's learning plan, AI coach insights
+- **Session** → Unified learning experience: lesson + chat + voice + activities (no duplicate "Learn" + "AI Tutor")
+- **Path** → Learning roadmap: subjects, chapters, progress visualization
+- **Insights** → Analytics dashboard: performance trends, emotional journey, strengths/weaknesses
+- Profile dropdown: avatar, email, Profile Details, Learning Path, Start Learning, Preferences, Sign Out
+
+### Today's Focus (AI Priority Engine)
+- Smart dashboard section showing **ONE recommended topic** picked by AI
+- Priority scoring: performance (low score → higher priority) + sentiment (confusion/frustration boost) + time decay (inactive topics resurface)
+- Shows: topic name, reason ("You struggled here 48%" or "You're improving"), duration, "Start Now" button
+- Secondary items: next 2 topics in collapsed list
+- Powered by `/api/progress/today-focus` endpoint combining score + sentiment + weakness data
 
 ---
 

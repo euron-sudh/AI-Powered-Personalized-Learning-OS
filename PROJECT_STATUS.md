@@ -1,16 +1,39 @@
-**Last Updated:** 2026-04-17 15:45
+**Last Updated:** 2026-04-17 16:00
 
 # 📊 LearnOS Project Status — April 17, 2026
 
 ## ✅ SYSTEM READY FOR DEPLOYMENT
 
-All critical fixes have been applied, code is clean, and documentation is complete.
+Navigation redesigned (session-first). AI Priority Engine live. All critical fixes applied, code clean, documentation complete.
 
 ---
 
 ## 🎯 What Was Accomplished
 
-### Backend Fixes
+### Phase A: Navigation Overhaul (April 17)
+- ✅ **Session-First Navigation** — Changed from Learn/Practice/AI Tutor/Progress → Home/Session/Path/Insights
+  - Home: Dashboard with today's plan and AI coaching overview
+  - Session: Unified learning experience (lesson + chat + voice + activities)
+  - Path: Learning roadmap (subjects and chapters)
+  - Insights: Performance analytics dashboard
+- ✅ **Updated Nav Component** — NAV_LINKS array updated with new routing logic
+- ✅ **Created Redirect Pages** — `/session`, `/path`, `/insights` routes created
+- ✅ **Updated Profile Dropdown** — Links point to new navigation structure
+
+### Phase B: AI Priority Engine + TodayFocus (April 17)
+- ✅ **Backend `/api/progress/today-focus` Endpoint** — Smart priority scoring algorithm:
+  - Base priority: score + weakness tracking
+  - Sentiment boost: confusion/frustration detected → higher priority
+  - Time decay: inactive topics > 3 days resurface
+  - Adaptive duration: frustrated students get shorter sessions
+- ✅ **TodayFocus Component** — Dashboard section showing ONE recommended topic
+  - Fetches real data from AI Priority Engine
+  - Shows: topic name, reason ("You struggled 48%" or "You're improving"), duration, "Start Now" button
+  - Secondary items: next 2 topics collapsed
+  - Graceful loading + error handling
+- ✅ **Wired into Dashboard** — Positioned between AdaptiveOSPanel and Continue Learning
+
+### Backend Fixes (Earlier)
 - ✅ **SlowAPI Middleware Disabled** — Fixed ASGI message corruption
 - ✅ **Database Migrations Applied** — All 6 migrations created schema (students, subjects, chapters, activities, chat_messages, sentiment_logs, student_progress, learning_sessions, tutor_events)
 - ✅ **Async/Await Patterns Fixed** — LangGraph nodes properly async with ainvoke()

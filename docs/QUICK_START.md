@@ -1,10 +1,10 @@
-**Last Updated:** 2026-04-17 15:45
+**Last Updated:** 2026-04-17 16:00
 
-# LearnOS Quick Start Guide — April 15, 2026
+# LearnOS Quick Start Guide — April 17, 2026
 
 ## System Status: ✅ READY FOR TESTING
 
-All critical fixes have been applied. Frontend, backend, and database are synchronized.
+All critical fixes applied. Navigation redesigned (Home/Session/Path/Insights). AI Priority Engine live. Frontend, backend, and database are synchronized.
 
 ---
 
@@ -110,22 +110,25 @@ npm run dev
 - Shows subject cards (Physics, Mathematics)
 - Backend returns HTTP 200 with `student_id`
 
-### Step 2: Dashboard
+### Step 2: Dashboard — Today's Focus
 
-1. See subject cards with Quiz and Tutor buttons
-2. Click "Tutor" on any subject
-3. Opens lesson page with:
-   - Left panel: AI content feed
-   - Right panel: Video feed + notes
-   - Bottom: Voice control buttons
+1. Dashboard shows:
+   - **Stats row**: Subjects, Chapters Completed (with progress bar), Average Score
+   - **Today's Focus section**: 🔥 AI's recommended topic (if available)
+   - Subject cards: Physics, Mathematics
+2. Click **"Start Now"** on Today's Focus (or resume/start a subject card)
 
 **Expected:**
-- Lesson content loads
-- "AI tutor initializing..." message appears
+- Subject selected
+- Navigates to `/session` (unified learning experience)
 
-### Step 3: AI Tutor Auto-Connect
+### Step 3: Lesson Content Loads
 
-1. Page loads lesson + voice chat
+1. Lesson page opens with:
+   - Content feed (chapter content + diagrams + formulas)
+   - Chat panel (teaching tutor)
+   - Voice controls
+   - Video feed (optional webcam sentiment)
 2. Within 3 seconds, AI should greet via audio: "Hello, let's start the lesson"
 3. See "🎙️ Live" indicator in top-right
 

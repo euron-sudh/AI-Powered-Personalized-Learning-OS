@@ -1,9 +1,66 @@
-**Last Updated:** 2026-04-17 15:45
+**Last Updated:** 2026-04-17 16:00
 
 # 📝 Changelog — All Updates
 
-**Date Range:** April 14-16, 2026  
-**Status:** ✅ Complete Implementation + File Organization + Automated Audit
+**Date Range:** April 14-17, 2026  
+**Status:** ✅ Navigation Overhaul + AI Priority Engine + Dashboard Redesign
+
+---
+
+## 🚀 April 17 — Session-First Navigation + AI Priority Engine
+
+### 🎯 Phase A: Navigation Overhaul
+**Problem:** Old nav (Learn/Practice/AI Tutor/Progress) had duplicate mental models — "Learn" and "AI Tutor" both teach, "Practice" disconnected, "Progress" passive.
+
+**Solution → Session-First Navigation:**
+- ✅ Changed nav from 4 items → 4 clear items:
+  - `Home` → `/dashboard` (AI overview, today's plan, start session)
+  - `Session` → `/session` (unified learning experience — lesson + chat + voice + activities)
+  - `Path` → `/path` (subjects + chapters roadmap)
+  - `Insights` → `/analytics` (performance trends, weak areas)
+- ✅ Updated `Nav.tsx` NAV_LINKS array with new routing
+- ✅ Updated `isActive()` logic to handle session-based routes (Session active on /tutor, /practice, /video-session, /voice)
+- ✅ Updated profile dropdown + mobile menu to link to new routes
+- ✅ Created `/session` page (redirects to `/tutor` for MVP)
+- ✅ Created `/path` page (redirects to `/learn` for MVP)
+- ✅ Created `/insights` page (redirects to `/analytics` alias)
+
+**UX Impact:** Users no longer confused by duplicate "Learn/Tutor" — single clear entry point "Session" for learning experience.
+
+### 🧠 Phase B: AI Priority Engine + TodayFocus Component
+**Problem:** Dashboard showed multiple equal-priority topics with backend noise labels (needs_support, steady). Students didn't know where to start.
+
+**Solution → One Clear Action ("Start Here"):**
+- ✅ Added `GET /api/progress/today-focus` endpoint (backend/app/routers/progress.py)
+  - Priority scoring algorithm:
+    - Base: `score < 50 → priority 1`, `weaknesses → priority 0`, else → priority 3
+    - Sentiment boost: `confused/frustrated → -1 priority` (higher importance)
+    - Time decay: `inactive > 3 days → -1 priority` (old topics resurface)
+    - Adaptive duration: `frustrated → 10 min`, `weak → 20 min`, else → 15 min
+  - Returns: `{ primary: Topic, secondary: Topic[] }`
+  - Real data from StudentProgress + SentimentLog tables
+
+- ✅ Created `TodayFocus.tsx` component (frontend/src/app/dashboard/components/)
+  - Fetches real data from `/api/progress/today-focus`
+  - Displays ONE highlighted primary topic with:
+    - 🔥 Topic name + emoji
+    - Status badge: "⚠ You struggled (48%)" or "📈 You're improving"
+    - What AI will do: "Reteach with simpler examples • Guided practice • Quick check"
+    - Duration: "⏱ 15-20 min"
+    - "Start Now →" button linking to `/session?topic={id}`
+  - Secondary items in dimmer list (Next Up)
+  - Loading skeleton + graceful error handling
+
+- ✅ Wired into dashboard between `AdaptiveOSPanel` and "Continue Learning" section
+  - Natural flow: show adaptive status → show AI's recommended next step → show all subjects
+
+**UX Impact:** Dashboard feels like a real AI coach ("Start here. I'll guide you") instead of a report.
+
+### 📊 Verification
+- ✅ TypeScript: 0 errors (frontend type checking passes)
+- ✅ Python: Syntax valid (backend compilation passes)
+- ✅ Audit: All checks pass (4 expected warnings for non-running services)
+- ✅ Git: Committed as `dec5a09 feat: session-first navigation + AI priority engine`
 
 ---
 
