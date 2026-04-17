@@ -1,4 +1,4 @@
-export const DEFAULT_LEARNER_ID = "demo-learner";
+export const DEFAULT_LEARNER_ID = "demo-learner"; // fallback only — always pass real user ID
 const API_BASE = "/api/proxy";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -132,33 +132,33 @@ export type QuizEvaluation = {
   workspace: Workspace;
 };
 
-export async function bootstrapLearner() {
+export async function bootstrapLearner(learnerId: string = DEFAULT_LEARNER_ID) {
   return request<{ learner: Workspace["learner"]; workspace: Workspace }>("/api/system/learners/bootstrap", {
     method: "POST",
-    body: JSON.stringify({ learner_id: DEFAULT_LEARNER_ID }),
+    body: JSON.stringify({ learner_id: learnerId }),
   });
 }
 
-export async function getWorkspace() {
-  return request<Workspace>(`/api/system/workspace/${DEFAULT_LEARNER_ID}`);
+export async function getWorkspace(learnerId: string = DEFAULT_LEARNER_ID) {
+  return request<Workspace>(`/api/system/workspace/${learnerId}`);
 }
 
-export async function generateQuiz(topicId: string) {
+export async function generateQuiz(topicId: string, learnerId: string = DEFAULT_LEARNER_ID) {
   return request<GeneratedQuiz>("/api/system/quizzes/generate", {
     method: "POST",
     body: JSON.stringify({
-      learner_id: DEFAULT_LEARNER_ID,
+      learner_id: learnerId,
       topic_id: topicId,
       question_count: 3,
     }),
   });
 }
 
-export async function submitQuiz(quizId: string, answers: string[], durationSec: number) {
+export async function submitQuiz(quizId: string, answers: string[], durationSec: number, learnerId: string = DEFAULT_LEARNER_ID) {
   return request<QuizEvaluation>("/api/system/quizzes/submit", {
     method: "POST",
     body: JSON.stringify({
-      learner_id: DEFAULT_LEARNER_ID,
+      learner_id: learnerId,
       quiz_id: quizId,
       duration_sec: durationSec,
       answers,
@@ -166,7 +166,7 @@ export async function submitQuiz(quizId: string, answers: string[], durationSec:
   });
 }
 
-export async function askTutor(topicId: string, question: string) {
+export async function askTutor(topicId: string, question: string, learnerId: string = DEFAULT_LEARNER_ID) {
   return request<{
     answer: string;
     follow_up_prompt: string;
@@ -175,18 +175,18 @@ export async function askTutor(topicId: string, question: string) {
   }>("/api/system/tutor/query", {
     method: "POST",
     body: JSON.stringify({
-      learner_id: DEFAULT_LEARNER_ID,
+      learner_id: learnerId,
       topic_id: topicId,
       question,
     }),
   });
 }
 
-export async function saveLessonFeedback(topicId: string, confidence: number, focusMinutes: number, friction: string, notes: string) {
+export async function saveLessonFeedback(topicId: string, confidence: number, focusMinutes: number, friction: string, notes: string, learnerId: string = DEFAULT_LEARNER_ID) {
   return request<{ updated_score: number; workspace: Workspace }>("/api/system/feedback/lesson", {
     method: "POST",
     body: JSON.stringify({
-      learner_id: DEFAULT_LEARNER_ID,
+      learner_id: learnerId,
       topic_id: topicId,
       confidence,
       focus_minutes: focusMinutes,
@@ -196,11 +196,11 @@ export async function saveLessonFeedback(topicId: string, confidence: number, fo
   });
 }
 
-export async function ingestDocument(title: string, content: string, sourceType: "notes" | "document" = "notes") {
+export async function ingestDocument(title: string, content: string, sourceType: "notes" | "document" = "notes", learnerId: string = DEFAULT_LEARNER_ID) {
   return request<{ document_id: string; workspace: Workspace }>("/api/system/library/ingest", {
     method: "POST",
     body: JSON.stringify({
-      learner_id: DEFAULT_LEARNER_ID,
+      learner_id: learnerId,
       title,
       content,
       source_type: sourceType,
@@ -208,8 +208,8 @@ export async function ingestDocument(title: string, content: string, sourceType:
   });
 }
 
-export async function searchLibrary(query: string) {
+export async function searchLibrary(query: string, learnerId: string = DEFAULT_LEARNER_ID) {
   return request<{ results: Array<{ title: string; source_type: string; content: string; score: number }> }>(
-    `/api/system/library/search?learner_id=${DEFAULT_LEARNER_ID}&query=${encodeURIComponent(query)}`
+    `/api/system/library/search?learner_id=${learnerId}&query=${encodeURIComponent(query)}`
   );
 }

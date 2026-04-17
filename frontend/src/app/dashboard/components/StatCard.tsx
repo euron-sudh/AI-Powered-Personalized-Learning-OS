@@ -8,17 +8,26 @@ interface StatCardProps {
   color: string;
   href?: string;
   scrollTo?: string;
+  subBar?: { done: number; total: number };
 }
 
-export default function StatCard({ value, label, icon, color, href, scrollTo }: StatCardProps) {
+export default function StatCard({ value, label, icon, color, href, scrollTo, subBar }: StatCardProps) {
   const inner = (
     <>
       <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0", color)}>
         {icon}
       </div>
-      <div>
+      <div className="flex-1">
         <p className="text-2xl font-bold text-white leading-none">{value}</p>
         <p className="text-xs text-white/40 mt-1 font-medium">{label}</p>
+        {subBar && (
+          <div className="mt-2.5 w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all"
+              style={{ width: `${Math.min((subBar.done / subBar.total) * 100, 100)}%` }}
+            />
+          </div>
+        )}
       </div>
     </>
   );

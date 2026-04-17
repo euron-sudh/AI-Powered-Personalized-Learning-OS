@@ -1,3 +1,5 @@
+**Last Updated:** 2026-04-17 15:45
+
 # 🎓 LearnOS — AI-Powered Personalized Learning Platform
 
 An intelligent tutoring system that adapts to each student in real time using:
@@ -22,7 +24,8 @@ An intelligent tutoring system that adapts to each student in real time using:
 cd backend && python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python -m uvicorn app.main:app --port 9000
+alembic upgrade head
+python -m uvicorn app.main:app --port 8000
 
 # Terminal 2: Frontend  
 cd frontend && npm install && npm run dev
@@ -351,7 +354,7 @@ REDIS_URL=redis://localhost:6379
 # Server
 API_HOST=0.0.0.0
 API_PORT=8000
-CORS_ORIGINS=["http://localhost:3000"]
+CORS_ORIGINS=["http://localhost:3001","http://localhost:3000"]
 
 # Sentiment
 SENTIMENT_FRAME_INTERVAL_MS=5000

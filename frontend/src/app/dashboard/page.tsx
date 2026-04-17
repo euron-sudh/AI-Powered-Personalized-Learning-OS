@@ -7,9 +7,26 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import type { SubjectProgress, ProgressResponse, StudentProfile } from "@/types/student";
+import { cn } from "@/lib/utils";
 import StatCard from "./components/StatCard";
 import SubjectCard from "./components/SubjectCard";
 import AdaptiveOSPanel from "./components/AdaptiveOSPanel";
+import TodayFocus from "./components/TodayFocus";
+
+interface SentimentEntry {
+  emotion: string;
+  confidence: number;
+  timestamp: string;
+}
+
+const EMOTION_CONFIG: Record<string, { emoji: string; color: string; message: string }> = {
+  engaged:    { emoji: "🎯", color: "text-green-400",   message: "You're in the zone — keep going!" },
+  happy:      { emoji: "😊", color: "text-emerald-400", message: "Learning looks fun!" },
+  confused:   { emoji: "🤔", color: "text-yellow-400",  message: "Let's slow down and try a different approach" },
+  bored:      { emoji: "😐", color: "text-orange-400",  message: "Time for a challenge — try a harder topic" },
+  frustrated: { emoji: "😤", color: "text-red-400",     message: "Take a breath — you've got this!" },
+  drowsy:     { emoji: "😴", color: "text-slate-400",   message: "Consider a short break before continuing" },
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -20,6 +37,7 @@ export default function DashboardPage() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
+  const [sentiment, setSentiment] = useState<SentimentEntry | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -65,6 +83,14 @@ export default function DashboardPage() {
       }
 
       setLoading(false);
+
+      // Fetch sentiment history (non-blocking)
+      apiGet<SentimentEntry[]>("/api/video/sentiment/history?limit=5", 0).then((logs) => {
+        if (logs && logs.length > 0) {
+          const latest = logs[logs.length - 1];
+          if (latest) setSentiment(latest);
+        }
+      }).catch(() => { /* silent */ });
 
       // Auto-generate chapters for subjects with 0 chapters (uses seeded syllabus — instant)
       const needsGeneration = progressSubjects.filter((s) => s.total_chapters === 0);
@@ -129,7 +155,8 @@ export default function DashboardPage() {
   }
 
   // Derived stats
-  const totalChapters = subjects.reduce((s, x) => s + x.chapters_completed, 0);
+  const completedChapters = subjects.reduce((s, x) => s + x.chapters_completed, 0);
+  const totalChaptersAll = subjects.reduce((s, x) => s + x.total_chapters, 0);
   const activeSubjects = subjects.filter((s) => s.total_chapters > 0).length;
   const avgScore = (() => {
     const scored = subjects.filter((s) => s.average_score !== null);
@@ -227,7 +254,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Stats row ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <StatCard
             value={activeSubjects}
             label="Subjects"
@@ -243,24 +270,14 @@ export default function DashboardPage() {
             }
           />
           <StatCard
-            value={totalChapters}
-            label="Chapters Done"
+            value={`${completedChapters} / ${totalChaptersAll}`}
+            label="Chapters Completed"
             color="bg-violet-500/15"
+            subBar={{ done: completedChapters, total: totalChaptersAll || 1 }}
             icon={
               <svg className="text-violet-400" width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M10 2L2 7l8 5 8-5-8-5z" fill="currentColor" opacity="0.8" />
                 <path d="M2 13l8 5 8-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.6" />
-              </svg>
-            }
-          />
-          <StatCard
-            value={subjects.reduce((s, x) => s + x.total_chapters, 0)}
-            label="Total Chapters"
-            color="bg-cyan-500/15"
-            icon={
-              <svg className="text-cyan-400" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                <path d="M7 10h6M7 7h4M7 13h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             }
           />
@@ -276,8 +293,42 @@ export default function DashboardPage() {
           />
         </div>
 
+        {/* ── Emotion Strip (if sentiment data exists) ── */}
+        {sentiment && EMOTION_CONFIG[sentiment.emotion] && (
+          <div className="rounded-xl bg-white/[0.03] border border-white/[0.07] px-4 py-3 flex items-center gap-3">
+            <span className="text-xl shrink-0">{EMOTION_CONFIG[sentiment.emotion].emoji}</span>
+            <div className="flex-1">
+              <p className={cn("text-sm font-medium", EMOTION_CONFIG[sentiment.emotion].color)}>
+                {EMOTION_CONFIG[sentiment.emotion].message}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Smart Focus Banner ── */}
+        {heroSubject && heroSubject.chapters_completed > 0 && heroSubject.chapters_completed < heroSubject.total_chapters && (
+          <div className="rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-5 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/60 font-medium">👉 Continue here</p>
+              <p className="text-lg font-bold text-white mt-0.5">
+                {heroSubject.subject_name} · {heroSubject.chapters_completed}/{heroSubject.total_chapters} chapters
+              </p>
+            </div>
+            <Link
+              href={`/learn/${heroSubject.subject_id}`}
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-all hover:-translate-y-0.5"
+            >
+              Resume
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </Link>
+          </div>
+        )}
+
         {/* ── Adaptive Learning Engine (main hero) ── */}
         <AdaptiveOSPanel />
+
+        {/* ── Today's Focus (AI-prioritized next step) ── */}
+        <TodayFocus />
 
         {/* ── Continue Learning ── */}
         {subjects.length > 0 && (

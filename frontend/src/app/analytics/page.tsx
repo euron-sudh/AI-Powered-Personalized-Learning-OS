@@ -112,7 +112,7 @@ export default function AnalyticsPage() {
     Promise.allSettled([
       apiGet<ProgressResponse>(`/api/progress/${user.id}`, 20_000),
       apiGet<SentimentEntry[]>("/api/video/sentiment/history?limit=200", 0),
-      getWorkspace(),
+      getWorkspace(user.id),
     ]).then(([progressResult, sentimentResult, workspaceResult]) => {
       if (progressResult.status === "fulfilled") setSubjects(progressResult.value.subjects);
       else setError("Failed to load progress. Please try again.");
@@ -235,7 +235,7 @@ export default function AnalyticsPage() {
           <StatCard value={workspace ? workspace.learner.xp.toLocaleString() : "—"} label="Total XP" color="text-amber-400" />
           <StatCard value={workspace ? `Level ${workspace.learner.level}` : "—"} label="Current Level" color="text-blue-400" />
           <StatCard value={workspace ? `${workspace.learner.streak_days} 🔥` : "—"} label="Day Streak" color="text-orange-400" />
-          <StatCard value={workspace ? `${Math.round(workspace.analytics.average_mastery * 100)}%` : avgScore !== null ? `${avgScore}%` : "—"} label="Avg Mastery" color="text-emerald-400" />
+          <StatCard value={workspace ? `${Math.round(workspace.analytics.average_mastery)}%` : avgScore !== null ? `${avgScore}%` : "—"} label="Avg Mastery" color="text-emerald-400" />
         </section>
 
         {/* Achievements */}
@@ -262,7 +262,7 @@ export default function AnalyticsPage() {
             <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Topic Mastery</h2>
             <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-6 space-y-4">
               {workspace.mastery_snapshot.slice(0, 8).map((t) => {
-                const pct = Math.round(t.score * 100);
+                const pct = Math.round(t.score);
                 const barColor = pct >= 80 ? "from-emerald-500 to-green-400" : pct >= 50 ? "from-blue-500 to-blue-400" : "from-orange-500 to-amber-400";
                 const trendIcon = t.trend === "improving" ? "↑" : t.trend === "declining" ? "↓" : "→";
                 const trendColor = t.trend === "improving" ? "text-emerald-400" : t.trend === "declining" ? "text-red-400" : "text-white/30";

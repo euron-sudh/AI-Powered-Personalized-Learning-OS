@@ -11,10 +11,12 @@ import {
   ingestDocument,
   searchLibrary,
   saveLessonFeedback,
+  DEFAULT_LEARNER_ID,
   type Workspace,
   type GeneratedQuiz,
   type QuizEvaluation,
 } from "@/lib/learning-os";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { cn } from "@/lib/utils";
 
 type View = "plan" | "quiz" | "tutor" | "library" | "feedback";
@@ -44,6 +46,9 @@ const TABS: { id: View; label: string }[] = [
 ];
 
 export default function AdaptiveOSPanel() {
+  const { user } = useSupabaseAuth();
+  const learnerId = user?.id ?? DEFAULT_LEARNER_ID;
+
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>("plan");
@@ -83,20 +88,20 @@ export default function AdaptiveOSPanel() {
   // ── Load workspace ───────────────────────────────────────────────────────────
   const loadWorkspace = useCallback(async () => {
     try {
-      const ws = await getWorkspace();
+      const ws = await getWorkspace(learnerId);
       setWorkspace(ws);
       const first = ws.today_plan[0]?.topic_id ?? ws.roadmap[0]?.topic_id ?? "";
       setTutorTopicId((prev) => prev || first);
       setFbTopicId((prev) => prev || first);
     } catch {
       try {
-        const res = await bootstrapLearner();
+        const res = await bootstrapLearner(learnerId);
         setWorkspace(res.workspace);
       } catch { /* silent */ }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [learnerId]);
 
   useEffect(() => { loadWorkspace(); }, [loadWorkspace]);
 
@@ -106,7 +111,7 @@ export default function AdaptiveOSPanel() {
     setQuiz(null); setQuizAnswers([]); setQuizResult(null);
     setQuizLoading(true); setView("quiz");
     try {
-      const q = await generateQuiz(topicId);
+      const q = await generateQuiz(topicId, learnerId);
       setQuiz(q);
       setQuizAnswers(Array(q.questions.length).fill(""));
       setQuizStart(Date.now());
@@ -119,7 +124,7 @@ export default function AdaptiveOSPanel() {
     setQuizLoading(true);
     try {
       const dur = Math.round((Date.now() - quizStart) / 1000);
-      const res = await submitQuiz(quiz.quiz_id, quizAnswers, dur);
+      const res = await submitQuiz(quiz.quiz_id, quizAnswers, dur, learnerId);
       setQuizResult(res); setWorkspace(res.workspace);
     } catch { /* silent */ }
     finally { setQuizLoading(false); }
@@ -129,7 +134,7 @@ export default function AdaptiveOSPanel() {
   async function askTutorHandler() {
     if (!tutorTopicId || !question.trim()) return;
     setTutorLoading(true); setTutorResult(null);
-    try { setTutorResult(await askTutor(tutorTopicId, question.trim())); }
+    try { setTutorResult(await askTutor(tutorTopicId, question.trim(), learnerId)); }
     catch { /* silent */ }
     finally { setTutorLoading(false); }
   }
@@ -138,7 +143,7 @@ export default function AdaptiveOSPanel() {
   async function ingestHandler() {
     if (!noteBody.trim()) return;
     setLibraryLoading(true);
-    try { const r = await ingestDocument(noteTitle, noteBody); setWorkspace(r.workspace); setNoteBody(""); }
+    try { const r = await ingestDocument(noteTitle, noteBody, "notes", learnerId); setWorkspace(r.workspace); setNoteBody(""); }
     catch { /* silent */ }
     finally { setLibraryLoading(false); }
   }
@@ -146,7 +151,7 @@ export default function AdaptiveOSPanel() {
   async function searchHandler() {
     if (!searchQuery.trim()) return;
     setLibraryLoading(true);
-    try { setSearchResults((await searchLibrary(searchQuery)).results); }
+    try { setSearchResults((await searchLibrary(searchQuery, learnerId)).results); }
     catch { /* silent */ }
     finally { setLibraryLoading(false); }
   }
@@ -154,7 +159,7 @@ export default function AdaptiveOSPanel() {
   async function reindexHandler() {
     setReindexing(true);
     try {
-      await fetch("/api/proxy/api/system/library/reindex?learner_id=demo-learner", { method: "POST" });
+      await fetch(`/api/proxy/api/system/library/reindex?learner_id=${learnerId}`, { method: "POST" });
       await loadWorkspace();
     } catch { /* silent */ }
     finally { setReindexing(false); }
@@ -164,7 +169,7 @@ export default function AdaptiveOSPanel() {
   async function feedbackHandler() {
     if (!fbTopicId) return;
     setFbLoading(true);
-    try { const r = await saveLessonFeedback(fbTopicId, fbConfidence, fbFocus, fbFriction, fbNotes); setWorkspace(r.workspace); }
+    try { const r = await saveLessonFeedback(fbTopicId, fbConfidence, fbFocus, fbFriction, fbNotes, learnerId); setWorkspace(r.workspace); }
     catch { /* silent */ }
     finally { setFbLoading(false); }
   }
@@ -192,26 +197,39 @@ export default function AdaptiveOSPanel() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-            Adaptive Learning Engine
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            Your AI Learning Coach
           </h2>
-          <p className="text-xs text-white/40 mt-0.5">AI-powered plan that adapts after every session</p>
+          <p className="text-xs text-white/40 mt-0.5">🟢 AI Active · AI Learning Plan · Updated after every session</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1 text-xs font-medium text-amber-400">
-            ⚡ {learner.xp} XP · Lv {learner.level}
-          </span>
+        <div className="flex items-center gap-2 flex-wrap flex-col sm:flex-row">
+          <div className="w-full sm:w-auto">
+            <p className="text-xs text-white/40 font-medium mb-1.5">Level {learner.level} · {learner.xp} / {learner.level * 120} XP</p>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all"
+                style={{ width: `${Math.min((learner.xp / (learner.level * 120)) * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Badges (XP, Streak, Achievements) */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1 text-xs font-medium text-amber-400">
+          ⚡ {learner.xp} XP
+        </span>
           {learner.streak_days > 0 && (
             <span className="inline-flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/20 rounded-full px-3 py-1 text-xs font-medium text-orange-400">
               🔥 {learner.streak_days}-day streak
             </span>
           )}
-          {achievements.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 bg-violet-500/10 border border-violet-500/20 rounded-full px-3 py-1 text-xs font-medium text-violet-400">
-              🏆 {achievements.length} badge{achievements.length !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
+        {achievements.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 bg-violet-500/10 border border-violet-500/20 rounded-full px-3 py-1 text-xs font-medium text-violet-400">
+            🏆 {achievements.length} badge{achievements.length !== 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
       {/* Tab bar */}
@@ -243,33 +261,40 @@ export default function AdaptiveOSPanel() {
             {today_plan.length === 0 && (
               <p className="text-sm text-white/40 py-4">All caught up! Check back tomorrow.</p>
             )}
-            {today_plan.map((item) => (
-              <div
-                key={item.topic_id}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-white/10 transition-all"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-white truncate">{item.title}</p>
-                  <p className="text-xs text-white/40 mt-0.5 truncate">{item.mission}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="text-right hidden sm:block">
-                    <p className={cn("text-xs font-semibold", scoreColor(item.mastery_score))}>{item.mastery_score}%</p>
-                    <p className={cn("text-xs", TREND_COLOR[item.trend] ?? "text-white/40")}>
-                      {TREND_ICON[item.trend] ?? "→"}
-                    </p>
+            {today_plan.map((item) => {
+              const masteryBadge = item.mastery_score < 50 ? "⚠ Weak area" : item.mastery_score < 80 ? "📈 Improving" : "✅ Strong";
+              const masteryColor = item.mastery_score < 50 ? "text-yellow-400" : item.mastery_score < 80 ? "text-blue-400" : "text-emerald-400";
+              return (
+                <div
+                  key={item.topic_id}
+                  className="flex flex-col gap-2 p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-white/10 transition-all"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-white">{item.title}</p>
+                    <p className={cn("text-xs font-medium mt-1", masteryColor)}>{masteryBadge}</p>
                   </div>
-                  <button
-                    onClick={() => startQuiz(item.topic_id, item.title)}
-                    className="text-xs bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/30 text-violet-300 px-2.5 py-1.5 rounded-lg transition-all"
-                  >Quiz</button>
-                  <button
-                    onClick={() => { setTutorTopicId(item.topic_id); setView("tutor"); }}
-                    className="text-xs bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-300 px-2.5 py-1.5 rounded-lg transition-all"
-                  >Tutor</button>
+                  <p className="text-xs text-white/60">🎯 {item.mission}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 text-xs text-white/50">
+                      <span>⏱ {item.estimated_minutes} min</span>
+                      <span className={cn("font-medium", TREND_COLOR[item.trend] ?? "text-white/40")}>
+                        {TREND_ICON[item.trend] ?? "→"} {item.trend}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => startQuiz(item.topic_id, item.title)}
+                        className="text-xs bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/30 text-violet-300 px-2.5 py-1.5 rounded-lg transition-all"
+                      >Quiz</button>
+                      <button
+                        onClick={() => { setTutorTopicId(item.topic_id); setView("tutor"); }}
+                        className="text-xs bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-300 px-2.5 py-1.5 rounded-lg transition-all"
+                      >Tutor</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Sidebar */}
@@ -290,9 +315,13 @@ export default function AdaptiveOSPanel() {
             <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-4 space-y-3">
               <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Mastery Snapshot</p>
               {mastery_snapshot.slice(0, 5).map((m) => (
-                <div key={m.topic_id}>
+                <button
+                  key={m.topic_id}
+                  onClick={() => startQuiz(m.topic_id, m.title)}
+                  className="w-full text-left hover:bg-white/[0.04] p-1 rounded-lg transition-all"
+                >
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-white/70 truncate max-w-[70%]">{m.title}</span>
+                    <span className="text-xs text-white/70 truncate max-w-[70%] font-medium">{m.title}</span>
                     <span className={cn("text-xs font-semibold", scoreColor(m.score))}>
                       {m.score}% {TREND_ICON[m.trend]}
                     </span>
@@ -306,7 +335,7 @@ export default function AdaptiveOSPanel() {
                       style={{ width: `${m.score}%` }}
                     />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>

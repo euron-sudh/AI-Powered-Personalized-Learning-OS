@@ -1,3 +1,5 @@
+**Last Updated:** 2026-04-17 15:45
+
 # LearnOS — AI-Led Tutor OS (Reference Plan)
 
 **Saved**: 2026-04-14  

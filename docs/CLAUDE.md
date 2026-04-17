@@ -1,3 +1,5 @@
+**Last Updated:** 2026-04-17 15:45
+
 # AI-Powered Personalized Learning OS (LearnOS)
 
 ## Vision
@@ -457,7 +459,7 @@ OPENAI_API_KEY=<openai-api-key-for-realtime>
 # Server
 API_HOST=0.0.0.0
 API_PORT=8000
-CORS_ORIGINS=["http://localhost:3000"]
+CORS_ORIGINS=["http://localhost:3001","http://localhost:3000"]
 
 # Sentiment
 SENTIMENT_FRAME_INTERVAL_MS=5000
@@ -607,7 +609,7 @@ Pillow>=10.0
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://gijowphqadmdmyuyyaqm.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<key>
-NEXT_PUBLIC_API_URL=http://localhost:9000
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 **Backend Environment** (`backend/.env`):
@@ -617,7 +619,7 @@ NEXT_PUBLIC_API_URL=http://localhost:9000
 
 ### 🎯 Ready for Testing
 
-1. Start backend: `cd backend && python -m uvicorn app.main:app --port 9000`
+1. Start backend: `cd backend && python -m uvicorn app.main:app --port 8000`
 2. Start frontend: `cd frontend && npm run dev` (port 3000)
 3. Open `http://localhost:3001/onboarding` (with Supabase auth redirect)
 4. Complete onboarding → dashboard → lesson page

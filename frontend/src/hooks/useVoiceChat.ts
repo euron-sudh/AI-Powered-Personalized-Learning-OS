@@ -70,6 +70,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
+  const [isProcessingTranscript, setIsProcessingTranscript] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +85,10 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
   const newTutorLineRef = useRef(true);
   // Index of the pending "You: ..." placeholder in transcript; -1 if none
   const pendingStudentIndexRef = useRef(-1);
+  // Reconnect state
+  const reconnectCountRef = useRef(0);
+  const manualDisconnectRef = useRef(false);
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   // Keep options in a ref so callbacks don't go stale
   const optionsRef = useRef(options);
   useEffect(() => {
@@ -277,6 +282,15 @@ Teaching approach:
         }));
         ws.send(JSON.stringify({ type: "response.create" }));
       }, 100);
+
+      // Keepalive ping every 25s to prevent idle timeout
+      reconnectCountRef.current = 0;
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = setInterval(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: "session.update", session: {} }));
+        }
+      }, 25000);
     };
 
     ws.onmessage = (event) => {
@@ -341,9 +355,15 @@ Teaching approach:
           }
         }
 
+        // Student speech — mark transcript processing when speech ends
+        if (msg.type === "input_audio_buffer.speech_ended") {
+          setIsProcessingTranscript(true);
+        }
+
         // Student speech transcript — replace the placeholder at the correct position
         if (msg.type === "conversation.item.input_audio_transcription.completed") {
           const text = msg.transcript?.trim();
+          setIsProcessingTranscript(false);
           if (text) {
             const idx = pendingStudentIndexRef.current;
             pendingStudentIndexRef.current = -1;
@@ -357,6 +377,12 @@ Teaching approach:
               return [...prev, `You: ${text}`];
             });
           }
+        }
+
+        // Handle transcription failure
+        if (msg.type === "conversation.item.input_audio_transcription.failed") {
+          setIsProcessingTranscript(false);
+          setTranscript((prev) => [...prev, "You: [transcription failed]"]);
         }
 
         // Tutor transcript — audio responses use audio_transcript.delta, text-only use text.delta
@@ -396,11 +422,25 @@ Teaching approach:
     };
 
     ws.onclose = () => {
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
       setIsConnected(false);
       setIsListening(false);
       setIsAISpeaking(false);
       isAISpeakingRef.current = false;
       wsRef.current = null;
+
+      const MAX_RETRIES = 3;
+      if (reconnectCountRef.current < MAX_RETRIES && !manualDisconnectRef.current) {
+        const delay = Math.pow(2, reconnectCountRef.current) * 1000;
+        reconnectCountRef.current++;
+        console.log(`[VoiceChat] Reconnecting in ${delay}ms (attempt ${reconnectCountRef.current}/${MAX_RETRIES})`);
+        setTimeout(() => connect(), delay);
+      } else {
+        reconnectCountRef.current = 0;
+      }
     };
 
     ws.onerror = () => {
@@ -410,6 +450,11 @@ Teaching approach:
   }, [appendTranscript, playAccumulatedAudio, cancelAIResponse]);
 
   const disconnect = useCallback(() => {
+    manualDisconnectRef.current = true;
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
     setIsListening(false);
     setIsAISpeaking(false);
     isAISpeakingRef.current = false;
@@ -501,6 +546,7 @@ Teaching approach:
     isConnected,
     isListening,
     isAISpeaking,
+    isProcessingTranscript,
     transcript,
     error,
     connect,

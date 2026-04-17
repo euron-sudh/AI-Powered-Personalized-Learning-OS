@@ -1,3 +1,5 @@
+**Last Updated:** 2026-04-17 15:45
+
 # 📂 Project Tree — LearnOS
 
 Complete directory structure with file descriptions.

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.dependencies import get_current_user
+from app.learning_os.service import learning_os_service
 from app.models.activity import Activity, ActivitySubmission
 from app.models.chapter import Chapter
 from app.models.progress import StudentProgress
@@ -226,10 +227,17 @@ async def evaluate_activity(
 
     await db.commit()
 
-    # ── Adaptive curriculum adjustment ──────────────────────────────────────
-    # If the student scored below 60%, ask Claude to re-order the remaining
-    # chapters so that topics addressing their weak areas come up sooner.
     score = evaluation.get("score", 0)
+
+    # ── Award XP and update gamification ────────────────────────────────────
+    learner_id = str(student_id)
+    learning_os_service.bootstrap_learner(
+        learner_id=learner_id,
+        name=student.name if student else "Student",
+    )
+    learning_os_service.gamification_agent.award_for_quiz(learner_id, score)
+
+    # ── Adaptive curriculum adjustment ──────────────────────────────────────
     if score < 60 and chapter:
         asyncio.create_task(
             _adjust_curriculum_background(

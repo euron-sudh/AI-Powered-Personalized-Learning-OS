@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const NAV_LINKS = [
   {
     href: "/dashboard",
-    label: "Learn",
+    label: "Home",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M8 1.5L1.5 5l6.5 3.5L14.5 5 8 1.5z" fill="currentColor" opacity="0.9" />
@@ -20,18 +20,8 @@ const NAV_LINKS = [
     ),
   },
   {
-    href: "/practice",
-    label: "Practice",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
-        <path d="M6 7l2 2 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    href: "/tutor",
-    label: "AI Tutor",
+    href: "/session",
+    label: "Session",
     isAI: true,
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -43,8 +33,18 @@ const NAV_LINKS = [
     ),
   },
   {
+    href: "/path",
+    label: "Path",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill="none" />
+        <path d="M6 7l2 2 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     href: "/analytics",
-    label: "Progress",
+    label: "Insights",
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M2 11.5l3-3.5 2.5 2 3-5 2.5 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -91,7 +91,10 @@ export default function Nav() {
   const displayEmail = user?.email ?? "";
 
   const isActive = (href: string) => {
-    if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/learn");
+    if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/session") return pathname.startsWith("/session") || pathname.startsWith("/tutor") || pathname.startsWith("/practice") || pathname.startsWith("/video-session") || pathname.startsWith("/voice");
+    if (href === "/path") return pathname.startsWith("/path") || pathname.startsWith("/learn");
+    if (href === "/analytics") return pathname.startsWith("/analytics");
     return pathname.startsWith(href);
   };
 
@@ -203,8 +206,8 @@ export default function Nav() {
                         <div className="py-1.5">
                           <Link href="/profile" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">Profile Details</Link>
                           <Link href="/analytics" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">My Progress</Link>
-                          <Link href="/learn" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">My Subjects</Link>
-                          <Link href="/practice" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">Practice</Link>
+                          <Link href="/path" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">Learning Path</Link>
+                          <Link href="/session" className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors">Start Learning</Link>
                         </div>
                         <div className="border-t border-white/[0.07] py-1.5">
                           <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/[0.08] transition-colors">Sign Out</button>
@@ -291,8 +294,8 @@ export default function Nav() {
 
             {/* Bottom actions */}
             <div className="border-t border-white/[0.07] py-3 space-y-0.5">
-              <Link href="/profile" className="flex items-center gap-3 px-5 py-3 text-sm text-white/60 hover:text-white hover:bg-white/[0.05] transition-colors">Profile Details</Link>
-              <Link href="/preferences" className="flex items-center gap-3 px-5 py-3 text-sm text-white/60 hover:text-white hover:bg-white/[0.05] transition-colors">Edit Preferences</Link>
+              <Link href="/profile" className="flex items-center gap-3 px-5 py-3 text-sm text-white/60 hover:text-white hover:bg-white/[0.05] transition-colors">Profile</Link>
+              <Link href="/preferences" className="flex items-center gap-3 px-5 py-3 text-sm text-white/60 hover:text-white hover:bg-white/[0.05] transition-colors">Preferences</Link>
               <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-5 py-3 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/[0.08] transition-colors">Sign Out</button>
             </div>
 

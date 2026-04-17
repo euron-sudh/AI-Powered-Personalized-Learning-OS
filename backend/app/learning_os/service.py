@@ -75,9 +75,9 @@ class LearningOSService:
             INSERT INTO learners (
                 id, name, goal, pace_preference, difficulty_tolerance, preferred_styles,
                 xp, level, streak_days, last_activity_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 120, 2, 2, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, 0, 1, 0, NULL, ?, ?)
             """,
-            (learner_id, name, goal, pace_preference, difficulty_tolerance, self.storage.dumps(preferred_styles), now, now, now),
+            (learner_id, name, goal, pace_preference, difficulty_tolerance, self.storage.dumps(preferred_styles), now, now),
         )
         topics = self.storage.fetch_all("SELECT id FROM topics ORDER BY rowid ASC")
         roadmap_rows = []

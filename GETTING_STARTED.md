@@ -1,3 +1,5 @@
+**Last Updated:** 2026-04-17 15:45
+
 # 🚀 Getting Started — Complete Beginner's Guide
 
 Welcome! Follow these steps to run LearnOS locally. **No experience needed.**
@@ -102,21 +104,32 @@ ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-proj-...
 
 API_HOST=0.0.0.0
-API_PORT=9000
-CORS_ORIGINS=["http://localhost:3000"]
+API_PORT=8000
+CORS_ORIGINS=["http://localhost:3001","http://localhost:3000"]
 ```
 
 Replace with your actual API keys from Step 1.
 
-### 2D: Start Backend Server
+### 2D: Run Database Migrations
 
 ```bash
-python -m uvicorn app.main:app --port 9000
+alembic upgrade head
+```
+
+This creates all required database tables. Run this once before starting the server.
+
+### 2E: Start Backend Server
+
+Make sure you are in the `backend/` folder with the virtual environment active, then run:
+
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **You should see:**
 ```
-INFO:     Uvicorn running on http://0.0.0.0:9000
+INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Started reloader process
 INFO:     Application startup complete
 ```
 
@@ -148,7 +161,7 @@ In the `frontend/` folder, create a file named `.env.local`:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
-NEXT_PUBLIC_API_URL=http://localhost:9000
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 Use the **same Supabase keys** from Step 1A.
@@ -242,7 +255,7 @@ Then restart backend.
 ### "Frontend can't reach backend"
 
 1. Check backend is running (terminal should show `Uvicorn running`)
-2. Check `.env.local` has: `NEXT_PUBLIC_API_URL=http://localhost:9000`
+2. Check `.env.local` has: `NEXT_PUBLIC_API_URL=http://localhost:8000`
 3. Close frontend (Ctrl+C), restart: `npm run dev`
 
 ### "Email already exists"
@@ -277,7 +290,7 @@ Then restart backend.
 
 Check these boxes:
 
-- [ ] Backend terminal shows "Uvicorn running on http://0.0.0.0:9000"
+- [ ] Backend terminal shows "Uvicorn running on http://0.0.0.0:8000"
 - [ ] Frontend terminal shows "Local: http://localhost:3001"
 - [ ] http://localhost:3001 opens login page
 - [ ] Can sign up and log in

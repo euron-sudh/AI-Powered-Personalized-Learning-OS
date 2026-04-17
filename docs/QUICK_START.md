@@ -1,3 +1,5 @@
+**Last Updated:** 2026-04-17 15:45
+
 # LearnOS Quick Start Guide — April 15, 2026
 
 ## System Status: ✅ READY FOR TESTING
@@ -32,8 +34,8 @@ ANTHROPIC_API_KEY=<your-key>
 OPENAI_API_KEY=<your-key>
 
 API_HOST=0.0.0.0
-API_PORT=9000  # Port 8000 has zombie processes on Windows
-CORS_ORIGINS=["http://localhost:3000"]
+API_PORT=8000  # Port 8000 has zombie processes on Windows
+CORS_ORIGINS=["http://localhost:3001","http://localhost:3000"]
 ```
 
 ### Frontend Configuration (`frontend/.env.local`)
@@ -42,7 +44,7 @@ CORS_ORIGINS=["http://localhost:3000"]
 # Already configured with:
 NEXT_PUBLIC_SUPABASE_URL=https://gijowphqadmdmyuyyaqm.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<key>
-NEXT_PUBLIC_API_URL=http://localhost:9000
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ---
@@ -61,18 +63,18 @@ pip install -r requirements.txt
 alembic current  # Should show: 0006 (head)
 
 # Start server
-python -m uvicorn app.main:app --host 0.0.0.0 --port 9000
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 **Expected output:**
 ```
-INFO:     Uvicorn running on http://0.0.0.0:9000
+INFO:     Uvicorn running on http://0.0.0.0:8000
 INFO:     Application startup complete
 ```
 
 **Test health endpoint:**
 ```bash
-curl http://localhost:9000/api/health
+curl http://localhost:8000/api/health
 # { "status": "healthy", "default_learner_id": "demo-learner" }
 ```
 
@@ -165,7 +167,7 @@ netstat -ano | findstr :9000
 taskkill /PID <PID> /F
 
 # Try again
-python -m uvicorn app.main:app --port 9000
+python -m uvicorn app.main:app --port 8000
 ```
 
 ### Frontend Can't Reach Backend
@@ -173,8 +175,8 @@ python -m uvicorn app.main:app --port 9000
 **Issue:** `POST /api/onboarding 500` or `connection refused`
 
 **Check:**
-1. Backend is running on port 9000: `curl http://localhost:9000/api/health`
-2. Frontend .env has correct `NEXT_PUBLIC_API_URL=http://localhost:9000`
+1. Backend is running on port 9000: `curl http://localhost:8000/api/health`
+2. Frontend .env has correct `NEXT_PUBLIC_API_URL=http://localhost:8000`
 3. Restart frontend: `npm run dev`
 
 ### JWT Token Invalid

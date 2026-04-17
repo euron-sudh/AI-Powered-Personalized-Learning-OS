@@ -1,3 +1,5 @@
+**Last Updated:** 2026-04-17 15:45
+
 # AGENTS.md — LearnOS Project Guide for Codex
 
 This file provides the authoritative context for automated agents (Codex, etc.) working in this repository.

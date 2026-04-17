@@ -1,0 +1,197 @@
+{
+  "timestamp": "20260416_235540",
+  "project": "LearnOS",
+  "summary": {
+    "total_errors": 0,
+    "total_warnings": 1,
+    "root_files": 4,
+    "markdown_files": 12
+  },
+  "findings": {
+    "links": {
+      "valid": [
+        {
+          "file": "docs\\CHANGELOG.md",
+          "text": "src/hooks/useVoiceChat.ts",
+          "url": "../frontend/src/hooks/useVoiceChat.ts",
+          "line": 101
+        },
+        {
+          "file": "docs\\CHANGELOG.md",
+          "text": "src/hooks/useTutorSession.ts",
+          "url": "../frontend/src/hooks/useTutorSession.ts",
+          "line": 102
+        },
+        {
+          "file": "docs\\CHANGELOG.md",
+          "text": "app/main.py",
+          "url": "../backend/app/main.py#L95-L98",
+          "line": 105
+        },
+        {
+          "file": "docs\\CHANGELOG.md",
+          "text": "app/services/tutor_session_engine.py",
+          "url": "../backend/app/services/tutor_session_engine.py#L252-L269",
+          "line": 106
+        },
+        {
+          "file": "docs\\CHANGELOG.md",
+          "text": "app/services/tutor_session_engine.py",
+          "url": "../backend/app/services/tutor_session_engine.py#L307-L308",
+          "line": 107
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "python.org/downloads",
+          "url": "https://www.python.org/downloads/",
+          "line": 12
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "nodejs.org",
+          "url": "https://nodejs.org/",
+          "line": 17
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "git-scm.com",
+          "url": "https://git-scm.com/",
+          "line": 22
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "supabase.com",
+          "url": "https://supabase.com",
+          "line": 32
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "platform.openai.com",
+          "url": "https://platform.openai.com",
+          "line": 44
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "console.anthropic.com",
+          "url": "https://console.anthropic.com/",
+          "line": 51
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "docs/QUICK_START.md",
+          "url": "docs/QUICK_START.md",
+          "line": 299
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "docs/CLAUDE.md",
+          "url": "docs/CLAUDE.md",
+          "line": 300
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "docs/",
+          "url": "docs/",
+          "line": 310
+        },
+        {
+          "file": "PROJECT_STATUS.md",
+          "text": "GETTING_STARTED.md",
+          "url": "GETTING_STARTED.md",
+          "line": 202
+        },
+        {
+          "file": "PROJECT_STATUS.md",
+          "text": "docs/QUICK_START.md",
+          "url": "docs/QUICK_START.md",
+          "line": 203
+        },
+        {
+          "file": "PROJECT_STATUS.md",
+          "text": "docs/CLAUDE.md",
+          "url": "docs/CLAUDE.md",
+          "line": 204
+        },
+        {
+          "file": "PROJECT_STATUS.md",
+          "text": "docs/TESTING_AI_TUTOR.md",
+          "url": "docs/TESTING_AI_TUTOR.md",
+          "line": 205
+        },
+        {
+          "file": "README.md",
+          "text": "Getting Started Guide",
+          "url": "GETTING_STARTED.md",
+          "line": 11
+        },
+        {
+          "file": "README.md",
+          "text": "Full Documentation",
+          "url": "docs/CLAUDE.md",
+          "line": 12
+        },
+        {
+          "file": "README.md",
+          "text": "Troubleshooting",
+          "url": "GETTING_STARTED.md#-troubleshooting",
+          "line": 13
+        },
+        {
+          "file": "README.md",
+          "text": "Project Status",
+          "url": "docs/CHANGELOG.md",
+          "line": 14
+        },
+        {
+          "file": "README.md",
+          "text": "Supabase",
+          "url": "https://supabase.com",
+          "line": 270
+        },
+        {
+          "file": "README.md",
+          "text": "Anthropic",
+          "url": "https://console.anthropic.com",
+          "line": 271
+        },
+        {
+          "file": "README.md",
+          "text": "OpenAI",
+          "url": "https://platform.openai.com",
+          "line": 272
+        },
+        {
+          "file": "README.md",
+          "text": "Environment Variables",
+          "url": "#environment-variables",
+          "line": 281
+        },
+        {
+          "file": "README.md",
+          "text": "supabase.com",
+          "url": "https://supabase.com",
+          "line": 315
+        },
+        {
+          "file": "README.md",
+          "text": "Google Cloud Console",
+          "url": "https://console.cloud.google.com",
+          "line": 323
+        }
+      ],
+      "broken": []
+    },
+    "files": {
+      "checked": [],
+      "missing": []
+    },
+    "structure": {
+      "valid": [],
+      "issues": []
+    }
+  },
+  "errors": [],
+  "warnings": [
+    "PROJECT_STATUS.md (non-essential)"
+  ]
+}

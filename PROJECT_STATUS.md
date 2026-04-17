@@ -1,4 +1,6 @@
-# 📊 LearnOS Project Status — April 16, 2026
+**Last Updated:** 2026-04-17 15:45
+
+# 📊 LearnOS Project Status — April 17, 2026
 
 ## ✅ SYSTEM READY FOR DEPLOYMENT
 
@@ -103,15 +105,15 @@ SUPABASE_DB_URL=postgresql+asyncpg://...
 ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
 API_HOST=0.0.0.0
-API_PORT=9000
-CORS_ORIGINS=["http://localhost:3000"]
+API_PORT=8000
+CORS_ORIGINS=["http://localhost:3001","http://localhost:3000"]
 ```
 
 ### Frontend (`frontend/.env.local`)
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_API_URL=http://localhost:9000
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ---
@@ -222,6 +224,6 @@ The system can now be:
 
 ---
 
-**Last Updated:** April 16, 2026  
+**Last Updated:** April 17, 2026  
 **Status:** ✅ READY FOR DEPLOYMENT  
 **Next Review:** As needed for production launch
