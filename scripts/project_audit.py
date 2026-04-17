@@ -523,6 +523,51 @@ class ProjectAudit:
 
         return True
 
+    # ── Check 9b : Markdown timestamp sync ────────────────────────────────────────
+
+    def sync_markdown_timestamps(self) -> bool:
+        """Auto-update 'Last Updated' timestamps on all markdown files."""
+        from datetime import datetime
+
+        # Current timestamp in format: YYYY-MM-DD HH:MM
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        timestamp_line = f"**Last Updated:** {now}\n\n"
+
+        # Find all .md files (root + docs/)
+        md_files = list(self.project_root.glob("*.md"))
+        docs_dir = self.project_root / "docs"
+        if docs_dir.is_dir():
+            md_files.extend(docs_dir.glob("*.md"))
+
+        updated_count = 0
+        for md_file in sorted(md_files):
+            try:
+                content = md_file.read_text(encoding='utf-8', errors='replace')
+
+                # Check if file already has timestamp
+                if content.startswith("**Last Updated:**"):
+                    # Update existing timestamp
+                    lines = content.split('\n', 2)
+                    if len(lines) >= 2 and lines[0].startswith("**Last Updated:**"):
+                        new_content = timestamp_line + (lines[2] if len(lines) > 2 else "")
+                        if new_content != content:
+                            md_file.write_text(new_content, encoding='utf-8')
+                            updated_count += 1
+                else:
+                    # Add timestamp at top
+                    new_content = timestamp_line + content
+                    md_file.write_text(new_content, encoding='utf-8')
+                    updated_count += 1
+            except Exception as e:
+                self.print_error(f'Could not update "{md_file.name}": {e}')
+
+        if updated_count > 0:
+            self.print_success(f'Updated timestamps on {updated_count} markdown file(s) — {now}')
+        else:
+            self.print_success(f'All markdown timestamps are current — {now}')
+
+        return True
+
     # ── Check 10 : Presentation slides <-> Changelog sync ────────────────────────
 
     def sync_presentation_slides(self) -> bool:
@@ -708,6 +753,7 @@ class ProjectAudit:
         success &= self.check_frontend_score_bugs()
         success &= self.check_frontend_backend_connection()
         success &= self.sync_markdown_docs()
+        success &= self.sync_markdown_timestamps()
         success &= self.sync_presentation_slides()
         success &= self.audit_markdown_links()
 

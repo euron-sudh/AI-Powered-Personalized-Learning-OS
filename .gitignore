@@ -50,3 +50,4 @@ backend/backend/
 /data/
 updates_emkay/
 scripts/
+!scripts/project_audit.py
