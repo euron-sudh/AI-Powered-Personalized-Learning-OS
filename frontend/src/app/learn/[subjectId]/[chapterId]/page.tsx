@@ -114,24 +114,24 @@ export default function TutorPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-54px)] items-center justify-center bg-[#0d1117]">
+      <div className="flex min-h-[calc(100vh-54px)] items-center justify-center bg-[var(--bg-base)]">
         <div className="text-center">
           <div className="w-8 h-8 rounded-full border-2 border-[#3d3faa] border-t-[#5b5eff] animate-spin mx-auto mb-3" />
-          <p className="text-[#6b7280] text-sm">Loading lesson…</p>
+          <p className="text-[var(--text-muted)] text-sm">Loading lesson…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-54px)] bg-[#0d1117] flex">
+    <div className="min-h-[calc(100vh-54px)] bg-[var(--bg-base)] flex">
       {/* Video Panel (Left) */}
-      <div className="flex-1 border-r border-[#1a1f2e] flex flex-col">
+      <div className="flex-1 border-r border-[var(--border)] flex flex-col">
         {/* Video Area */}
-        <div className="flex-1 bg-[#0a0d14] flex items-center justify-center p-8 relative">
+        <div className="flex-1 bg-[var(--bg-deep)] flex items-center justify-center p-8 relative">
           <div className="w-full max-w-2xl relative">
             {/* Main Video */}
-            <div className="aspect-video bg-gradient-to-br from-[#1a1f35] to-[#0a0d14] rounded-3xl border border-[#1a1f2e] flex items-center justify-center relative overflow-hidden">
+            <div className="aspect-video bg-gradient-to-br from-[#1a1f35] to-[#0a0d14] rounded-3xl border border-[var(--border)] flex items-center justify-center relative overflow-hidden">
               {/* Tutor Avatar */}
               <div className="text-center">
                 <div className="relative w-32 h-32 mx-auto mb-4">
@@ -142,16 +142,16 @@ export default function TutorPage() {
                   <div className="absolute inset-0 rounded-full border-2 border-[#5b5eff] animate-pulse" style={{ animationDelay: "0.5s" }} />
                 </div>
                 <p className="text-white font-[500] text-lg">AI Tutor</p>
-                <p className="text-[12px] text-[#6b7280] mt-1">{chapter?.title}</p>
+                <p className="text-[12px] text-[var(--text-muted)] mt-1">{chapter?.title}</p>
               </div>
 
               {/* Emotion Detection Bar (Top Right) */}
               {currentEmotion && (
-                <div className="absolute top-6 right-6 bg-[#0a0d14]/90 border border-[#1a1f2e] rounded-2xl px-3 py-2">
+                <div className="absolute top-6 right-6 bg-[var(--bg-deep)]/90 border border-[var(--border)] rounded-2xl px-3 py-2">
                   <div className="text-[10px] font-[500] text-white mb-2">
                     {EMOTIONS[currentEmotion.emotion].label}
                   </div>
-                  <div className="w-24 h-1.5 bg-[#1e2330] rounded-full overflow-hidden">
+                  <div className="w-24 h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
@@ -160,7 +160,7 @@ export default function TutorPage() {
                       }}
                     />
                   </div>
-                  <div className="text-[9px] text-[#6b7280] mt-1">
+                  <div className="text-[9px] text-[var(--text-muted)] mt-1">
                     {Math.round(currentEmotion.confidence * 100)}% confident
                   </div>
                 </div>
@@ -168,14 +168,14 @@ export default function TutorPage() {
 
               {/* Student Camera Preview (Bottom Right) */}
               {isVideoOn && (
-                <div className="absolute bottom-4 right-4 w-24 h-20 bg-[#161b27] border-2 border-[#1a1f2e] rounded-2xl flex items-center justify-center">
+                <div className="absolute bottom-4 right-4 w-24 h-20 bg-[var(--bg-surface)] border-2 border-[var(--border)] rounded-2xl flex items-center justify-center">
                   <span className="text-2xl">📹</span>
                 </div>
               )}
 
               {/* Session Timer (Bottom Center) */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-[#0a0d14]/90 border border-[#1a1f2e] rounded-full px-3 py-1">
-                <p className="text-[11px] text-[#a8aaee] font-[500]">
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-[var(--bg-deep)]/90 border border-[var(--border)] rounded-full px-3 py-1">
+                <p className="text-[11px] text-[var(--accent)] font-[500]">
                   {Math.floor((Date.now() - sessionStarted.getTime()) / 60000)}:
                   {String(Math.floor(((Date.now() - sessionStarted.getTime()) % 60000) / 1000)).padStart(2, "0")}
                 </p>
@@ -186,8 +186,8 @@ export default function TutorPage() {
 
         {/* Emotion Indicators */}
         {currentEmotion && (
-          <div className="border-t border-[#1a1f2e] bg-[#0a0d14] p-4">
-            <div className="text-[10px] text-[#6b7280] mb-2 font-[500]">Student Sentiment</div>
+          <div className="border-t border-[var(--border)] bg-[var(--bg-deep)] p-4">
+            <div className="text-[10px] text-[var(--text-muted)] mb-2 font-[500]">Student Sentiment</div>
             <div className="grid grid-cols-4 gap-2">
               {Object.entries(EMOTIONS).map(([key, { label, color, bgColor }]) => (
                 <div
@@ -208,11 +208,11 @@ export default function TutorPage() {
         )}
 
         {/* Controls */}
-        <div className="border-t border-[#1a1f2e] p-4 flex justify-center gap-4 bg-[#0a0d14]">
+        <div className="border-t border-[var(--border)] p-4 flex justify-center gap-4 bg-[var(--bg-deep)]">
           <button
             onClick={() => setIsMicOn(!isMicOn)}
             className={`p-3 rounded-full transition-all ${
-              isMicOn ? "bg-[#1a1f35] text-[#a8aaee] border border-[#3d3faa]" : "bg-[#1e2330] text-[#6b7280]"
+              isMicOn ? "bg-[var(--accent-soft)] text-[var(--accent)] border border-[#3d3faa]" : "bg-[var(--bg-raised)] text-[var(--text-muted)]"
             }`}
           >
             🎤
@@ -220,12 +220,12 @@ export default function TutorPage() {
           <button
             onClick={() => setIsVideoOn(!isVideoOn)}
             className={`p-3 rounded-full transition-all ${
-              isVideoOn ? "bg-[#1a1f35] text-[#a8aaee] border border-[#3d3faa]" : "bg-[#1e2330] text-[#6b7280]"
+              isVideoOn ? "bg-[var(--accent-soft)] text-[var(--accent)] border border-[#3d3faa]" : "bg-[var(--bg-raised)] text-[var(--text-muted)]"
             }`}
           >
             📹
           </button>
-          <button className="p-3 rounded-full bg-[#1e2330] text-[#6b7280] hover:text-white hover:bg-[#2a2d45] transition-all">
+          <button className="p-3 rounded-full bg-[var(--bg-raised)] text-[var(--text-muted)] hover:text-white hover:bg-[#2a2d45] transition-all">
             🔇
           </button>
           <button
@@ -238,18 +238,18 @@ export default function TutorPage() {
       </div>
 
       {/* Chat Panel (Right) */}
-      <div className="w-80 border-l border-[#1a1f2e] flex flex-col bg-[#0a0d14]">
+      <div className="w-80 border-l border-[var(--border)] flex flex-col bg-[var(--bg-deep)]">
         {/* Header */}
-        <div className="border-b border-[#1a1f2e] p-4">
+        <div className="border-b border-[var(--border)] p-4">
           <h3 className="text-[12px] font-[500] text-white">{chapter?.title}</h3>
-          <p className="text-[10px] text-[#6b7280] mt-1">Active session</p>
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">Active session</p>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-[12px] text-[#6b7280]">Start asking questions about this topic</p>
+              <p className="text-[12px] text-[var(--text-muted)]">Start asking questions about this topic</p>
             </div>
           )}
           {messages.map((msg, i) => (
@@ -260,8 +260,8 @@ export default function TutorPage() {
               <div
                 className={`max-w-xs rounded-2xl px-4 py-2 text-[12px] leading-relaxed ${
                   msg.role === "student"
-                    ? "bg-[#5b5eff] text-white"
-                    : "bg-[#161b27] text-[#c5c9d6]"
+                    ? "bg-[var(--accent)] text-white"
+                    : "bg-[var(--bg-surface)] text-[var(--text-body)]"
                 }`}
               >
                 {msg.content}
@@ -271,7 +271,7 @@ export default function TutorPage() {
         </div>
 
         {/* Input */}
-        <div className="border-t border-[#1a1f2e] p-4">
+        <div className="border-t border-[var(--border)] p-4">
           <div className="flex gap-2">
             <input
               type="text"
@@ -281,11 +281,11 @@ export default function TutorPage() {
                 if (e.key === "Enter") sendMessage();
               }}
               placeholder="Ask a question..."
-              className="flex-1 bg-[#161b27] border border-[#1a1f2e] rounded-2xl px-3 py-2 text-[12px] text-[#c5c9d6] placeholder-[#3a3f55] outline-none focus:border-[#5b5eff]"
+              className="flex-1 bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl px-3 py-2 text-[12px] text-[var(--text-body)] placeholder-[#3a3f55] outline-none focus:border-[#5b5eff]"
             />
             <button
               onClick={sendMessage}
-              className="p-2 bg-[#5b5eff] text-white rounded-2xl hover:bg-[#3d3faa] transition-all"
+              className="p-2 bg-[var(--accent)] text-white rounded-2xl hover:bg-[#3d3faa] transition-all"
             >
               →
             </button>

@@ -214,10 +214,10 @@ export default function PracticePage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-54px)] items-center justify-center bg-[#0d1117]">
+      <div className="flex min-h-[calc(100vh-54px)] items-center justify-center bg-[var(--bg-base)]">
         <div className="text-center">
           <div className="w-8 h-8 rounded-full border-2 border-[#3d3faa] border-t-[#5b5eff] animate-spin mx-auto mb-3" />
-          <p className="text-[#6b7280] text-sm">Loading practice…</p>
+          <p className="text-[var(--text-muted)] text-sm">Loading practice…</p>
         </div>
       </div>
     );
@@ -230,12 +230,12 @@ export default function PracticePage() {
   const totalAccuracy = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
 
   return (
-    <div className="min-h-[calc(100vh-54px)] bg-[#0d1117] flex">
+    <div className="min-h-[calc(100vh-54px)] bg-[var(--bg-base)] flex">
       {/* Sidebar */}
-      <div className="w-[200px] bg-[#0a0d14] border-r border-[#1a1f2e] flex flex-col shrink-0 p-5">
+      <div className="w-[200px] bg-[var(--bg-deep)] border-r border-[var(--border)] flex flex-col shrink-0 p-5">
         {/* Quiz filter */}
         <div className="mb-6">
-          <div className="text-[10px] text-[#3a3f55] font-[500] uppercase tracking-wider mb-3">Quiz filter</div>
+          <div className="text-[10px] text-[var(--text-faint)] font-[500] uppercase tracking-wider mb-3">Quiz filter</div>
           <div className="space-y-1">
             {["all", "Math", "Science", "English", "History"].map((subj) => (
               <div
@@ -244,8 +244,8 @@ export default function PracticePage() {
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 text-[12px] cursor-pointer rounded transition-all",
                   subjectFilter === subj
-                    ? "bg-[#111520] text-[#a8aaee]"
-                    : "text-[#6b7280] hover:text-[#c5c9d6] hover:bg-[#111520]"
+                    ? "bg-[#111520] text-[var(--accent)]"
+                    : "text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[#111520]"
                 )}
               >
                 {subj !== "all" && (
@@ -261,23 +261,23 @@ export default function PracticePage() {
         </div>
 
         {/* Quiz meta */}
-        <div className="border-t border-[#1a1f2e] pt-4">
+        <div className="border-t border-[var(--border)] pt-4">
           <div className="space-y-2 text-[12px]">
             <div className="flex justify-between">
-              <span className="text-[#6b7280]">Questions</span>
-              <span className="text-[#c5c9d6] font-[500]">{questions.length}</span>
+              <span className="text-[var(--text-muted)]">Questions</span>
+              <span className="text-[var(--text-body)] font-[500]">{questions.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[#6b7280]">Correct</span>
+              <span className="text-[var(--text-muted)]">Correct</span>
               <span className="text-[#1d9e75] font-[500]">{score}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[#6b7280]">Accuracy</span>
-              <span className="text-[#c5c9d6] font-[500]">{answers.length ? accuracy + "%" : "—"}</span>
+              <span className="text-[var(--text-muted)]">Accuracy</span>
+              <span className="text-[var(--text-body)] font-[500]">{answers.length ? accuracy + "%" : "—"}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[#6b7280]">Streak</span>
-              <span className="text-[#c5c9d6] font-[500]">{streak}</span>
+              <span className="text-[var(--text-muted)]">Streak</span>
+              <span className="text-[var(--text-body)] font-[500]">{streak}</span>
             </div>
           </div>
         </div>
@@ -289,20 +289,20 @@ export default function PracticePage() {
           <div className="w-full max-w-[600px]">
             {/* Progress row */}
             <div className="flex items-center gap-3.5 mb-6">
-              <div className="flex-1 h-1 bg-[#1e2330] rounded-full overflow-hidden">
+              <div className="flex-1 h-1 bg-[var(--bg-raised)] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#5b5eff] transition-all duration-300"
+                  className="h-full bg-[var(--accent)] transition-all duration-300"
                   style={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }}
                 />
               </div>
-              <div className="text-[12px] text-[#6b7280] whitespace-nowrap">{currentIdx + 1} / {questions.length}</div>
-              <div className="bg-[#161b27] border border-[#1a1f2e] rounded-full px-3 py-1 text-[12px] text-[#c5c9d6] whitespace-nowrap">
+              <div className="text-[12px] text-[var(--text-muted)] whitespace-nowrap">{currentIdx + 1} / {questions.length}</div>
+              <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-full px-3 py-1 text-[12px] text-[var(--text-body)] whitespace-nowrap">
                 Score: <span className="font-[500]">{score}</span> / <span className="font-[500]">{questions.length}</span>
               </div>
             </div>
 
             {/* Question card */}
-            <div className="bg-[#161b27] border border-[#1a1f2e] rounded-3xl p-6 mb-4">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-6 mb-4">
               <div className={cn("text-[11px] font-[500] uppercase tracking-wider mb-3 px-2 py-1 rounded w-fit", `badge ${SUBJECT_CLASSES[q.subj] || "badge-math"}`)}>
                 {q.subj}
               </div>
@@ -317,12 +317,12 @@ export default function PracticePage() {
                     className={cn(
                       "p-3.5 rounded-2xl border-2 cursor-pointer flex items-center gap-3 transition-all",
                       selectedOption === i && !answered
-                        ? "border-[#3d3faa] bg-[#1a1f35] text-[#a8aaee]"
+                        ? "border-[#3d3faa] bg-[var(--accent-soft)] text-[var(--accent)]"
                         : answered && i === q.correct
                         ? "border-[#1d9e75] bg-[#0f2a1f] text-[#5dcaa5]"
                         : answered && i === selectedOption && i !== q.correct
                         ? "border-[#e24b4a] bg-[#2a1a1a] text-[#f09595]"
-                        : "border-[#2a2d45] bg-[#1e2330] text-[#c5c9d6] hover:border-[#3d3faa] hover:bg-[#1a1f35]",
+                        : "border-[var(--border-mid)] bg-[var(--bg-raised)] text-[var(--text-body)] hover:border-[#3d3faa] hover:bg-[var(--accent-soft)]",
                       answered && "cursor-not-allowed"
                     )}
                   >
@@ -335,7 +335,7 @@ export default function PracticePage() {
                           ? "bg-[#e24b4a] text-white"
                           : selectedOption === i && !answered
                           ? "bg-[#3d3faa] text-white"
-                          : "bg-[#2a2d45] text-[#6b7280]"
+                          : "bg-[#2a2d45] text-[var(--text-muted)]"
                       )}
                     >
                       {String.fromCharCode(65 + i)}
@@ -379,7 +379,7 @@ export default function PracticePage() {
 
             {/* Actions */}
             <div className="flex items-center justify-between">
-              <button onClick={skipQuestion} className="px-4 py-2 text-[12px] text-[#a8aaee] border border-[#2a2d45] rounded-2xl hover:bg-[#1a1f2e] transition-all">
+              <button onClick={skipQuestion} className="px-4 py-2 text-[12px] text-[var(--accent)] border border-[var(--border-mid)] rounded-2xl hover:bg-[#1a1f2e] transition-all">
                 Skip
               </button>
               <button
@@ -388,8 +388,8 @@ export default function PracticePage() {
                 className={cn(
                   "px-4 py-2 text-[12px] rounded-2xl font-[500] transition-all",
                   answered
-                    ? "bg-[#5b5eff] text-white hover:bg-[#3d3faa]"
-                    : "bg-[#2a2d45] text-[#6b7280] cursor-not-allowed opacity-50"
+                    ? "bg-[var(--accent)] text-white hover:bg-[#3d3faa]"
+                    : "bg-[#2a2d45] text-[var(--text-muted)] cursor-not-allowed opacity-50"
                 )}
               >
                 {currentIdx === questions.length - 1 ? "See results →" : "Next question →"}
@@ -408,32 +408,32 @@ export default function PracticePage() {
             </div>
 
             <h2 className="text-xl font-[500] text-white mb-1">Quiz complete!</h2>
-            <p className="text-[12px] text-[#6b7280] mb-6">
+            <p className="text-[12px] text-[var(--text-muted)] mb-6">
               You scored {score} out of {questions.length} {totalAccuracy >= 80 ? "— great work!" : "— keep practising!"}
             </p>
 
             {/* Stats grid */}
             <div className="grid grid-cols-3 gap-2.5 mb-6">
-              <div className="bg-[#161b27] border border-[#1a1f2e] rounded-2xl p-3">
+              <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-3">
                 <div className="text-xl font-[500] text-white">{score}/{questions.length}</div>
-                <div className="text-[10px] text-[#6b7280] mt-1">Score</div>
+                <div className="text-[10px] text-[var(--text-muted)] mt-1">Score</div>
               </div>
-              <div className="bg-[#161b27] border border-[#1a1f2e] rounded-2xl p-3">
+              <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-3">
                 <div className="text-xl font-[500] text-white">{totalAccuracy}%</div>
-                <div className="text-[10px] text-[#6b7280] mt-1">Accuracy</div>
+                <div className="text-[10px] text-[var(--text-muted)] mt-1">Accuracy</div>
               </div>
-              <div className="bg-[#161b27] border border-[#1a1f2e] rounded-2xl p-3">
+              <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-3">
                 <div className="text-xl font-[500] text-white">{bestStreak}</div>
-                <div className="text-[10px] text-[#6b7280] mt-1">Best streak</div>
+                <div className="text-[10px] text-[var(--text-muted)] mt-1">Best streak</div>
               </div>
             </div>
 
             {/* Question breakdown */}
-            <div className="bg-[#161b27] border border-[#1a1f2e] rounded-3xl p-4 mb-6 text-left">
+            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4 mb-6 text-left">
               <div className="space-y-2.5">
                 {answers.map((ans, i) => (
-                  <div key={i} className="flex items-center gap-3 py-2 px-1 border-b border-[#1a1f2e] last:border-b-0">
-                    <span className="text-[12px] text-[#6b7280] flex-1 truncate">{ans.q.slice(0, 50)}{ans.q.length > 50 ? "…" : ""}</span>
+                  <div key={i} className="flex items-center gap-3 py-2 px-1 border-b border-[var(--border)] last:border-b-0">
+                    <span className="text-[12px] text-[var(--text-muted)] flex-1 truncate">{ans.q.slice(0, 50)}{ans.q.length > 50 ? "…" : ""}</span>
                     <span className={cn("text-[11px] font-[500] whitespace-nowrap", ans.correct ? "text-[#5dcaa5]" : "text-[#f09595]")}>
                       {ans.correct ? `✓ ${ans.answer}` : `✗ ${ans.chosen}`}
                     </span>
@@ -444,10 +444,10 @@ export default function PracticePage() {
 
             {/* Action buttons */}
             <div className="flex gap-2.5">
-              <button onClick={() => handleSubjectFilter(subjectFilter)} className="flex-1 px-4 py-2.5 text-[12px] bg-[#161b27] border border-[#1a1f2e] text-[#a8aaee] rounded-2xl hover:bg-[#1a1f2e] transition-all font-[500]">
+              <button onClick={() => handleSubjectFilter(subjectFilter)} className="flex-1 px-4 py-2.5 text-[12px] bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--accent)] rounded-2xl hover:bg-[#1a1f2e] transition-all font-[500]">
                 Try again →
               </button>
-              <button onClick={() => router.push("/learn")} className="flex-1 px-4 py-2.5 text-[12px] bg-[#5b5eff] border border-[#5b5eff] text-white rounded-2xl hover:bg-[#3d3faa] transition-all font-[500]">
+              <button onClick={() => router.push("/learn")} className="flex-1 px-4 py-2.5 text-[12px] bg-[var(--accent)] border border-[#5b5eff] text-white rounded-2xl hover:bg-[#3d3faa] transition-all font-[500]">
                 Ask AI tutor
               </button>
             </div>

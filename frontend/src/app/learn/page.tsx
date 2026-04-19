@@ -88,12 +88,12 @@ export default function LearnPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-[#0d1117]">
+      <div className="min-h-screen bg-[var(--bg-base)]">
         <Nav />
         <div className="flex items-center justify-center min-h-[calc(100vh-54px)]">
           <div className="text-center">
             <div className="w-8 h-8 rounded-full border-2 border-[#3d3faa] border-t-[#5b5eff] animate-spin mx-auto mb-3" />
-            <p className="text-[#6b7280] text-sm">Loading your subjects…</p>
+            <p className="text-[var(--text-muted)] text-sm">Loading your subjects…</p>
           </div>
         </div>
       </div>
@@ -116,25 +116,25 @@ export default function LearnPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117]">
+    <div className="min-h-screen bg-[var(--bg-base)]">
       <Nav />
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Your Curriculum</h1>
-          <p className="text-[#6b7280] text-sm">Master your subjects step by step</p>
+          <p className="text-[var(--text-muted)] text-sm">Master your subjects step by step</p>
         </div>
 
         {/* Progress overview */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-[#c5c9d6]">Overall Progress</span>
-            <span className="text-sm text-[#6b7280]">{completedChapters}/{totalChapters} chapters</span>
+            <span className="text-sm font-medium text-[var(--text-body)]">Overall Progress</span>
+            <span className="text-sm text-[var(--text-muted)]">{completedChapters}/{totalChapters} chapters</span>
           </div>
-          <div className="h-2 bg-[#1e2330] rounded-full overflow-hidden">
+          <div className="h-2 bg-[var(--bg-raised)] rounded-full overflow-hidden">
             <div
-              className="h-full bg-[#5b5eff] transition-all duration-300"
+              className="h-full bg-[var(--accent)] transition-all duration-300"
               style={{ width: `${overallProgress}%` }}
             />
           </div>
@@ -143,10 +143,10 @@ export default function LearnPage() {
         {/* Subject cards grid */}
         {subjects.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-[#6b7280] mb-4">No subjects available yet. Complete onboarding to generate your curriculum.</p>
+            <p className="text-[var(--text-muted)] mb-4">No subjects available yet. Complete onboarding to generate your curriculum.</p>
             <Link
               href="/onboarding"
-              className="inline-block px-6 py-2 bg-[#5b5eff] text-white rounded-xl hover:bg-[#3d3faa] transition"
+              className="inline-block px-6 py-2 bg-[var(--accent)] text-white rounded-xl hover:bg-[#3d3faa] transition"
             >
               Complete Onboarding
             </Link>
@@ -159,12 +159,12 @@ export default function LearnPage() {
                 <Link
                   key={subject.id}
                   href={`/learn/${subject.id}`}
-                  className="group bg-[#161b27] border border-[#1e2330] rounded-2xl p-6 hover:border-[#2a2d45] hover:bg-[#1a1f2e] transition-all cursor-pointer"
+                  className="group bg-[var(--bg-surface)] border border-[var(--bg-raised)] rounded-2xl p-6 hover:border-[var(--border-mid)] hover:bg-[#1a1f2e] transition-all cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-white mb-1">{subject.name}</h3>
-                      <p className="text-[12px] text-[#6b7280]">
+                      <p className="text-[12px] text-[var(--text-muted)]">
                         {subject.chapters_completed} / {subject.total_chapters} chapters
                       </p>
                     </div>
@@ -178,7 +178,7 @@ export default function LearnPage() {
 
                   {/* Progress bar */}
                   <div className="mb-4">
-                    <div className="h-2 bg-[#1e2330] rounded-full overflow-hidden">
+                    <div className="h-2 bg-[var(--bg-raised)] rounded-full overflow-hidden">
                       <div
                         className="h-full transition-all duration-300"
                         style={{
@@ -192,7 +192,7 @@ export default function LearnPage() {
                   {/* Score if available */}
                   {subject.average_score && (
                     <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[#6b7280]">Average score</span>
+                      <span className="text-[12px] text-[var(--text-muted)]">Average score</span>
                       <span className="text-[14px] font-semibold" style={{ color: subject.color }}>
                         {Math.round(subject.average_score)}%
                       </span>
@@ -200,7 +200,7 @@ export default function LearnPage() {
                   )}
 
                   {subject.status !== "completed" && (
-                    <div className="mt-4 text-[12px] text-[#5b5eff] font-medium group-hover:text-[#a8aaee] transition">
+                    <div className="mt-4 text-[12px] text-[var(--accent)] font-medium group-hover:text-[var(--accent)] transition">
                       Continue →
                     </div>
                   )}

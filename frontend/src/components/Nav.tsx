@@ -99,11 +99,11 @@ export default function Nav() {
     <>
       {/* eduai topbar — 54px height, bg-deep (#0a0d14) */}
       {showNav && (
-        <nav className="sticky top-0 z-30 bg-[#0a0d14] border-b border-[#1a1f2e] h-[54px] flex items-center px-6 gap-0">
+        <nav className="sticky top-0 z-30 bg-[var(--bg-deep)] border-b border-[var(--border)] h-[54px] flex items-center px-6 gap-0">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-0 shrink-0 mr-8">
             <span className="text-[16px] font-[500] text-white tracking-tight">
-              Learn<span className="text-[#5b5eff]">OS</span>
+              Learn<span className="text-[var(--accent)]">OS</span>
             </span>
           </Link>
 
@@ -118,8 +118,8 @@ export default function Nav() {
                   className={cn(
                     "px-[14px] h-[54px] flex items-center gap-[7px] text-[12px] whitespace-nowrap border-b-2 transition-all duration-150",
                     active
-                      ? "text-[#a8aaee] border-b-[#5b5eff]"
-                      : "text-[#6b7280] border-b-transparent hover:text-[#c5c9d6]"
+                      ? "text-[var(--accent)] border-b-[#5b5eff]"
+                      : "text-[var(--text-muted)] border-b-transparent hover:text-[var(--text-body)]"
                   )}
                 >
                   {label}
@@ -132,7 +132,7 @@ export default function Nav() {
           <div className="flex items-center gap-[10px] ml-auto">
             {/* Grade badge */}
             {profileGrade && (
-              <div className="bg-[#1a1f35] border border-[#3d3faa] rounded-full px-3 py-1 text-[11px] text-[#a8aaee] font-[500]">
+              <div className="bg-[var(--accent-soft)] border border-[#3d3faa] rounded-full px-3 py-1 text-[11px] text-[var(--accent)] font-[500]">
                 Grade {profileGrade}
               </div>
             )}
@@ -141,25 +141,25 @@ export default function Nav() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen((o) => !o)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#3a3f55] text-[#a8aaee] hover:bg-[#1a1f2e] transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#3a3f55] text-[var(--accent)] hover:bg-[#1a1f2e] transition-colors"
               >
-                <div className="w-6 h-6 rounded-full bg-[#3d3faa] flex items-center justify-center text-[11px] font-[500] text-[#a8aaee] shrink-0">
+                <div className="w-6 h-6 rounded-full bg-[#3d3faa] flex items-center justify-center text-[11px] font-[500] text-[var(--accent)] shrink-0">
                   {initials}
                 </div>
               </button>
 
               {/* Dropdown menu */}
               {dropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-[#161b27] border border-[#1a1f2e] rounded-lg shadow-xl overflow-hidden z-50">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg shadow-xl overflow-hidden z-50">
                   {/* Header */}
-                  <div className="px-4 py-3 border-b border-[#1a1f2e]">
+                  <div className="px-4 py-3 border-b border-[var(--border)]">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-[#3d3faa] flex items-center justify-center text-sm font-[500] text-[#a8aaee] shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-[#3d3faa] flex items-center justify-center text-sm font-[500] text-[var(--accent)] shrink-0">
                         {initials}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-[500] text-white truncate">{displayName}</p>
-                        <p className="text-xs text-[#6b7280] truncate">{displayEmail}</p>
+                        <p className="text-xs text-[var(--text-muted)] truncate">{displayEmail}</p>
                       </div>
                     </div>
                   </div>
@@ -170,19 +170,19 @@ export default function Nav() {
                       <div className="py-1.5">
                         <Link
                           href="/profile"
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#c5c9d6] hover:text-white hover:bg-[#1a1f2e] transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-body)] hover:text-white hover:bg-[#1a1f2e] transition-colors"
                         >
                           Profile Details
                         </Link>
                         <Link
                           href="/analytics"
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#c5c9d6] hover:text-white hover:bg-[#1a1f2e] transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-body)] hover:text-white hover:bg-[#1a1f2e] transition-colors"
                         >
                           My Progress
                         </Link>
                         <Link
                           href="/learn"
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#c5c9d6] hover:text-white hover:bg-[#1a1f2e] transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-body)] hover:text-white hover:bg-[#1a1f2e] transition-colors"
                         >
                           My Subjects
                         </Link>
@@ -194,7 +194,7 @@ export default function Nav() {
                         </button>
                       </div>
                       {/* Sign out */}
-                      <div className="border-t border-[#1a1f2e] py-1.5">
+                      <div className="border-t border-[var(--border)] py-1.5">
                         <button
                           onClick={handleSignOut}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#e24b4a] hover:text-[#f09595] hover:bg-[#2a1a1a] transition-colors text-left"
@@ -205,11 +205,11 @@ export default function Nav() {
                     </>
                   ) : (
                     <div className="px-4 py-3.5 space-y-3">
-                      <p className="text-sm text-[#c5c9d6]">Delete your profile? All progress will be lost.</p>
+                      <p className="text-sm text-[var(--text-body)]">Delete your profile? All progress will be lost.</p>
                       <div className="flex gap-2">
                         <button
                           onClick={() => setDeleteConfirm(false)}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-sm border border-[#1a1f2e] text-[#c5c9d6] hover:bg-[#1a1f2e] transition-colors"
+                          className="flex-1 px-3 py-1.5 rounded-lg text-sm border border-[var(--border)] text-[var(--text-body)] hover:bg-[#1a1f2e] transition-colors"
                         >
                           Cancel
                         </button>

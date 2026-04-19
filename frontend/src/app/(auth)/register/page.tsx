@@ -128,7 +128,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-[18px] font-[500] text-white mb-8 tracking-tight">
-          Learn<span className="text-[#5b5eff]">OS</span>
+          Learn<span className="text-[var(--accent)]">OS</span>
         </div>
         <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-8">
           <h1 className="text-2xl font-bold text-center text-white mb-2">Create your account</h1>

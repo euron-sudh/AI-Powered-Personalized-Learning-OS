@@ -21,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} dark`}>
-      <body className="min-h-screen bg-[#0d1117] text-white antialiased font-sans">
+      <body className="min-h-screen bg-[var(--bg-base)] text-white antialiased font-sans">
         <Nav />
         {children}
       </body>

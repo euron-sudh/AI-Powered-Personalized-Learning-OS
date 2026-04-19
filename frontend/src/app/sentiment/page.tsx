@@ -66,7 +66,7 @@ export default function SentimentPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#0d1117]">
+      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[var(--bg-base)]">
         <div className="text-center">
           <div className="w-8 h-8 rounded-full border-2 border-blue-900 border-t-blue-500 animate-spin mx-auto mb-3" />
           <p className="text-white/40 text-sm">Loading sentiment history…</p>
@@ -98,12 +98,12 @@ export default function SentimentPage() {
     .map((s) => ({ ...s, time: new Date(s.timestamp).toLocaleTimeString() }));
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-[#0d1117] p-8">
+    <div className="min-h-[calc(100vh-64px)] bg-[var(--bg-base)] p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Your Sentiment Journey</h1>
-          <p className="text-[#6b7280]">Track your emotions and engagement during learning sessions</p>
+          <p className="text-[var(--text-muted)]">Track your emotions and engagement during learning sessions</p>
         </div>
 
         {/* Time Range Filter */}
@@ -115,8 +115,8 @@ export default function SentimentPage() {
               className={cn(
                 "px-4 py-2 rounded-lg font-medium transition-all",
                 timeRange === range
-                  ? "bg-[#5b5eff] text-white"
-                  : "bg-[#161b27] text-[#6b7280] hover:border-[#5b5eff] border border-[#1a1f2e]"
+                  ? "bg-[var(--accent)] text-white"
+                  : "bg-[var(--bg-surface)] text-[var(--text-muted)] hover:border-[#5b5eff] border border-[var(--border)]"
               )}
             >
               {range}
@@ -134,7 +134,7 @@ export default function SentimentPage() {
                 "p-6 rounded-lg border transition-all cursor-pointer",
                 selectedEmotion === emotion
                   ? `${bg} text-white border-opacity-50`
-                  : "bg-[#161b27] border-[#1a1f2e] hover:border-[#5b5eff]"
+                  : "bg-[var(--bg-surface)] border-[var(--border)] hover:border-[#5b5eff]"
               )}
             >
               <div className="flex items-center gap-3 mb-4">
@@ -148,19 +148,19 @@ export default function SentimentPage() {
               </div>
               <div className="space-y-1">
                 <div className="flex justify-between text-xs">
-                  <span className={selectedEmotion === emotion ? "text-white/80" : "text-[#6b7280]"}>
+                  <span className={selectedEmotion === emotion ? "text-white/80" : "text-[var(--text-muted)]"}>
                     Frequency
                   </span>
                   <span className={selectedEmotion === emotion ? "text-white" : "font-bold"}>{percentage}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-[#0a0d14] rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[var(--bg-deep)] rounded-full overflow-hidden">
                   <div
                     className={cn(bg, "h-full transition-all")}
                     style={{ width: `${percentage}%` }}
                   />
                 </div>
               </div>
-              <p className={cn("text-xs mt-3", selectedEmotion === emotion ? "text-white/70" : "text-[#6b7280]")}>
+              <p className={cn("text-xs mt-3", selectedEmotion === emotion ? "text-white/70" : "text-[var(--text-muted)]")}>
                 Avg confidence: {avgConfidence}%
               </p>
             </button>
@@ -168,7 +168,7 @@ export default function SentimentPage() {
         </div>
 
         {/* Timeline */}
-        <div className="bg-[#161b27] border border-[#1a1f2e] rounded-lg p-6 mb-8">
+        <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-6 mb-8">
           <h2 className="text-lg font-bold text-white mb-6">Recent Sentiments (Last 20)</h2>
           <div className="space-y-2">
             {timelineData.length > 0 ? (
@@ -177,15 +177,15 @@ export default function SentimentPage() {
                 return (
                   <div
                     key={sentiment.id}
-                    className="flex items-center gap-4 p-3 bg-[#0a0d14] rounded-lg border border-[#1a1f2e]"
+                    className="flex items-center gap-4 p-3 bg-[var(--bg-deep)] rounded-lg border border-[var(--border)]"
                   >
                     <span className="text-2xl">{emotionData?.icon || "❓"}</span>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-white capitalize">{sentiment.emotion}</p>
-                      <p className="text-xs text-[#6b7280]">{sentiment.time}</p>
+                      <p className="text-xs text-[var(--text-muted)]">{sentiment.time}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-32 h-1.5 bg-[#161b27] rounded-full overflow-hidden">
+                      <div className="w-32 h-1.5 bg-[var(--bg-surface)] rounded-full overflow-hidden">
                         <div
                           className={cn(emotionData?.bg || "bg-gray-600", "h-full")}
                           style={{ width: `${sentiment.confidence * 100}%` }}
@@ -199,26 +199,26 @@ export default function SentimentPage() {
                 );
               })
             ) : (
-              <p className="text-[#6b7280] text-center py-8">No sentiment data yet. Start a learning session to track emotions!</p>
+              <p className="text-[var(--text-muted)] text-center py-8">No sentiment data yet. Start a learning session to track emotions!</p>
             )}
           </div>
         </div>
 
         {/* Insights */}
-        <div className="bg-[#161b27] border border-[#1a1f2e] rounded-lg p-6">
+        <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-6">
           <h2 className="text-lg font-bold text-white mb-4">Insights</h2>
           <div className="space-y-3">
             {sentiments.length === 0 ? (
-              <p className="text-[#6b7280]">Complete a learning session to see insights about your learning patterns.</p>
+              <p className="text-[var(--text-muted)]">Complete a learning session to see insights about your learning patterns.</p>
             ) : (
               <>
-                <div className="flex justify-between items-center p-3 bg-[#0a0d14] rounded-lg">
+                <div className="flex justify-between items-center p-3 bg-[var(--bg-deep)] rounded-lg">
                   <p className="text-white">Most common emotion</p>
                   <p className="text-lg font-bold">
                     {emotionStats.reduce((a, b) => (a.count > b.count ? a : b)).emotion}
                   </p>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-[#0a0d14] rounded-lg">
+                <div className="flex justify-between items-center p-3 bg-[var(--bg-deep)] rounded-lg">
                   <p className="text-white">Average confidence</p>
                   <p className="text-lg font-bold">
                     {Math.round(
@@ -227,7 +227,7 @@ export default function SentimentPage() {
                     %
                   </p>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-[#0a0d14] rounded-lg">
+                <div className="flex justify-between items-center p-3 bg-[var(--bg-deep)] rounded-lg">
                   <p className="text-white">Total data points</p>
                   <p className="text-lg font-bold">{sentiments.length}</p>
                 </div>

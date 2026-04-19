@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-19 09:45
+**Last Updated:** 2026-04-19 09:51
 
 # AGENTS.md — LearnOS Project Guide for Codex
 

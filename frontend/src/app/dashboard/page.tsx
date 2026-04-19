@@ -16,18 +16,18 @@ export default function DashboardPage() {
     }
   }, [user, loading, router]);
 
-  if (loading) return <div className="min-h-screen bg-[#0d1117]" />;
+  if (loading) return <div className="min-h-screen bg-[var(--bg-base)]" />;
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[#0d1117]">
+    <div className="min-h-screen bg-[var(--bg-base)]">
       <Nav />
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* HEADER */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Welcome back, Ravi!</h1>
-          <p className="text-[#6b7280]">Here's your learning journey today</p>
+          <p className="text-[var(--text-muted)]">Here's your learning journey today</p>
         </div>
 
         {/* STATS GRID */}
@@ -40,11 +40,11 @@ export default function DashboardPage() {
           ].map((stat, i) => (
             <div
               key={i}
-              className="bg-[#161b27] border border-[#1e2330] rounded-xl p-6"
+              className="bg-[var(--bg-surface)] border border-[var(--bg-raised)] rounded-xl p-6"
             >
               <div className="text-3xl mb-2">{stat.icon}</div>
               <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
-              <div className="text-[12px] text-[#6b7280]">{stat.label}</div>
+              <div className="text-[12px] text-[var(--text-muted)]">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -81,7 +81,7 @@ export default function DashboardPage() {
                 <Link
                   key={i}
                   href="/learn"
-                  className="block bg-[#161b27] border border-[#1e2330] rounded-xl p-4 hover:border-[#2a2d45] transition"
+                  className="block bg-[var(--bg-surface)] border border-[var(--bg-raised)] rounded-xl p-4 hover:border-[var(--border-mid)] transition"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div>
@@ -90,9 +90,9 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-[14px] font-[500] text-white">{item.chapter}</div>
                     </div>
-                    <div className="text-[11px] text-[#6b7280]">⏱️ {item.timeLeft}</div>
+                    <div className="text-[11px] text-[var(--text-muted)]">⏱️ {item.timeLeft}</div>
                   </div>
-                  <div className="h-2 bg-[#1e2330] rounded-full overflow-hidden">
+                  <div className="h-2 bg-[var(--bg-raised)] rounded-full overflow-hidden">
                     <div
                       className="h-full"
                       style={{
@@ -101,7 +101,7 @@ export default function DashboardPage() {
                       }}
                     />
                   </div>
-                  <div className="text-[11px] text-[#6b7280] mt-2">{item.progress}% complete</div>
+                  <div className="text-[11px] text-[var(--text-muted)] mt-2">{item.progress}% complete</div>
                 </Link>
               ))}
             </div>
@@ -113,25 +113,25 @@ export default function DashboardPage() {
             <div className="space-y-3">
               <Link
                 href="/learn"
-                className="block bg-[#5b5eff] text-white rounded-xl p-4 text-center font-[500] hover:opacity-90 transition"
+                className="block bg-[var(--accent)] text-white rounded-xl p-4 text-center font-[500] hover:opacity-90 transition"
               >
                 📖 View Curriculum
               </Link>
               <Link
                 href="/practice"
-                className="block bg-[#161b27] border border-[#1e2330] text-white rounded-xl p-4 text-center font-[500] hover:border-[#2a2d45] transition"
+                className="block bg-[var(--bg-surface)] border border-[var(--bg-raised)] text-white rounded-xl p-4 text-center font-[500] hover:border-[var(--border-mid)] transition"
               >
                 ✏️ Practice Quiz
               </Link>
               <Link
                 href="/learn"
-                className="block bg-[#161b27] border border-[#1e2330] text-white rounded-xl p-4 text-center font-[500] hover:border-[#2a2d45] transition"
+                className="block bg-[var(--bg-surface)] border border-[var(--bg-raised)] text-white rounded-xl p-4 text-center font-[500] hover:border-[var(--border-mid)] transition"
               >
                 🤖 AI Tutor
               </Link>
               <Link
                 href="/analytics"
-                className="block bg-[#161b27] border border-[#1e2330] text-white rounded-xl p-4 text-center font-[500] hover:border-[#2a2d45] transition"
+                className="block bg-[var(--bg-surface)] border border-[var(--bg-raised)] text-white rounded-xl p-4 text-center font-[500] hover:border-[var(--border-mid)] transition"
               >
                 📊 Progress
               </Link>
@@ -149,9 +149,9 @@ export default function DashboardPage() {
               { name: "English", progress: 50, lessons: "4/6 lessons", color: "#ef9f27" },
               { name: "History", progress: 0, lessons: "0/4 lessons", color: "#e24b4a" },
             ].map((subject, i) => (
-              <div key={i} className="bg-[#161b27] border border-[#1e2330] rounded-xl p-4">
+              <div key={i} className="bg-[var(--bg-surface)] border border-[var(--bg-raised)] rounded-xl p-4">
                 <div className="text-[14px] font-[500] text-white mb-3">{subject.name}</div>
-                <div className="h-2 bg-[#1e2330] rounded-full overflow-hidden mb-2">
+                <div className="h-2 bg-[var(--bg-raised)] rounded-full overflow-hidden mb-2">
                   <div
                     className="h-full"
                     style={{
@@ -160,8 +160,8 @@ export default function DashboardPage() {
                     }}
                   />
                 </div>
-                <div className="text-[12px] text-[#6b7280]">{subject.progress}%</div>
-                <div className="text-[11px] text-[#3a3f55] mt-1">{subject.lessons}</div>
+                <div className="text-[12px] text-[var(--text-muted)]">{subject.progress}%</div>
+                <div className="text-[11px] text-[var(--text-faint)] mt-1">{subject.lessons}</div>
               </div>
             ))}
           </div>
