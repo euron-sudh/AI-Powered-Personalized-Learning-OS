@@ -85,11 +85,16 @@ Subject: {subject_name}
 Grade Level: {grade}
 Difficulty: {difficulty_level}{board_info}{background_info}
 
-Generate a curriculum with 8-12 chapters that builds progressively. Each chapter should:
+CRITICAL REQUIREMENT: The chapters MUST follow a strict logical and chronological progression.
+- For History: Follow a strict timeline (e.g., "Stone Age" MUST come before "Indus Valley", which must come before "Vedic Age"). 
+- For Science/Math: Ensure foundations and prerequisites are introduced before advanced topics.
+- Chapter 1 should usually be an introduction or "Foundations" of the subject.
+
+Generate 8-12 chapters. Each chapter should:
 - Have a clear, engaging title
-- Include a 2-3 sentence description
-- List 3-5 specific learning objectives
-- Be appropriate for grade {grade} students
+- Include a 1-sentence scannable description (max 15 words)
+- BREAK DOWN into 3-5 atomic CONCEPTS (the smallest teachable units)
+- Each CONCEPT must have a title and a difficulty_level (easy, medium, hard)
 
 Return ONLY valid JSON in this exact format (no markdown, no explanation):
 {{
@@ -97,9 +102,15 @@ Return ONLY valid JSON in this exact format (no markdown, no explanation):
     {{
       "order_index": 1,
       "title": "Chapter Title",
-      "description": "2-3 sentence description of what students will learn",
-      "learning_objectives": ["objective 1", "objective 2", "objective 3"],
-      "estimated_difficulty": "beginner"
+      "description": "Short 1-sentence hook",
+      "estimated_difficulty": "beginner",
+      "concepts": [
+        {{
+          "order_index": 1,
+          "title": "Concept Title",
+          "difficulty_level": "easy"
+        }}
+      ]
     }}
   ]
 }}"""

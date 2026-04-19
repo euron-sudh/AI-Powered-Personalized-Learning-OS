@@ -61,6 +61,14 @@ DEFAULT_BOARD_CONTEXT = """- Teach using internationally recognised best practic
 - Build from fundamentals to applications progressively"""
 
 
+EMOTION_GUIDANCE: dict[str, str] = {
+    "bored": "The student appears bored or disengaged. Simplify your language immediately. Add a surprising real-world fact or a quick relatable analogy to re-engage them. Keep your response shorter and more conversational.",
+    "confused": "The student appears confused. Slow down significantly. Re-explain the last concept using a completely different analogy or approach. Break it into the smallest possible steps. Ask one simple guiding question at the end.",
+    "frustrated": "The student appears frustrated. Be warm and encouraging first. Acknowledge that this is challenging. Break the problem into the smallest steps possible and celebrate any partial understanding.",
+    "drowsy": "The student appears drowsy or tired. Gently suggest they take a 2-minute break, stand up, or get water. Keep this response very brief and caring.",
+}
+
+
 async def stream_teaching_response(
     chapter_content: dict,
     student_message: str,
@@ -69,11 +77,14 @@ async def stream_teaching_response(
     student_background: str | None,
     board: str | None = None,
     subject_name: str | None = None,
+    emotion: str | None = None,
+    confidence: float | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream a teaching response using Claude API.
 
     Uses Socratic method with board-specific pedagogy.
-    Adapts explanation depth based on student responses and curriculum framework.
+    Adapts explanation depth based on student responses, curriculum framework,
+    and real-time emotion detected from video sentiment analysis.
     """
     key_concepts = ", ".join(chapter_content.get("key_concepts", []))
     chapter_summary = chapter_content.get("summary", "") or chapter_content.get("description", "")
@@ -117,6 +128,15 @@ RESPONSE FORMATTING
 - **Bold** for key terms and definitions
 - Numbered lists for step-by-step solutions
 - Keep responses concise but complete — quality over length"""
+
+    # Inject real-time emotion adaptation if detected with sufficient confidence
+    if emotion and confidence and confidence >= 0.6 and emotion in EMOTION_GUIDANCE:
+        system_prompt += f"""
+
+══════════════════════════════════════════
+REAL-TIME EMOTION DETECTED (priority instruction)
+══════════════════════════════════════════
+{EMOTION_GUIDANCE[emotion]}"""
 
     # Build message history (last 20 exchanges for context)
     messages = []

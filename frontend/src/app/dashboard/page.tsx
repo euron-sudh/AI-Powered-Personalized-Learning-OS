@@ -1,380 +1,171 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { apiGet, apiPost, ApiError } from "@/lib/api";
-import { supabase } from "@/lib/supabase";
-import type { SubjectProgress, ProgressResponse, StudentProfile } from "@/types/student";
-import { cn } from "@/lib/utils";
-import StatCard from "./components/StatCard";
-import SubjectCard from "./components/SubjectCard";
-import AdaptiveOSPanel from "./components/AdaptiveOSPanel";
-import TodayFocus from "./components/TodayFocus";
-
-interface SentimentEntry {
-  emotion: string;
-  confidence: number;
-  timestamp: string;
-}
-
-const EMOTION_CONFIG: Record<string, { emoji: string; color: string; message: string }> = {
-  engaged:    { emoji: "🎯", color: "text-green-400",   message: "You're in the zone — keep going!" },
-  happy:      { emoji: "😊", color: "text-emerald-400", message: "Learning looks fun!" },
-  confused:   { emoji: "🤔", color: "text-yellow-400",  message: "Let's slow down and try a different approach" },
-  bored:      { emoji: "😐", color: "text-orange-400",  message: "Time for a challenge — try a harder topic" },
-  frustrated: { emoji: "😤", color: "text-red-400",     message: "Take a breath — you've got this!" },
-  drowsy:     { emoji: "😴", color: "text-slate-400",   message: "Consider a short break before continuing" },
-};
+import Nav from "@/components/Nav";
+import Link from "next/link";
+import { useEffect } from "react";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useSupabaseAuth();
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
-  const [subjects, setSubjects] = useState<SubjectProgress[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isFirstLogin, setIsFirstLogin] = useState(false);
-  const [sentiment, setSentiment] = useState<SentimentEntry | null>(null);
+  const { user, loading } = useSupabaseAuth();
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) { router.push("/login"); return; }
-
-    async function load() {
-      // Fire profile + progress in parallel — saves one full round-trip
-      const [profResult, progressResult] = await Promise.allSettled([
-        apiGet<StudentProfile>("/api/onboarding/profile", 60_000),
-        apiGet<ProgressResponse>(`/api/progress/${user!.id}`, 20_000),
-      ]);
-
-      // Handle profile
-      if (profResult.status === "rejected") {
-        const err = profResult.reason;
-        if (err instanceof ApiError) {
-          if (err.status === 404) { router.push("/onboarding"); return; }
-          if (err.status === 401) { router.push("/login"); return; }
-        }
-        setError("Failed to load profile. Please refresh.");
-        setLoading(false);
-        return;
-      }
-      const prof = profResult.value;
-      setProfile(prof);
-      if (!prof.onboarding_completed) { router.push("/onboarding"); return; }
-
-      // Handle progress
-      let progressSubjects: SubjectProgress[] = [];
-      if (progressResult.status === "fulfilled") {
-        progressSubjects = progressResult.value.subjects;
-        setSubjects(progressSubjects);
-        // First login if no progress yet
-        setIsFirstLogin(progressSubjects.length === 0);
-      } else {
-        const err = progressResult.reason;
-        if (!(err instanceof ApiError && err.status === 404)) {
-          setError("Failed to load progress. Please refresh.");
-        } else {
-          // No progress found = first login
-          setIsFirstLogin(true);
-        }
-      }
-
-      setLoading(false);
-
-      // Fetch sentiment history (non-blocking)
-      apiGet<SentimentEntry[]>("/api/video/sentiment/history?limit=5", 0).then((logs) => {
-        if (logs && logs.length > 0) {
-          const latest = logs[logs.length - 1];
-          if (latest) setSentiment(latest);
-        }
-      }).catch(() => { /* silent */ });
-
-      // Auto-generate chapters for subjects with 0 chapters (uses seeded syllabus — instant)
-      const needsGeneration = progressSubjects.filter((s) => s.total_chapters === 0);
-      if (needsGeneration.length > 0 && prof) {
-        const results = await Promise.allSettled(
-          needsGeneration.map((s) =>
-            apiPost("/api/curriculum/generate", {
-              subject_name: s.subject_name,
-              difficulty_level: "beginner",
-              board: prof!.board ?? null,
-              grade: prof!.grade ?? null,
-            })
-          )
-        );
-        if (results.some((r) => r.status === "fulfilled")) {
-          try {
-            const updated = await apiGet<ProgressResponse>(`/api/progress/${user!.id}`, 0);
-            setSubjects(updated.subjects);
-          } catch { /* silent */ }
-        }
-      }
+    if (!loading && !user) {
+      router.push("/login");
     }
+  }, [user, loading, router]);
 
-    load();
-  }, [user, authLoading, router]);
+  if (loading) return <div className="min-h-screen bg-[#0d1117]" />;
+  if (!user) return null;
 
-  // Supabase Realtime
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel(`progress:${user.id}`)
-      .on("postgres_changes", {
-        event: "*", schema: "public", table: "student_progress",
-        filter: `student_id=eq.${user.id}`,
-      }, async () => {
-        try {
-          const progress = await apiGet<ProgressResponse>(`/api/progress/${user.id}`, 0);
-          setSubjects(progress.subjects);
-        } catch { /* silent */ }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
-
-  async function handleGenerateCurriculum(subjectName: string) {
-    setGenerating(subjectName);
-    setError(null);
-    try {
-      await apiPost("/api/curriculum/generate", {
-        subject_name: subjectName,
-        difficulty_level: "beginner",
-        board: profile?.board ?? null,
-        grade: profile?.grade ?? null,
-      });
-      const progress = await apiGet<ProgressResponse>(`/api/progress/${user!.id}`, 0);
-      setSubjects(progress.subjects);
-    } catch {
-      setError(`Failed to generate curriculum for ${subjectName}. Please try again.`);
-    } finally {
-      setGenerating(null);
-    }
-  }
-
-  // Derived stats
-  const completedChapters = subjects.reduce((s, x) => s + x.chapters_completed, 0);
-  const totalChaptersAll = subjects.reduce((s, x) => s + x.total_chapters, 0);
-  const activeSubjects = subjects.filter((s) => s.total_chapters > 0).length;
-  const avgScore = (() => {
-    const scored = subjects.filter((s) => s.average_score !== null);
-    if (!scored.length) return null;
-    return Math.round(scored.reduce((sum, s) => sum + (s.average_score ?? 0), 0) / scored.length);
-  })();
-
-  // Most recent in-progress subject for hero
-  const inProgress = subjects.filter((s) => s.chapters_completed > 0 && s.chapters_completed < s.total_chapters);
-  const heroSubject = inProgress[0] ?? subjects.find((s) => s.total_chapters > 0);
-
-  // ─── Loading ────────────────────────────────────────────────────────────────
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-[calc(100vh-64px)] bg-[#080d1a]">
-        <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
-          <div className="h-52 rounded-3xl bg-white/[0.03] animate-pulse" />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-20 rounded-2xl bg-white/[0.03] animate-pulse" />
-            ))}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-56 rounded-2xl bg-white/[0.03] animate-pulse" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-[#080d1a]">
-      <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
+    <div className="min-h-screen bg-[#0d1117]">
+      <Nav />
 
-        {/* Welcome Banner (First Login) */}
-        {isFirstLogin && profile?.name && (
-          <div className="rounded-2xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 px-6 py-4 text-center space-y-2">
-            <p className="text-2xl font-bold text-white">
-              🎉 Welcome, {profile.name}!
-            </p>
-            <p className="text-sm text-white/70">
-              Let's start your personalized learning journey. Pick a subject and dive into your first lesson!
-            </p>
-          </div>
-        )}
-
-        {/* Welcome Back Banner (Returning User) */}
-        {!isFirstLogin && profile?.name && (
-          <div className="rounded-2xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 px-6 py-4 text-center">
-            <p className="text-lg font-semibold text-white">
-              👋 Welcome back, {profile.name}! Ready to continue?
-            </p>
-          </div>
-        )}
-
-        {/* Error banner */}
-        {error && (
-          <div className="flex items-center gap-3 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
-            <span>⚠</span> {error}
-          </div>
-        )}
-
-        {/* ── Page header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-white/30 mb-1">Dashboard</p>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
-              {(() => {
-                const hour = new Date().getHours();
-                const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-                return profile?.name ? `${greeting}, ${profile.name}! 👋` : "Welcome back!";
-              })()}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            {heroSubject && (
-              <Link
-                href={`/learn/${heroSubject.subject_id}`}
-                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-4 py-2 rounded-xl transition-all hover:-translate-y-0.5 shadow-lg shadow-blue-900/40"
-              >
-                Resume {heroSubject.subject_name}
-                <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </Link>
-            )}
-            <Link
-              href="/tutor"
-              className="inline-flex items-center gap-2 bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-white/70 hover:text-white font-medium text-sm px-4 py-2 rounded-xl transition-all"
-            >
-              AI Tutor
-            </Link>
-          </div>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* HEADER */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Welcome back, Ravi!</h1>
+          <p className="text-[#6b7280]">Here's your learning journey today</p>
         </div>
 
-        {/* ── Stats row ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard
-            value={activeSubjects}
-            label="Subjects"
-            color="bg-blue-500/15"
-            href="/learn"
-            icon={
-              <svg className="text-blue-400" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <rect x="2" y="2" width="7" height="7" rx="2" fill="currentColor" opacity="0.8" />
-                <rect x="11" y="2" width="7" height="7" rx="2" fill="currentColor" opacity="0.5" />
-                <rect x="2" y="11" width="7" height="7" rx="2" fill="currentColor" opacity="0.5" />
-                <rect x="11" y="11" width="7" height="7" rx="2" fill="currentColor" opacity="0.8" />
-              </svg>
-            }
-          />
-          <StatCard
-            value={`${completedChapters} / ${totalChaptersAll}`}
-            label="Chapters Completed"
-            color="bg-violet-500/15"
-            subBar={{ done: completedChapters, total: totalChaptersAll || 1 }}
-            icon={
-              <svg className="text-violet-400" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 2L2 7l8 5 8-5-8-5z" fill="currentColor" opacity="0.8" />
-                <path d="M2 13l8 5 8-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.6" />
-              </svg>
-            }
-          />
-          <StatCard
-            value={avgScore !== null ? `${avgScore}%` : "—"}
-            label="Average Score"
-            color="bg-amber-500/15"
-            icon={
-              <svg className="text-amber-400" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M4 14l3.5-4 3 2.5 3-5.5 2.5 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            }
-          />
+        {/* STATS GRID */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          {[
+            { label: "Lessons Done", value: "9", icon: "📚" },
+            { label: "Avg Score", value: "92%", icon: "⭐" },
+            { label: "Day Streak", value: "7 days", icon: "🔥" },
+            { label: "Total XP", value: "2,450", icon: "✨" },
+          ].map((stat, i) => (
+            <div
+              key={i}
+              className="bg-[#161b27] border border-[#1e2330] rounded-xl p-6"
+            >
+              <div className="text-3xl mb-2">{stat.icon}</div>
+              <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
+              <div className="text-[12px] text-[#6b7280]">{stat.label}</div>
+            </div>
+          ))}
         </div>
 
-        {/* ── Emotion Strip (if sentiment data exists) ── */}
-        {sentiment && EMOTION_CONFIG[sentiment.emotion] && (
-          <div className="rounded-xl bg-white/[0.03] border border-white/[0.07] px-4 py-3 flex items-center gap-3">
-            <span className="text-xl shrink-0">{EMOTION_CONFIG[sentiment.emotion].emoji}</span>
-            <div className="flex-1">
-              <p className={cn("text-sm font-medium", EMOTION_CONFIG[sentiment.emotion].color)}>
-                {EMOTION_CONFIG[sentiment.emotion].message}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Smart Focus Banner ── */}
-        {heroSubject && heroSubject.chapters_completed > 0 && heroSubject.chapters_completed < heroSubject.total_chapters && (
-          <div className="rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 px-5 py-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-white/60 font-medium">👉 Continue here</p>
-              <p className="text-lg font-bold text-white mt-0.5">
-                {heroSubject.subject_name} · {heroSubject.chapters_completed}/{heroSubject.total_chapters} chapters
-              </p>
-            </div>
-            <Link
-              href={`/learn/${heroSubject.subject_id}`}
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-4 py-2 rounded-lg transition-all hover:-translate-y-0.5"
-            >
-              Resume
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </Link>
-          </div>
-        )}
-
-        {/* ── Adaptive Learning Engine (main hero) ── */}
-        <AdaptiveOSPanel />
-
-        {/* ── Today's Focus (AI-prioritized next step) ── */}
-        <TodayFocus />
-
-        {/* ── Continue Learning ── */}
-        {subjects.length > 0 && (
-          <section id="subjects">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-lg font-bold text-white">Continue Learning</h2>
-                <p className="text-xs text-white/40 mt-0.5">Pick up exactly where you paused</p>
-              </div>
-              <Link
-                href="/learn"
-                className="text-sm text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 transition-colors"
-              >
-                View all <span>→</span>
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {subjects.map((subject) => (
-                <SubjectCard
-                  key={subject.subject_id}
-                  subject={subject}
-                  onGenerate={handleGenerateCurriculum}
-                  generating={generating}
-                />
+        {/* CONTENT GRID */}
+        <div className="grid grid-cols-3 gap-6">
+          {/* CONTINUE LEARNING */}
+          <div className="col-span-2">
+            <h2 className="text-lg font-bold text-white mb-4">Continue Learning</h2>
+            <div className="space-y-3">
+              {[
+                {
+                  subject: "Mathematics",
+                  chapter: "Linear Equations & Graphing",
+                  progress: 60,
+                  timeLeft: "~20 min",
+                  color: "#5b5eff",
+                },
+                {
+                  subject: "Science",
+                  chapter: "Photosynthesis & Respiration",
+                  progress: 40,
+                  timeLeft: "~35 min",
+                  color: "#1d9e75",
+                },
+                {
+                  subject: "English",
+                  chapter: "Literary Analysis",
+                  progress: 75,
+                  timeLeft: "~15 min",
+                  color: "#ef9f27",
+                },
+              ].map((item, i) => (
+                <Link
+                  key={i}
+                  href="/learn"
+                  className="block bg-[#161b27] border border-[#1e2330] rounded-xl p-4 hover:border-[#2a2d45] transition"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <div className="text-[12px] font-[500]" style={{ color: item.color }}>
+                        {item.subject}
+                      </div>
+                      <div className="text-[14px] font-[500] text-white">{item.chapter}</div>
+                    </div>
+                    <div className="text-[11px] text-[#6b7280]">⏱️ {item.timeLeft}</div>
+                  </div>
+                  <div className="h-2 bg-[#1e2330] rounded-full overflow-hidden">
+                    <div
+                      className="h-full"
+                      style={{
+                        backgroundColor: item.color,
+                        width: `${item.progress}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-[#6b7280] mt-2">{item.progress}% complete</div>
+                </Link>
               ))}
             </div>
-          </section>
-        )}
-
-        {/* Empty state */}
-        {subjects.length === 0 && !error && (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-3xl mx-auto mb-5">
-              📚
-            </div>
-            <p className="font-semibold text-white text-lg">No subjects yet</p>
-            <p className="text-sm text-white/40 mt-2">Complete onboarding to add your subjects.</p>
-            <Link
-              href="/onboarding"
-              className="mt-5 inline-flex items-center gap-2 text-sm text-blue-400 font-medium hover:text-blue-300 transition-colors"
-            >
-              Go to onboarding →
-            </Link>
           </div>
-        )}
 
+          {/* QUICK ACTIONS */}
+          <div>
+            <h2 className="text-lg font-bold text-white mb-4">Quick Actions</h2>
+            <div className="space-y-3">
+              <Link
+                href="/learn"
+                className="block bg-[#5b5eff] text-white rounded-xl p-4 text-center font-[500] hover:opacity-90 transition"
+              >
+                📖 View Curriculum
+              </Link>
+              <Link
+                href="/practice"
+                className="block bg-[#161b27] border border-[#1e2330] text-white rounded-xl p-4 text-center font-[500] hover:border-[#2a2d45] transition"
+              >
+                ✏️ Practice Quiz
+              </Link>
+              <Link
+                href="/learn"
+                className="block bg-[#161b27] border border-[#1e2330] text-white rounded-xl p-4 text-center font-[500] hover:border-[#2a2d45] transition"
+              >
+                🤖 AI Tutor
+              </Link>
+              <Link
+                href="/analytics"
+                className="block bg-[#161b27] border border-[#1e2330] text-white rounded-xl p-4 text-center font-[500] hover:border-[#2a2d45] transition"
+              >
+                📊 Progress
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* SUBJECT OVERVIEW */}
+        <div className="mt-8">
+          <h2 className="text-lg font-bold text-white mb-4">Subject Progress</h2>
+          <div className="grid grid-cols-4 gap-4">
+            {[
+              { name: "Mathematics", progress: 45, lessons: "5/8 lessons", color: "#5b5eff" },
+              { name: "Science", progress: 35, lessons: "3/6 lessons", color: "#1d9e75" },
+              { name: "English", progress: 50, lessons: "4/6 lessons", color: "#ef9f27" },
+              { name: "History", progress: 0, lessons: "0/4 lessons", color: "#e24b4a" },
+            ].map((subject, i) => (
+              <div key={i} className="bg-[#161b27] border border-[#1e2330] rounded-xl p-4">
+                <div className="text-[14px] font-[500] text-white mb-3">{subject.name}</div>
+                <div className="h-2 bg-[#1e2330] rounded-full overflow-hidden mb-2">
+                  <div
+                    className="h-full"
+                    style={{
+                      backgroundColor: subject.color,
+                      width: `${subject.progress}%`,
+                    }}
+                  />
+                </div>
+                <div className="text-[12px] text-[#6b7280]">{subject.progress}%</div>
+                <div className="text-[11px] text-[#3a3f55] mt-1">{subject.lessons}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

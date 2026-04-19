@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 export const maxDuration = 60;
 
 const BACKEND_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
   process.env.BACKEND_URL ||
   process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://learnos-alb-822082048.ap-south-1.elb.amazonaws.com";
+  "http://localhost:8000";
 
 async function handler(req: NextRequest, { params }: { params: { path: string[] } }) {
   try {

@@ -14,6 +14,8 @@ class LessonContent(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     conversation_history: list[dict] = []
+    emotion: str | None = None
+    confidence: float | None = None
 
 
 class ChatMessageResponse(BaseModel):

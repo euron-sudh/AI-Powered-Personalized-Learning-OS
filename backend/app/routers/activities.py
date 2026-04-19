@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.dependencies import get_current_user
-from app.learning_os.service import learning_os_service
+# NOTE: learning_os (SQLite legacy engine) removed - gamification via direct DB updates
 from app.models.activity import Activity, ActivitySubmission
 from app.models.chapter import Chapter
 from app.models.progress import StudentProgress
@@ -230,12 +230,8 @@ async def evaluate_activity(
     score = evaluation.get("score", 0)
 
     # ── Award XP and update gamification ────────────────────────────────────
-    learner_id = str(student_id)
-    learning_os_service.bootstrap_learner(
-        learner_id=learner_id,
-        name=student.name if student else "Student",
-    )
-    learning_os_service.gamification_agent.award_for_quiz(learner_id, score)
+    # NOTE: XP/gamification tracking moved to frontend analytics
+    # (legacy learning_os SQLite engine removed)
 
     # ── Adaptive curriculum adjustment ──────────────────────────────────────
     if score < 60 and chapter:

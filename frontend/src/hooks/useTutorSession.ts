@@ -21,7 +21,7 @@ export interface TutorEvent {
   createdAt: string;
 }
 
-export function useTutorSession(chapterId: string) {
+export function useTutorSession(chapterId: string, isReady: boolean = true) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionState, setSessionState] = useState<TutorSessionState | null>(null);
   const [events, setEvents] = useState<TutorEvent[]>([]);
@@ -65,7 +65,7 @@ export function useTutorSession(chapterId: string) {
     let mounted = true;
 
     async function init() {
-      if (!chapterId) return;
+      if (!chapterId || !isReady) return;
       setLoading(true);
       setError(null);
 
@@ -128,7 +128,7 @@ export function useTutorSession(chapterId: string) {
         channelRef.current = null;
       }
     };
-  }, [chapterId]);
+  }, [chapterId, isReady]);
 
   return {
     sessionId,

@@ -106,3 +106,17 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
   }
   return res.json();
 }
+
+export async function apiDelete<T = void>(path: string): Promise<T> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new ApiError(res.status, text || `API error: ${res.status}`);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}

@@ -1,8 +1,10 @@
 import Link from "next/link";
+import AuthRedirect from "./components/AuthRedirect";
 
 export default function HomePage() {
   return (
     <main className="flex min-h-[calc(100vh-64px)] flex-col items-center justify-center px-4 py-16">
+      <AuthRedirect />
       <div className="text-center max-w-3xl">
         {/* Hero */}
         <div className="inline-block bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold px-3 py-1 rounded-full mb-6">

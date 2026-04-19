@@ -109,6 +109,15 @@ async def generate_curriculum_route(
         db.add(progress)
 
     subject.status = "in_progress"
+    await db.flush()
+
+    # --- LEARNING OS BOOTSTRAP ---
+    # NOTE: learning_os (SQLite engine) removed - bootstrap handled via Supabase schema
+    # from app.learning_os.service import AdaptiveLearningService
+    # from app.learning_os.storage import AdaptiveStorage
+    # service = AdaptiveLearningService(AdaptiveStorage(db))
+    # await service.bootstrap_learner(...)
+
     await db.commit()
 
     return CurriculumResponse(
@@ -130,7 +139,10 @@ async def adjust_curriculum_route(
     Called automatically after a low-score evaluation, or manually by the student.
     """
     student_id = uuid.UUID(user["sub"])
-    subject_uuid = uuid.UUID(subject_id)
+    try:
+        subject_uuid = uuid.UUID(subject_id)
+    except ValueError:
+        return {"message": "Adaptive subjects cannot be re-ordered yet.", "adjusted": False}
 
     # Ownership check
     subject = await db.get(Subject, subject_uuid)
@@ -203,7 +215,10 @@ async def get_curriculum(
 ):
     """Get existing curriculum (chapters list) for a subject."""
     student_id = uuid.UUID(user["sub"])
-    subject_uuid = uuid.UUID(subject_id)
+    try:
+        subject_uuid = uuid.UUID(subject_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Subject '{subject_id}' not found")
 
     subject = await db.get(Subject, subject_uuid)
     if not subject or subject.student_id != student_id:

@@ -6,19 +6,41 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { apiGet } from "@/lib/api";
 import type { StudentProfile } from "@/types/student";
 
+interface ProgressData {
+  subjects: Array<{
+    subject_id: string;
+    subject_name: string;
+    chapters_completed: number;
+    total_chapters: number;
+    progress_percent: number;
+    average_score: number | null;
+    strengths: string[];
+    weaknesses: string[];
+  }>;
+  streak_days: number;
+  total_xp: number;
+  current_level: number;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const { user, loading: authLoading } = useSupabaseAuth();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [progress, setProgress] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.push("/login"); return; }
-    apiGet<StudentProfile>("/api/onboarding/profile")
-      .then(setProfile)
-      .catch(() => setProfile(null))
-      .finally(() => setLoading(false));
+
+    Promise.all([
+      apiGet<StudentProfile>("/api/onboarding/profile")
+        .then(setProfile)
+        .catch(() => setProfile(null)),
+      apiGet<ProgressData>(`/api/progress/${user.id}`)
+        .then(setProgress)
+        .catch(() => setProgress(null)),
+    ]).finally(() => setLoading(false));
   }, [user, authLoading, router]);
 
   const initials = user?.email ? user.email[0].toUpperCase() : "U";
@@ -92,6 +114,86 @@ export default function ProfilePage() {
                   <span className="text-sm text-white/70 text-right max-w-xs">{profile.background}</span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Learning Stats */}
+        {progress && (
+          <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/[0.07]">
+              <h2 className="text-sm font-semibold text-white">Learning Stats</h2>
+            </div>
+            <div className="divide-y divide-white/[0.05]">
+              <div className="px-6 py-4 flex items-center justify-between gap-4">
+                <span className="text-sm text-white/40">Streak</span>
+                <span className="text-sm font-semibold text-white">
+                  🔥 {progress.streak_days} {progress.streak_days === 1 ? "day" : "days"}
+                </span>
+              </div>
+              <div className="px-6 py-4 flex items-center justify-between gap-4">
+                <span className="text-sm text-white/40">Total XP</span>
+                <span className="text-sm font-semibold text-white">⚡ {progress.total_xp.toLocaleString()}</span>
+              </div>
+              <div className="px-6 py-4 flex items-center justify-between gap-4">
+                <span className="text-sm text-white/40">Level</span>
+                <span className="text-sm font-semibold text-white">Level {progress.current_level}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Subject Mastery */}
+        {progress && progress.subjects && progress.subjects.length > 0 && (
+          <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/[0.07]">
+              <h2 className="text-sm font-semibold text-white">Subject Mastery</h2>
+            </div>
+            <div className="divide-y divide-white/[0.05]">
+              {progress.subjects.map((subject) => (
+                <div key={subject.subject_id} className="px-6 py-4 space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-medium text-white">{subject.subject_name}</span>
+                    <span className="text-xs text-white/40">
+                      {subject.chapters_completed}/{subject.total_chapters} chapters
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-violet-500 transition-all"
+                      style={{ width: `${subject.progress_percent}%` }}
+                    />
+                  </div>
+                  {subject.average_score !== null && (
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs text-white/40">Average Score</span>
+                      <span className="text-xs text-white/70 font-medium">{Math.round(subject.average_score)}%</span>
+                    </div>
+                  )}
+                  {(subject.strengths?.length > 0 || subject.weaknesses?.length > 0) && (
+                    <div className="flex flex-col gap-2">
+                      {subject.strengths && subject.strengths.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {subject.strengths.map((strength) => (
+                            <span key={strength} className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded-full">
+                              ✓ {strength}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {subject.weaknesses && subject.weaknesses.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {subject.weaknesses.map((weakness) => (
+                            <span key={weakness} className="text-xs bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded-full">
+                              ⚠ {weakness}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}

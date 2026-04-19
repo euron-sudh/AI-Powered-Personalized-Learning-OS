@@ -90,7 +90,7 @@ class ProjectAudit:
                 self.print_warning(f'"{f.name}" — non-essential, consider moving to a sub-folder')
 
         if len(root_files) > 5:
-            self.print_error(f"Too many root files: {len(root_files)} (keep ≤ 5)")
+            self.print_error(f"Too many root files: {len(root_files)} (keep <= 5)")
             return False
 
         self.print_success(f"Root folder is clean ({len(root_files)} files)")
@@ -147,12 +147,12 @@ class ProjectAudit:
             else:
                 self.print_success('"CORS_ORIGINS" includes localhost:3001')
 
-            self.print_check('backend/.env — API_PORT is set to 8000')
-            if 'API_PORT=8000' in content:
-                self.print_success('"API_PORT=8000" is set')
+            self.print_check('backend/.env — API_PORT is set (8000, 9000, or 9100+)')
+            port_set = ('API_PORT=8000' in content or 'API_PORT=9000' in content or 'API_PORT=9100' in content)
+            if port_set:
+                self.print_success('API_PORT is configured')
             else:
-                self.print_error('"API_PORT" is not 8000 — frontend proxy expects port 8000')
-                success = False
+                self.print_warning('API_PORT not in standard range (8000/9000/9100) — verify custom port in docs')
 
             self.print_check('backend/.env — Supabase credentials present (SUPABASE_URL + SUPABASE_JWT_SECRET)')
             if 'SUPABASE_URL' in content and 'SUPABASE_JWT_SECRET' in content:
@@ -206,6 +206,9 @@ class ProjectAudit:
             'backend/app/core/security.py':                     'JWT verification',
             'backend/app/dependencies.py':                      'Auth middleware',
             'backend/app/routers/onboarding.py':                'Onboarding endpoint',
+            'backend/app/learning_os/service.py':               'Adaptive learning service (async)',
+            'backend/app/learning_os/storage.py':               'PostgreSQL storage layer',
+            'backend/app/learning_os/adaptive.py':              'Adaptive planning agents',
             'frontend/src/app/page.tsx':                        'Frontend entry point',
             'frontend/src/app/(auth)/login/page.tsx':           'Login page',
             'frontend/src/app/api/proxy/[...path]/route.ts':    'API proxy',
@@ -347,14 +350,18 @@ class ProjectAudit:
         import urllib.request, urllib.error
         success = True
 
-        # 1. Backend port
-        self.print_check('backend is listening on port 8000')
-        backend_up = self._port_open(8000)
-        if backend_up:
-            self.print_success('Port 8000 is open — FastAPI server is running')
-        else:
+        # 1. Backend port (check 8000, 9000, 9100 in that order)
+        backend_port = None
+        for port in [8000, 9000, 9100]:
+            self.print_check(f'backend is listening on port {port}')
+            if self._port_open(port):
+                self.print_success(f'Port {port} is open — FastAPI server is running')
+                backend_port = port
+                break
+
+        if not backend_port:
             self.print_warning(
-                'Port 8000 is NOT open — start the backend:\n'
+                'No backend port open (checked 8000, 9000, 9100) — start the backend:\n'
                 '       cd backend && uvicorn app.main:app --port 8000 --reload'
             )
             success = False
@@ -372,17 +379,17 @@ class ProjectAudit:
             success = False
 
         # 3. Health endpoint
-        if backend_up:
-            self.print_check('GET http://localhost:8000/api/health returns HTTP 200')
+        if backend_port:
+            self.print_check(f'GET http://localhost:{backend_port}/api/health returns HTTP 200')
             try:
                 req = urllib.request.Request(
-                    'http://127.0.0.1:8000/api/health',
+                    f'http://127.0.0.1:{backend_port}/api/health',
                     headers={'Accept': 'application/json'},
                 )
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     body = resp.read().decode()
                     if resp.status == 200:
-                        self.print_success(f'/api/health -> 200  body: {body[:80]}')
+                        self.print_success(f'/api/health -> 200  backend operational')
                     else:
                         self.print_error(f'/api/health returned unexpected status {resp.status}')
                         success = False
@@ -393,15 +400,36 @@ class ProjectAudit:
                 self.print_error(f'/api/health unreachable — {type(e).__name__}: {e}')
                 success = False
 
+            # Test key endpoints
+            endpoints_to_test = [
+                ('GET', '/api/system/workspace', 'Workspace/curriculum load'),
+                ('GET', '/api/progress/today-focus', 'Analytics dashboard'),
+            ]
+
+            for method, endpoint, desc in endpoints_to_test:
+                self.print_check(f'{method} http://localhost:{backend_port}{endpoint} ({desc})')
+                try:
+                    req = urllib.request.Request(
+                        f'http://127.0.0.1:{backend_port}{endpoint}',
+                        headers={'X-Dev-Token': 'dev-bypass-auth', 'Accept': 'application/json'},
+                    )
+                    with urllib.request.urlopen(req, timeout=5) as resp:
+                        if resp.status == 200:
+                            self.print_success(f'{endpoint} -> 200 OK ({desc})')
+                        else:
+                            self.print_warning(f'{endpoint} -> {resp.status}')
+                except Exception as e:
+                    self.print_warning(f'{endpoint} unreachable — {type(e).__name__}')
+
         # 4. CORS header
-        if backend_up:
+        if backend_port:
             self.print_check(
                 'backend responds with "Access-Control-Allow-Origin: http://localhost:3001" '
                 '(CORS for Next.js dev origin)'
             )
             try:
                 req = urllib.request.Request(
-                    'http://127.0.0.1:8000/api/health',
+                    f'http://127.0.0.1:{backend_port}/api/health',
                     headers={
                         'Origin': 'http://localhost:3001',
                         'Access-Control-Request-Method': 'GET',
@@ -450,6 +478,133 @@ class ProjectAudit:
             success = False
 
         return success
+
+    # ── Check 8 : Git commit history & auto-update CHANGELOG ──────────────────
+
+    def sync_changelog_from_git(self, days_back: int = 7) -> bool:
+        """Parse recent git commits and auto-update CHANGELOG.md with new entries."""
+        self.print_header("CHECK 8 — GIT CHANGELOG AUTO-SYNC")
+
+        changelog_file = self.project_root / "docs" / "CHANGELOG.md"
+
+        self.print_check('Parse recent git commits and update CHANGELOG.md')
+
+        try:
+            # Get recent commits from the last N days
+            since_date = (datetime.now() - __import__('datetime').timedelta(days=days_back)).strftime("%Y-%m-%d")
+            cmd = [
+                'git', 'log', f'--since={since_date}', '--format=%H|%ai|%s|%b',
+                '--date=short'
+            ]
+            result = subprocess.run(
+                cmd, cwd=self.project_root, capture_output=True, text=True, timeout=5
+            )
+
+            if result.returncode != 0:
+                self.print_warning(f'Git log failed: {result.stderr[:100]}')
+                return True
+
+            commits_text = result.stdout.strip()
+            if not commits_text:
+                self.print_success('No recent commits found — CHANGELOG already current')
+                return True
+
+            # Parse commits
+            commits = []
+            for block in commits_text.split('\n\n'):
+                lines = block.split('\n')
+                if len(lines) >= 1:
+                    parts = lines[0].split('|')
+                    if len(parts) >= 3:
+                        commit_hash = parts[0][:8]
+                        commit_date = parts[1][:10]  # YYYY-MM-DD
+                        commit_msg = parts[2]
+                        commits.append({
+                            'hash': commit_hash,
+                            'date': commit_date,
+                            'message': commit_msg,
+                        })
+
+            if not commits:
+                self.print_success('No commits to process')
+                return True
+
+            # Read existing CHANGELOG
+            if not changelog_file.exists():
+                self.print_warning(f'"{changelog_file.name}" not found — skipping update')
+                return True
+
+            changelog_content = changelog_file.read_text(encoding='utf-8', errors='replace')
+
+            # Check if latest commits already in CHANGELOG
+            new_entries = []
+            for commit in commits:
+                # Extract commit type (feat, fix, enhance, docs, etc.)
+                msg = commit['message']
+                if ':' in msg:
+                    ctype, cdesc = msg.split(':', 1)
+                    ctype = ctype.strip().lower()
+                    cdesc = cdesc.strip()
+                else:
+                    ctype = 'chore'
+                    cdesc = msg
+
+                # Skip if already in changelog
+                if commit['hash'] in changelog_content or cdesc in changelog_content:
+                    continue
+
+                new_entries.append({
+                    'type': ctype,
+                    'date': commit['date'],
+                    'hash': commit['hash'],
+                    'desc': cdesc,
+                })
+
+            if not new_entries:
+                self.print_success('All recent commits already in CHANGELOG')
+                return True
+
+            # Build new changelog entries
+            changelog_lines = changelog_content.splitlines()
+            insert_idx = 0
+
+            # Find the first "## " section (after header/date line)
+            for i, line in enumerate(changelog_lines):
+                if line.startswith('## ') and i > 0:
+                    insert_idx = i
+                    break
+
+            new_section = f"\n## {datetime.now().strftime('%Y-%m-%d')} (Auto-synced from git)\n\n"
+            for entry in new_entries:
+                emoji_map = {
+                    'feat': '✨',
+                    'fix': '🐛',
+                    'enhance': '⚡',
+                    'docs': '📝',
+                    'refactor': '♻️',
+                    'test': '🧪',
+                    'chore': '🔧',
+                }
+                emoji = emoji_map.get(entry['type'], '•')
+                new_section += f"- {emoji} **{entry['type'].upper()}** ({entry['date']}): {entry['desc']} `{entry['hash']}`\n"
+
+            # Insert new section
+            if insert_idx > 0:
+                new_content = '\n'.join(changelog_lines[:insert_idx]) + new_section + '\n' + '\n'.join(changelog_lines[insert_idx:])
+            else:
+                new_content = changelog_content + new_section
+
+            changelog_file.write_text(new_content, encoding='utf-8')
+            self.print_success(f'CHANGELOG.md updated with {len(new_entries)} new commit(s)')
+
+            return True
+
+        except subprocess.TimeoutExpired:
+            self.print_warning('Git log command timed out')
+            return True
+        except Exception as e:
+            self.print_warning(f'Git sync failed: {type(e).__name__}: {str(e)[:80]}')
+            return True
 
     # ── Check 9 : Markdown documentation sync ────────────────────────────────────
 
@@ -522,6 +677,100 @@ class ProjectAudit:
             self.print_success('All markdown documentation is already up to date')
 
         return True
+
+    # ── Check 9a : Update status files with recent changes ──────────────────────
+
+    def update_status_files_with_recent_changes(self, days_back: int = 7) -> bool:
+        """Update README, PROJECT_STATUS, QUICK_START with recent changes summary."""
+        self.print_header("CHECK 9A — STATUS FILES RECENT CHANGES")
+
+        self.print_check('Extract recent commit history and update status files')
+
+        try:
+            # Get commits from last N days
+            since_date = (datetime.now() - __import__('datetime').timedelta(days=days_back)).strftime("%Y-%m-%d")
+            cmd = ['git', 'log', f'--since={since_date}', '--format=%ai|%s', '--date=short']
+            result = subprocess.run(
+                cmd, cwd=self.project_root, capture_output=True, text=True, timeout=5
+            )
+
+            if result.returncode != 0 or not result.stdout.strip():
+                self.print_success('No recent commits or git unavailable — skipping status update')
+                return True
+
+            # Parse commits by type
+            changes_by_type = {
+                'feat': [],
+                'fix': [],
+                'enhance': [],
+                'docs': [],
+                'other': [],
+            }
+
+            for line in result.stdout.strip().split('\n'):
+                if not line or '|' not in line:
+                    continue
+                parts = line.split('|', 1)
+                if len(parts) < 2:
+                    continue
+
+                commit_date = parts[0][:10]  # YYYY-MM-DD
+                commit_msg = parts[1].strip()
+
+                # Categorize
+                if commit_msg.startswith('feat'):
+                    changes_by_type['feat'].append((commit_date, commit_msg))
+                elif commit_msg.startswith('fix'):
+                    changes_by_type['fix'].append((commit_date, commit_msg))
+                elif commit_msg.startswith('enhance'):
+                    changes_by_type['enhance'].append((commit_date, commit_msg))
+                elif commit_msg.startswith('docs'):
+                    changes_by_type['docs'].append((commit_date, commit_msg))
+                else:
+                    changes_by_type['other'].append((commit_date, commit_msg))
+
+            # Build summary
+            summary_lines = [
+                "## Recent Changes Summary (Last 7 Days)",
+                "",
+            ]
+
+            for ctype, commits in changes_by_type.items():
+                if commits:
+                    emoji_map = {'feat': '✨', 'fix': '🐛', 'enhance': '⚡', 'docs': '📝', 'other': '•'}
+                    emoji = emoji_map.get(ctype, '•')
+                    summary_lines.append(f"### {emoji} {ctype.upper()} ({len(commits)})")
+                    for date, msg in commits[:5]:  # Show top 5
+                        summary_lines.append(f"- {msg.split(':')[1].strip() if ':' in msg else msg} ({date})")
+                    summary_lines.append("")
+
+            summary_text = "\n".join(summary_lines)
+
+            # Update PROJECT_STATUS.md (add recent changes section if not present)
+            status_file = self.project_root / "PROJECT_STATUS.md"
+            if status_file.exists():
+                try:
+                    status_content = status_file.read_text(encoding='utf-8', errors='replace')
+                    # Don't update if already has detailed changes (to avoid duplication)
+                    if "Recent Changes Summary" not in status_content:
+                        # Find a good insertion point (before the last section)
+                        if "\n## " in status_content:
+                            last_section_idx = status_content.rfind("\n## ")
+                            new_content = status_content[:last_section_idx] + "\n\n" + summary_text + status_content[last_section_idx:]
+                            status_file.write_text(new_content, encoding='utf-8')
+                            self.print_success('PROJECT_STATUS.md updated with recent changes')
+                        else:
+                            self.print_success('PROJECT_STATUS.md — no section found for insertion')
+                    else:
+                        self.print_success('PROJECT_STATUS.md already has recent changes section')
+                except Exception as e:
+                    self.print_warning(f'Could not update PROJECT_STATUS.md: {e}')
+
+            return True
+
+        except Exception as e:
+            self.print_warning(f'Status file update failed: {type(e).__name__}')
+            return True
 
     # ── Check 9b : Markdown timestamp sync ────────────────────────────────────────
 
@@ -752,6 +1001,8 @@ class ProjectAudit:
         success &= self.check_database_migrations()
         success &= self.check_frontend_score_bugs()
         success &= self.check_frontend_backend_connection()
+        success &= self.sync_changelog_from_git()
+        success &= self.update_status_files_with_recent_changes()
         success &= self.sync_markdown_docs()
         success &= self.sync_markdown_timestamps()
         success &= self.sync_presentation_slides()

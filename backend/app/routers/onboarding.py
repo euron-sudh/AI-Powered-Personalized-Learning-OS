@@ -1,14 +1,16 @@
 import uuid
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Response
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.core.supabase_client import get_supabase_client
 from app.dependencies import get_current_user
 from app.models.chapter import Chapter
+from app.models.concept import Concept
+from app.models.mastery import UserConceptMastery, UserChapterProgress, UserSubjectStats, UserGlobalStats
 from app.models.progress import StudentProgress
 from app.models.student import Student
 from app.models.subject import Subject
@@ -35,7 +37,7 @@ async def save_onboarding(
         # Upsert student record
         existing = await db.get(Student, student_id)
         if existing:
-            print(f"[DEBUG] Updating existing student record")
+            print(f"[DEBUG] Updating existing student record: {student_id}")
             existing.name = data.name
             existing.grade = data.grade
             existing.board = data.board
@@ -43,7 +45,7 @@ async def save_onboarding(
             existing.interests = data.interests
             existing.onboarding_completed = True
         else:
-            print(f"[DEBUG] Creating new student record")
+            print(f"[DEBUG] Creating new student record: {student_id}")
             student = Student(
                 id=student_id,
                 name=data.name,
@@ -54,8 +56,24 @@ async def save_onboarding(
                 onboarding_completed=True,
             )
             db.add(student)
-            # Flush to ensure student exists before inserting subjects with FK constraint
-            await db.flush()
+            
+        # Flush student record first to ensure FKs can be satisfied
+        await db.flush()
+
+        # Initialize adaptive fields if missing
+        if not existing:
+            student.xp = 0
+            student.level = 1
+            student.streak_days = 0
+            student.pace_preference = "steady"
+            student.difficulty_tolerance = 0.62
+            student.preferred_styles = []
+        else:
+            if existing.xp is None: existing.xp = 0
+            if existing.level is None: existing.level = 1
+            if existing.streak_days is None: existing.streak_days = 0
+        
+        await db.flush()
 
         # Create a subject entry + seed chapters for each area of interest
         subjects_created = []
@@ -76,30 +94,102 @@ async def save_onboarding(
             subject = Subject(
                 student_id=student_id,
                 name=interest,
-                status="not_started",
+                status="in_progress",
                 difficulty_level="beginner",
             )
             db.add(subject)
             await db.flush()
 
-            # Seed chapters from official syllabus if available
+            # Initialize Subject Stats
+            subject_stats = UserSubjectStats(
+                user_id=student_id,
+                subject_id=subject.id
+            )
+            db.add(subject_stats)
+
+            # Seed chapters (Official Syllabus first, then AI Fallback)
             syllabus_chapters = get_syllabus(data.board, interest, data.grade) if data.board and data.grade else None
+            
+            if not syllabus_chapters:
+                print(f"[DEBUG] Official syllabus not found for {interest}. Triggering AI generation...")
+                try:
+                    from app.services.curriculum_generator import generate_curriculum as generate_ai_curriculum
+                    ai_res = await generate_ai_curriculum(
+                        subject_name=interest,
+                        grade=data.grade or "8",
+                        board=data.board,
+                        background=data.background,
+                        difficulty_level="beginner"
+                    )
+                    syllabus_chapters = ai_res.get("chapters", [])
+                    print(f"[DEBUG] AI generated {len(syllabus_chapters)} chapters for {interest}")
+                except Exception as e:
+                    print(f"[ERROR] AI generation failed for {interest}: {e}")
+                    syllabus_chapters = []
+
             chapter_count = 0
+            if not syllabus_chapters:
+                # Create placeholder chapter if generation failed
+                print(f"[DEBUG] Creating placeholder chapter for {interest} (generation failed)")
+                placeholder_ch = Chapter(
+                    subject_id=subject.id,
+                    order_index=1,
+                    title=f"Introduction to {interest}",
+                    description=f"Explore {interest} - curriculum will be generated soon",
+                    status="available",
+                )
+                db.add(placeholder_ch)
+                await db.flush()
+
+                ch_progress = UserChapterProgress(
+                    user_id=student_id,
+                    chapter_id=placeholder_ch.id
+                )
+                db.add(ch_progress)
+                chapter_count = 1
+
             if syllabus_chapters:
-                print(f"[DEBUG] Adding {len(syllabus_chapters)} chapters to {interest}")
+                print(f"[DEBUG] Adding {len(syllabus_chapters)} chapters and concepts to {interest}")
                 for ch in syllabus_chapters:
                     chapter = Chapter(
                         subject_id=subject.id,
                         order_index=ch["order_index"],
                         title=ch["title"],
-                        description=ch["description"],
+                        description=ch.get("description", ""),
                         status="available",
                     )
                     db.add(chapter)
-                    chapter_count += 1
-                subject.status = "in_progress"
+                    await db.flush()
 
-            # Create a corresponding progress record
+                    # Initialize Chapter Progress
+                    ch_progress = UserChapterProgress(
+                        user_id=student_id,
+                        chapter_id=chapter.id
+                    )
+                    db.add(ch_progress)
+
+                    # Add Concepts if provided (AI generated)
+                    if "concepts" in ch:
+                        for idx, c_data in enumerate(ch["concepts"]):
+                            concept = Concept(
+                                chapter_id=chapter.id,
+                                title=c_data["title"],
+                                order_index=c_data.get("order_index", idx + 1),
+                                difficulty_level=c_data.get("difficulty_level", "medium")
+                            )
+                            db.add(concept)
+                            await db.flush()
+
+                            # Initialize Concept Mastery
+                            mastery = UserConceptMastery(
+                                user_id=student_id,
+                                concept_id=concept.id
+                            )
+                            db.add(mastery)
+
+                    chapter_count += 1
+
+            # Legacy Progress record (kept for backward compatibility with some UI elements)
             progress = StudentProgress(
                 student_id=student_id,
                 subject_id=subject.id,
@@ -109,9 +199,21 @@ async def save_onboarding(
             db.add(progress)
             subjects_created.append(interest)
 
+        # --- LEARNING OS BOOTSTRAP ---
+        # Flush to ensure chapters/subjects are in the DB for the raw SQL queries in the service
+        await db.flush()
+
+        # Initialize the adaptive learning engine for this student
+        # NOTE: learning_os (SQLite engine) removed - bootstrap handled via Supabase schema
+        # from app.learning_os.service import AdaptiveLearningService
+        # from app.learning_os.storage import AdaptiveStorage
+        # goal = f"Master {', '.join(data.interests)} at Grade {data.grade}"
+        # service = AdaptiveLearningService(AdaptiveStorage(db))
+        # await service.bootstrap_learner(...)
+
         print(f"[DEBUG] Committing database changes")
         await db.commit()
-        print(f"[DEBUG] Onboarding completed successfully")
+        print(f"[DEBUG] Onboarding and Orchestration completed successfully")
 
         return OnboardingResponse(
             student_id=str(student_id),
@@ -188,3 +290,60 @@ async def get_student_profile(
         "onboarding_completed": student.onboarding_completed,
         "marksheet_path": student.marksheet_path,
     }
+
+
+@router.get("/subjects")
+async def get_student_subjects(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Get all subjects for the current student with chapter counts."""
+    student_id = uuid.UUID(user["sub"])
+
+    result = await db.execute(
+        select(Subject).where(Subject.student_id == student_id)
+    )
+    subjects = result.scalars().all()
+
+    response = []
+    for subject in subjects:
+        # Count chapters for this subject
+        chapters_result = await db.execute(
+            select(Chapter).where(Chapter.subject_id == subject.id)
+        )
+        chapters = chapters_result.scalars().all()
+
+        response.append({
+            "id": str(subject.id),
+            "name": subject.name,
+            "status": subject.status,
+            "difficulty_level": subject.difficulty_level,
+            "chapter_count": len(chapters),
+        })
+
+    return {"subjects": response}
+
+
+@router.delete("")
+async def delete_profile(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Delete student profile and all associated data."""
+    try:
+        student_id = uuid.UUID(user["sub"])
+
+        # Delete StudentProgress records
+        await db.execute(delete(StudentProgress).where(StudentProgress.student_id == student_id))
+
+        # Delete Subject records (should cascade to chapters if FK cascade is set)
+        await db.execute(delete(Subject).where(Subject.student_id == student_id))
+
+        # Delete Student record
+        await db.execute(delete(Student).where(Student.id == student_id))
+
+        await db.commit()
+        return Response(status_code=204)
+    except Exception as e:
+        logger.error(f"Error deleting profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete profile")

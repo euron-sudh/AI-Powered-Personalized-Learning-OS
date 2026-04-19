@@ -1,14 +1,28 @@
 import json
+import hashlib
 
 from app.core.ai_client import claude_client, openai_client
+from app.core.redis_client import redis_client
 
 
-async def analyze_frame(frame_base64: str) -> dict:
+async def analyze_frame(frame_base64: str, use_cache: bool = True) -> dict:
     """Analyze a video frame for student sentiment using Claude Vision.
 
     Detects: engagement, confusion, boredom, frustration, happiness, drowsiness.
     Returns emotion label and confidence score.
+    Uses Redis caching to avoid re-analyzing identical frames.
     """
+    # Check cache first
+    if use_cache and redis_client:
+        frame_hash = hashlib.sha256(frame_base64.encode()).hexdigest()
+        cache_key = f"sentiment:frame:{frame_hash}"
+        try:
+            cached = await redis_client.get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass  # Cache miss or Redis error — proceed with analysis
+
     prompt = """Analyze this image of a student studying at their computer/desk.
 
 IMPORTANT DEFAULTS:
@@ -85,7 +99,18 @@ The "confidence" must be a float 0.0–1.0. Return confidence < 0.4 if face is n
     start = content.find("{")
     end = content.rfind("}") + 1
     json_str = content[start:end]
-    return json.loads(json_str)
+    result = json.loads(json_str)
+
+    # Cache the result for 5 minutes to avoid re-analyzing identical frames
+    if use_cache and redis_client:
+        frame_hash = hashlib.sha256(frame_base64.encode()).hexdigest()
+        cache_key = f"sentiment:frame:{frame_hash}"
+        try:
+            await redis_client.setex(cache_key, 300, json.dumps(result))
+        except Exception:
+            pass  # Cache save failure doesn't block the response
+
+    return result
 
 
 def determine_adaptive_action(emotion: str, confidence: float) -> str | None:

@@ -96,16 +96,15 @@ async def sentiment_websocket(
                 except ValueError:
                     pass
 
-            if chapter_uuid:
-                log = SentimentLog(
-                    student_id=student_id,
-                    chapter_id=chapter_uuid,
-                    emotion=emotion,
-                    confidence=confidence,
-                    action_taken=action,
-                )
-                db.add(log)
-                await db.commit()
+            log = SentimentLog(
+                student_id=student_id,
+                chapter_id=chapter_uuid,
+                emotion=emotion,
+                confidence=confidence,
+                action_taken=action,
+            )
+            db.add(log)
+            await db.commit()
 
             await websocket.send_json({
                 "emotion": emotion,

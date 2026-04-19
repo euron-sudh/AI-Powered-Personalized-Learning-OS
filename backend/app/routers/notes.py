@@ -22,7 +22,12 @@ async def get_note(
     db: AsyncSession = Depends(get_db_session),
 ):
     student_id = uuid.UUID(user["sub"])
-    chapter_uuid = uuid.UUID(chapter_id)
+    try:
+        chapter_uuid = uuid.UUID(chapter_id)
+    except ValueError:
+        # Notes for non-UUID topics (Adaptive OS) are not yet supported in Postgres
+        return {"content": ""}
+
     result = await db.execute(
         select(StudentNote).where(
             StudentNote.student_id == student_id,
@@ -41,7 +46,12 @@ async def save_note(
     db: AsyncSession = Depends(get_db_session),
 ):
     student_id = uuid.UUID(user["sub"])
-    chapter_uuid = uuid.UUID(chapter_id)
+    try:
+        chapter_uuid = uuid.UUID(chapter_id)
+    except ValueError:
+        # Notes for non-UUID topics (Adaptive OS) are not yet supported in Postgres
+        return {"content": body.content, "warning": "Adaptive topics notes not yet persisted"}
+
     # Single-round-trip UPSERT — no SELECT before INSERT/UPDATE
     stmt = pg_insert(StudentNote).values(
         student_id=student_id,

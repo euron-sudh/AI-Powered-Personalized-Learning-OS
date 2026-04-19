@@ -1,51 +1,29 @@
-**Last Updated:** 2026-04-17 16:00
+**Last Updated:** 2026-04-19 09:45
 
-# 🎓 LearnOS — AI-Powered Personalized Learning Platform
+# LearnOS — AI-Powered Personalized Learning Platform
 
-An intelligent tutoring system that adapts to each student in real time using:
-- **🎙️ Voice Chat** — Speak naturally with an AI tutor
-- **📚 Smart Lessons** — AI generates personalized curriculum
-- **😊 Emotion Detection** — Camera analyzes student engagement and adapts
-- **🎯 Adaptive Learning** — Content difficulty adjusts based on performance
-
-## ⚡ Quick Links
-
-- **[Getting Started Guide](GETTING_STARTED.md)** ← **Start here if you're new!**
-- [Full Documentation](docs/CLAUDE.md)
-- [Troubleshooting](GETTING_STARTED.md#-troubleshooting)
-- [Project Status](docs/CHANGELOG.md)
+A Netflix-style K-12 education platform that adapts in real time using speech-to-speech conversation, live video sentiment analysis, and AI-generated personalized curricula.
 
 ---
 
-## 🚀 Start in 2 Minutes
+## Table of Contents
 
-```bash
-# Terminal 1: Backend
-cd backend && python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-alembic upgrade head
-python -m uvicorn app.main:app --port 8000
-
-# Terminal 2: Frontend  
-cd frontend && npm install && npm run dev
-```
-
-Visit: **http://localhost:3001**
-
----
-
-## 📋 System Requirements
-
-- Python 3.11+
-- Node.js 18+
-- Supabase Account (free tier works)
-- OpenAI API Key
-- Anthropic API Key
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Database Schema](#database-schema)
+- [API Reference](#api-reference)
+- [Pages & Routes](#pages--routes)
+- [AI Integration](#ai-integration)
+- [Deployment](#deployment)
+- [Privacy & Security](#privacy--security)
 
 ---
 
-## ✨ Features
+## Features
 
 ### Authentication
 - Email/password registration and login via Supabase Auth
@@ -127,19 +105,10 @@ Visit: **http://localhost:3001**
 - Learning profile: AI-identified strengths and areas for improvement
 - **Live updates via Supabase Realtime**
 
-### Navigation (Session-First)
-- **Home** → Dashboard overview, today's learning plan, AI coach insights
-- **Session** → Unified learning experience: lesson + chat + voice + activities (no duplicate "Learn" + "AI Tutor")
-- **Path** → Learning roadmap: subjects, chapters, progress visualization
-- **Insights** → Analytics dashboard: performance trends, emotional journey, strengths/weaknesses
-- Profile dropdown: avatar, email, Profile Details, Learning Path, Start Learning, Preferences, Sign Out
-
-### Today's Focus (AI Priority Engine)
-- Smart dashboard section showing **ONE recommended topic** picked by AI
-- Priority scoring: performance (low score → higher priority) + sentiment (confusion/frustration boost) + time decay (inactive topics resurface)
-- Shows: topic name, reason ("You struggled here 48%" or "You're improving"), duration, "Start Now" button
-- Secondary items: next 2 topics in collapsed list
-- Powered by `/api/progress/today-focus` endpoint combining score + sentiment + weakness data
+### Profile & Navigation
+- Profile dropdown in the nav: avatar, email, Profile Details, My Progress, My Subjects, Edit Preferences, Sign Out
+- Dedicated `/profile` page showing account details and learning profile
+- Nav tabs: Dashboard · Subjects · Courses · Videos · AI Tutor · Analytics
 
 ---
 

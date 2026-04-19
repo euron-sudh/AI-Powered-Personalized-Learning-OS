@@ -23,3 +23,4 @@ class Chapter(Base):
     subject = relationship("Subject", back_populates="chapters")
     activities = relationship("Activity", back_populates="chapter")
     chat_messages = relationship("ChatMessage", back_populates="chapter")
+    concepts = relationship("Concept", back_populates="chapter", cascade="all, delete-orphan")

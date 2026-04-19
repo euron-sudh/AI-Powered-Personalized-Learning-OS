@@ -1,0 +1,146 @@
+{
+  "timestamp": "20260418_024401",
+  "project": "LearnOS",
+  "summary": {
+    "total_errors": 0,
+    "total_warnings": 4,
+    "root_files": 4,
+    "markdown_files": 10
+  },
+  "findings": {
+    "links": {
+      "valid": [
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "python.org/downloads",
+          "url": "https://www.python.org/downloads/",
+          "line": 14
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "nodejs.org",
+          "url": "https://nodejs.org/",
+          "line": 19
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "git-scm.com",
+          "url": "https://git-scm.com/",
+          "line": 24
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "supabase.com",
+          "url": "https://supabase.com",
+          "line": 34
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "platform.openai.com",
+          "url": "https://platform.openai.com",
+          "line": 46
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "console.anthropic.com",
+          "url": "https://console.anthropic.com/",
+          "line": 53
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "docs/QUICK_START.md",
+          "url": "docs/QUICK_START.md",
+          "line": 312
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "CLAUDE.md",
+          "url": "CLAUDE.md",
+          "line": 313
+        },
+        {
+          "file": "GETTING_STARTED.md",
+          "text": "docs/",
+          "url": "docs/",
+          "line": 323
+        },
+        {
+          "file": "README.md",
+          "text": "Getting Started Guide",
+          "url": "GETTING_STARTED.md",
+          "line": 16
+        },
+        {
+          "file": "README.md",
+          "text": "Full Documentation",
+          "url": "CLAUDE.md",
+          "line": 17
+        },
+        {
+          "file": "README.md",
+          "text": "Troubleshooting",
+          "url": "GETTING_STARTED.md#-troubleshooting",
+          "line": 18
+        },
+        {
+          "file": "README.md",
+          "text": "Project Status",
+          "url": "docs/IMPLEMENTATION_REPORT.md",
+          "line": 19
+        },
+        {
+          "file": "README.md",
+          "text": "Supabase",
+          "url": "https://supabase.com",
+          "line": 285
+        },
+        {
+          "file": "README.md",
+          "text": "Anthropic",
+          "url": "https://console.anthropic.com",
+          "line": 286
+        },
+        {
+          "file": "README.md",
+          "text": "OpenAI",
+          "url": "https://platform.openai.com",
+          "line": 287
+        },
+        {
+          "file": "README.md",
+          "text": "Environment Variables",
+          "url": "#environment-variables",
+          "line": 296
+        },
+        {
+          "file": "README.md",
+          "text": "supabase.com",
+          "url": "https://supabase.com",
+          "line": 330
+        },
+        {
+          "file": "README.md",
+          "text": "Google Cloud Console",
+          "url": "https://console.cloud.google.com",
+          "line": 338
+        }
+      ],
+      "broken": []
+    },
+    "files": {
+      "checked": [],
+      "missing": []
+    },
+    "structure": {
+      "valid": [],
+      "issues": []
+    }
+  },
+  "errors": [],
+  "warnings": [
+    "\"CLAUDE.md\" \u2014 non-essential, consider moving to a sub-folder",
+    "\"CHANGELOG.md\" not found \u2014 skipping update",
+    "\"PROJECT_STATUS.md\" not found \u2014 skipping",
+    "\"docs/CHANGELOG.md\" not found \u2014 skipping slides sync"
+  ]
+}

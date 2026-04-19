@@ -20,8 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-[#080d1a] text-white antialiased font-sans">
+    <html lang="en" className={`${inter.variable} dark`}>
+      <body className="min-h-screen bg-[#0d1117] text-white antialiased font-sans">
         <Nav />
         {children}
       </body>

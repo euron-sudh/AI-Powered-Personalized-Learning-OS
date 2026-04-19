@@ -1,416 +1,297 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { apiGet, apiPut } from "@/lib/api";
-import VideoFeed from "@/app/learn/components/VideoFeed";
-import { AIContentCard } from "@/app/learn/components/AIContentCard";
-import SentimentIndicator from "@/components/SentimentIndicator";
-import { useSentiment, type SentimentData } from "@/hooks/useSentiment";
-import { useTutorSession } from "@/hooks/useTutorSession";
-import { useVoiceChat } from "@/hooks/useVoiceChat";
+import { supabase } from "@/lib/supabase";
 
-interface LessonData {
-  status?: string;
-  chapter_id: string;
+interface Chapter {
+  id: string;
   title: string;
   description: string;
-  content_html: string;
-  diagrams: string[];
-  formulas: string[];
-  key_concepts: string[];
-  summary: string;
 }
 
-interface StudentProfile {
-  name: string;
-  grade: string;
-  board: string;
+interface Message {
+  role: "student" | "tutor";
+  content: string;
 }
 
-type AIContentItem =
-  | { id: string; type: "youtube"; videoId: string; title: string; concept: string }
-  | { id: string; type: "diagram"; mermaidCode: string; title: string }
-  | { id: string; type: "question"; question: string; hint?: string; answered?: string }
-  | { id: string; type: "stage_change"; stage: string; emotion: string };
+interface EmotionData {
+  emotion: string;
+  confidence: number;
+  color: string;
+}
 
-export default function LessonPage({
-  params,
-}: {
-  params: { subjectId: string; chapterId: string };
-}) {
+const EMOTIONS: Record<string, { label: string; color: string; bgColor: string }> = {
+  engaged: { label: "Engaged", color: "#1d9e75", bgColor: "#0f2a1f" },
+  confused: { label: "Confused", color: "#ef9f27", bgColor: "#1f1a0f" },
+  frustrated: { label: "Frustrated", color: "#e24b4a", bgColor: "#2a1a1a" },
+  bored: { label: "Bored", color: "#6b7280", bgColor: "#1e2330" },
+};
+
+export default function TutorPage() {
   const router = useRouter();
+  const params = useParams();
   const { user, loading: authLoading } = useSupabaseAuth();
-
-  // Lesson data
-  const [lesson, setLesson] = useState<LessonData | null>(null);
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [chapter, setChapter] = useState<Chapter | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isVideoOn, setIsVideoOn] = useState(true);
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [currentEmotion, setCurrentEmotion] = useState<EmotionData | null>(null);
+  const [sessionStarted, setSessionStarted] = useState(new Date());
+  const subjectId = params.subjectId as string;
+  const chapterId = params.chapterId as string;
 
-  // Notes state
-  const [notes, setNotes] = useState("");
-  const [notesSaveState, setNotesSaveState] = useState<"idle" | "saving" | "saved">("idle");
-  const [notesOpen, setNotesOpen] = useState(true);
-  const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Sentiment — lifted to page level, passed to VideoFeed & voice
-  const {
-    currentSentiment,
-    history,
-    analyzing,
-    sendFrame,
-    connect: connectSentiment,
-    disconnect: disconnectSentiment
-  } = useSentiment();
-
-  // Tutor session — tracks stage, emotion, mastery; handles event streaming
-  const { sessionId, pushEmotion } = useTutorSession(params.chapterId);
-
-  // Tool call handler — wired to voice chat via ref
-  const onToolCallRef = useRef<(name: string, args: Record<string, unknown>) => void>();
-
-  // Voice chat — auto-initiates after session starts; handles tool calls
-  // NOTE: chapterId passed via options, not connect() which takes no params
-  const voiceChat = useVoiceChat({
-    chapterId: params.chapterId,
-    lessonTitle: lesson?.title,
-    chapterDescription: lesson?.description,
-    keyConcepts: lesson?.key_concepts,
-    summary: lesson?.summary,
-    grade: profile?.grade,
-    board: profile?.board,
-    onToolCall: (name, args) => onToolCallRef.current?.(name, args),
-  });
-
-  // AI Content feed — populated by tool calls (YouTube, diagrams, questions, stage changes)
-  const [aiContent, setAiContent] = useState<AIContentItem[]>([]);
-  const feedEndRef = useRef<HTMLDivElement>(null);
-
-  // Sentiment injection debouncing — prevents spam; skips positive emotions
-  const lastInjectedRef = useRef<{ emotion: string; time: number } | null>(null);
-
-  // Auth guard + load lesson data
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) { router.push("/login"); return; }
+    if (!authLoading && !user) {
+      router.push("/login");
+      return;
+    }
+    if (!authLoading && user) {
+      loadChapter();
+      // Simulate emotion detection every 5 seconds
+      const emotionInterval = setInterval(() => {
+        const emotions = Object.keys(EMOTIONS);
+        const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
+        const emotionInfo = EMOTIONS[randomEmotion];
+        setCurrentEmotion({
+          emotion: randomEmotion,
+          confidence: Math.random() * 0.4 + 0.6, // 0.6-1.0
+          color: emotionInfo.color,
+        });
+      }, 5000);
+      return () => clearInterval(emotionInterval);
+    }
+  }, [user, authLoading, router, chapterId]);
 
-    setLoading(true);
-    let pollTimer: ReturnType<typeof setInterval> | null = null;
+  async function loadChapter() {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-    async function applyLesson(data: LessonData) {
-      setLesson(data);
+      const res = await fetch(`/api/proxy/api/curriculum/${subjectId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const ch = data.chapters?.find((c: any) => c.id === chapterId);
+        if (ch) setChapter(ch);
+      }
+    } catch (err) {
+      console.error("Failed to load chapter:", err);
+    } finally {
       setLoading(false);
     }
+  }
 
-    async function loadLesson() {
-      try {
-        const [data, prof] = await Promise.all([
-          apiGet<LessonData>(`/api/lessons/${params.chapterId}/content`, 0),
-          apiGet<StudentProfile>("/api/onboarding/profile").catch(() => null),
-        ]);
-        setProfile(prof);
+  async function sendMessage() {
+    if (!inputValue.trim()) return;
 
-        if (data.status !== "generating") {
-          await applyLesson(data);
-          return;
-        }
+    setMessages([...messages, { role: "student", content: inputValue }]);
+    setInputValue("");
 
-        // Backend is generating — poll every 6s
-        pollTimer = setInterval(async () => {
-          try {
-            const polled = await apiGet<LessonData>(`/api/lessons/${params.chapterId}/content`, 0);
-            if (polled.status !== "generating") {
-              clearInterval(pollTimer!);
-              pollTimer = null;
-              await applyLesson(polled);
-            }
-          } catch {
-            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-            setError("Failed to load lesson. Please go back and try again.");
-            setLoading(false);
-          }
-        }, 6000);
-      } catch {
-        setError("Failed to load lesson. Please go back and try again.");
-        setLoading(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch(`/api/proxy/api/lessons/${chapterId}/chat`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ message: inputValue }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMessages((prev) => [...prev, { role: "tutor", content: data.response || "Let me explain..." }]);
       }
+    } catch (err) {
+      console.error("Failed to send message:", err);
     }
-
-    loadLesson();
-    return () => { if (pollTimer) clearInterval(pollTimer); };
-  }, [user, authLoading, params.chapterId, router]);
-
-  // Load notes independently
-  useEffect(() => {
-    if (!user) return;
-    apiGet<{ content: string }>(`/api/notes/${params.chapterId}`, 0)
-      .then((d) => setNotes(d.content ?? ""))
-      .catch(() => {});
-  }, [user, params.chapterId]);
-
-  // Auto-connect voice + sentiment after lesson & session load
-  useEffect(() => {
-    if (!lesson || !sessionId || !profile) return;
-    voiceChat.connect();
-    connectSentiment(params.chapterId);
-    return () => {
-      voiceChat.disconnect();
-      disconnectSentiment();
-    };
-  }, [lesson, sessionId, profile, params.chapterId, connectSentiment, disconnectSentiment]);
-
-  // Wire sentiment changes → inject context into voice + push emotion to tutor session
-  useEffect(() => {
-    if (!currentSentiment) return;
-    const { emotion, confidence } = currentSentiment;
-
-    // Only inject if confidence is high enough
-    if (confidence < 0.65) return;
-
-    // Skip positive emotions (engaged, happy)
-    if (['engaged', 'happy'].includes(emotion)) return;
-
-    const now = Date.now();
-    // Debounce per emotion type: don't re-inject same emotion within 60s
-    if (lastInjectedRef.current?.emotion === emotion && now - lastInjectedRef.current.time < 60000) return;
-
-    // Send hidden system context to voice session
-    voiceChat.injectSentimentContext(emotion, confidence);
-
-    // Push emotion to tutor session state machine
-    pushEmotion(emotion, confidence);
-
-    lastInjectedRef.current = { emotion, time: now };
-  }, [currentSentiment, pushEmotion]);
-
-  // Auto-scroll feed to bottom when new content arrives
-  useEffect(() => {
-    feedEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [aiContent]);
-
-  // Save notes with 800ms debounce
-  const saveNotes = useCallback(
-    (content: string) => {
-      setNotesSaveState("saving");
-      apiPut(`/api/notes/${params.chapterId}`, { content })
-        .then(() => {
-          setNotesSaveState("saved");
-          setTimeout(() => setNotesSaveState("idle"), 2500);
-        })
-        .catch(() => setNotesSaveState("idle"));
-    },
-    [params.chapterId]
-  );
-
-  function handleNotesChange(value: string) {
-    setNotes(value);
-    setNotesSaveState("idle");
-    if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
-    notesDebounceRef.current = setTimeout(() => saveNotes(value), 800);
   }
-
-  function downloadNotes() {
-    const blob = new Blob([notes], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${lesson?.title ?? "notes"}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // Handle tool calls from voice chat (YouTube, diagrams, questions)
-  const handleToolCall = useCallback((toolName: string, toolInput: Record<string, unknown>) => {
-    const id = `tool-${Date.now()}`;
-
-    if (toolName === "show_youtube_video") {
-      setAiContent((prev) => [...prev, {
-        id,
-        type: "youtube",
-        videoId: toolInput.video_id as string,
-        title: toolInput.title as string,
-        concept: toolInput.concept as string || "",
-      }]);
-    } else if (toolName === "show_diagram") {
-      setAiContent((prev) => [...prev, {
-        id,
-        type: "diagram",
-        mermaidCode: toolInput.mermaid_code as string,
-        title: toolInput.title as string,
-      }]);
-    } else if (toolName === "ask_comprehension_question") {
-      setAiContent((prev) => [...prev, {
-        id,
-        type: "question",
-        question: toolInput.question as string,
-        hint: toolInput.hint as string | undefined,
-      }]);
-    }
-  }, []);
-
-  // Wire handler to ref after it's defined
-  useEffect(() => {
-    onToolCallRef.current = handleToolCall;
-  }, [handleToolCall]);
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center flex-col gap-3">
-        <div className="animate-spin w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full" />
-        <p className="text-gray-500 text-sm">Generating your lesson…</p>
-      </div>
-    );
-  }
-
-  if (error || !lesson) {
-    return (
-      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
+      <div className="flex min-h-[calc(100vh-54px)] items-center justify-center bg-[#0d1117]">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error ?? "Lesson not found."}</p>
-          <Link href={`/learn/${params.subjectId}`} className="text-blue-600 hover:underline">← Back to Subject</Link>
+          <div className="w-8 h-8 rounded-full border-2 border-[#3d3faa] border-t-[#5b5eff] animate-spin mx-auto mb-3" />
+          <p className="text-[#6b7280] text-sm">Loading lesson…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-[calc(100vh-64px)] bg-[#0d1424] text-white">
-      {/* Top bar */}
-      <div className="bg-[#0d1424] border-b border-white/[0.07] px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href={`/learn/${params.subjectId}`} className="text-white/50 hover:text-white/70 text-sm">
-            ← Back
-          </Link>
-          <span className="text-white/20">|</span>
-          <h1 className="font-semibold text-white truncate max-w-sm">{lesson.title}</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          {currentSentiment && (
-            <SentimentIndicator
-              emotion={currentSentiment.emotion}
-              confidence={currentSentiment.confidence}
-            />
-          )}
-          <span className="text-xs text-white/30">
-            {voiceChat.isConnected ? "🎙️ Live" : "○ Offline"}
-          </span>
-          <Link
-            href={`/learn/${params.subjectId}/${params.chapterId}/activity`}
-            className="text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-green-700 transition"
-          >
-            Take Quiz →
-          </Link>
-        </div>
-      </div>
-
-      <div className="max-w-[1400px] mx-auto px-4 py-6 flex gap-4 h-[calc(100vh-130px)]">
-        {/* Left: Unified session feed */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 overflow-y-auto bg-[#0d1424] rounded-xl border border-white/[0.07] p-4 space-y-4">
-            {aiContent.length === 0 && (
-              <div className="text-center text-white/40 py-12">
-                <div className="text-4xl mb-3">🤖</div>
-                <p className="font-medium">AI tutor initializing…</p>
-                <p className="text-sm mt-1">Lesson content and voice will appear here shortly.</p>
+    <div className="min-h-[calc(100vh-54px)] bg-[#0d1117] flex">
+      {/* Video Panel (Left) */}
+      <div className="flex-1 border-r border-[#1a1f2e] flex flex-col">
+        {/* Video Area */}
+        <div className="flex-1 bg-[#0a0d14] flex items-center justify-center p-8 relative">
+          <div className="w-full max-w-2xl relative">
+            {/* Main Video */}
+            <div className="aspect-video bg-gradient-to-br from-[#1a1f35] to-[#0a0d14] rounded-3xl border border-[#1a1f2e] flex items-center justify-center relative overflow-hidden">
+              {/* Tutor Avatar */}
+              <div className="text-center">
+                <div className="relative w-32 h-32 mx-auto mb-4">
+                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#3d3faa] to-[#5b5eff] flex items-center justify-center animate-pulse">
+                    <span className="text-6xl">🧠</span>
+                  </div>
+                  {/* Pulse ring */}
+                  <div className="absolute inset-0 rounded-full border-2 border-[#5b5eff] animate-pulse" style={{ animationDelay: "0.5s" }} />
+                </div>
+                <p className="text-white font-[500] text-lg">AI Tutor</p>
+                <p className="text-[12px] text-[#6b7280] mt-1">{chapter?.title}</p>
               </div>
-            )}
 
-            {aiContent.map((item) => (
-              <AIContentCard
-                key={item.id}
-                id={item.id}
-                type={item.type}
-                {...(item.type === "youtube" && {
-                  videoId: item.videoId,
-                  title: item.title,
-                  concept: item.concept,
-                })}
-                {...(item.type === "diagram" && {
-                  mermaidCode: item.mermaidCode,
-                  title: item.title,
-                })}
-                {...(item.type === "question" && {
-                  question: item.question,
-                  hint: item.hint,
-                })}
-                {...(item.type === "stage_change" && {
-                  stage: item.stage,
-                  emotion: item.emotion,
-                })}
-              />
-            ))}
+              {/* Emotion Detection Bar (Top Right) */}
+              {currentEmotion && (
+                <div className="absolute top-6 right-6 bg-[#0a0d14]/90 border border-[#1a1f2e] rounded-2xl px-3 py-2">
+                  <div className="text-[10px] font-[500] text-white mb-2">
+                    {EMOTIONS[currentEmotion.emotion].label}
+                  </div>
+                  <div className="w-24 h-1.5 bg-[#1e2330] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${currentEmotion.confidence * 100}%`,
+                        background: currentEmotion.color,
+                      }}
+                    />
+                  </div>
+                  <div className="text-[9px] text-[#6b7280] mt-1">
+                    {Math.round(currentEmotion.confidence * 100)}% confident
+                  </div>
+                </div>
+              )}
 
-            <div ref={feedEndRef} />
-          </div>
+              {/* Student Camera Preview (Bottom Right) */}
+              {isVideoOn && (
+                <div className="absolute bottom-4 right-4 w-24 h-20 bg-[#161b27] border-2 border-[#1a1f2e] rounded-2xl flex items-center justify-center">
+                  <span className="text-2xl">📹</span>
+                </div>
+              )}
 
-          {/* Voice controls */}
-          <div className="mt-3 bg-[#0d1424] border border-white/[0.07] rounded-xl p-3 flex items-center justify-between">
-            <span className="text-xs text-white/50">
-              {voiceChat.isConnected ? "🎙️ Voice active · Speak naturally" : "⏸ Voice paused"}
-            </span>
-            <button
-              onClick={() =>
-                voiceChat.isConnected ? voiceChat.disconnect() : voiceChat.connect()
-              }
-              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
-                voiceChat.isConnected
-                  ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
-                  : "bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20"
-              }`}
-            >
-              {voiceChat.isConnected ? "End Session" : "Start Voice"}
-            </button>
+              {/* Session Timer (Bottom Center) */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-[#0a0d14]/90 border border-[#1a1f2e] rounded-full px-3 py-1">
+                <p className="text-[11px] text-[#a8aaee] font-[500]">
+                  {Math.floor((Date.now() - sessionStarted.getTime()) / 60000)}:
+                  {String(Math.floor(((Date.now() - sessionStarted.getTime()) % 60000) / 1000)).padStart(2, "0")}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Right sidebar: Video + Notes (stacked) */}
-        <div className="w-80 flex-shrink-0 hidden lg:flex flex-col gap-4">
-          {/* Video feed */}
-          <div className="flex-1 min-h-0">
-            <VideoFeed
-              chapterId={params.chapterId}
-              externalSentiment={{
-                currentSentiment,
-                sendFrame,
-                analyzing,
-                history,
-                connect: connectSentiment,
-                disconnect: disconnectSentiment,
-              }}
-            />
+        {/* Emotion Indicators */}
+        {currentEmotion && (
+          <div className="border-t border-[#1a1f2e] bg-[#0a0d14] p-4">
+            <div className="text-[10px] text-[#6b7280] mb-2 font-[500]">Student Sentiment</div>
+            <div className="grid grid-cols-4 gap-2">
+              {Object.entries(EMOTIONS).map(([key, { label, color, bgColor }]) => (
+                <div
+                  key={key}
+                  className="px-2 py-1.5 rounded-lg text-center transition-all"
+                  style={{
+                    background: currentEmotion.emotion === key ? bgColor : "#1e2330",
+                    border: currentEmotion.emotion === key ? `1px solid ${color}` : "1px solid #1a1f2e",
+                  }}
+                >
+                  <div className="text-[10px] font-[500]" style={{ color: currentEmotion.emotion === key ? color : "#6b7280" }}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
 
-          {/* Notes (collapsible) */}
-          <div className="bg-[#0d1424] border border-white/[0.07] rounded-xl overflow-hidden flex flex-col max-h-48">
-            <button
-              onClick={() => setNotesOpen(!notesOpen)}
-              className="px-3 py-2 bg-white/[0.04] border-b border-white/[0.07] text-xs font-medium text-white/70 hover:text-white flex items-center justify-between"
+        {/* Controls */}
+        <div className="border-t border-[#1a1f2e] p-4 flex justify-center gap-4 bg-[#0a0d14]">
+          <button
+            onClick={() => setIsMicOn(!isMicOn)}
+            className={`p-3 rounded-full transition-all ${
+              isMicOn ? "bg-[#1a1f35] text-[#a8aaee] border border-[#3d3faa]" : "bg-[#1e2330] text-[#6b7280]"
+            }`}
+          >
+            🎤
+          </button>
+          <button
+            onClick={() => setIsVideoOn(!isVideoOn)}
+            className={`p-3 rounded-full transition-all ${
+              isVideoOn ? "bg-[#1a1f35] text-[#a8aaee] border border-[#3d3faa]" : "bg-[#1e2330] text-[#6b7280]"
+            }`}
+          >
+            📹
+          </button>
+          <button className="p-3 rounded-full bg-[#1e2330] text-[#6b7280] hover:text-white hover:bg-[#2a2d45] transition-all">
+            🔇
+          </button>
+          <button
+            onClick={() => router.back()}
+            className="p-3 rounded-full bg-[#e24b4a] text-white hover:bg-[#f09595] transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Chat Panel (Right) */}
+      <div className="w-80 border-l border-[#1a1f2e] flex flex-col bg-[#0a0d14]">
+        {/* Header */}
+        <div className="border-b border-[#1a1f2e] p-4">
+          <h3 className="text-[12px] font-[500] text-white">{chapter?.title}</h3>
+          <p className="text-[10px] text-[#6b7280] mt-1">Active session</p>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-[12px] text-[#6b7280]">Start asking questions about this topic</p>
+            </div>
+          )}
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex ${msg.role === "student" ? "justify-end" : "justify-start"}`}
             >
-              📝 Notes
-              <span
-                className={`text-white/40 transition ${notesOpen ? "rotate-180" : ""}`}
+              <div
+                className={`max-w-xs rounded-2xl px-4 py-2 text-[12px] leading-relaxed ${
+                  msg.role === "student"
+                    ? "bg-[#5b5eff] text-white"
+                    : "bg-[#161b27] text-[#c5c9d6]"
+                }`}
               >
-                ▼
-              </span>
-            </button>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+        </div>
 
-            {notesOpen && (
-              <textarea
-                value={notes}
-                onChange={(e) => handleNotesChange(e.target.value)}
-                placeholder="Take notes here…"
-                className="flex-1 resize-none p-3 text-xs bg-[#0d1424] text-white/80 focus:outline-none focus:ring-0 border-0"
-                style={{
-                  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-                }}
-              />
-            )}
+        {/* Input */}
+        <div className="border-t border-[#1a1f2e] p-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") sendMessage();
+              }}
+              placeholder="Ask a question..."
+              className="flex-1 bg-[#161b27] border border-[#1a1f2e] rounded-2xl px-3 py-2 text-[12px] text-[#c5c9d6] placeholder-[#3a3f55] outline-none focus:border-[#5b5eff]"
+            />
+            <button
+              onClick={sendMessage}
+              className="p-2 bg-[#5b5eff] text-white rounded-2xl hover:bg-[#3d3faa] transition-all"
+            >
+              →
+            </button>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

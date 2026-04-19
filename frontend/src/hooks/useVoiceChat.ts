@@ -146,8 +146,82 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
     }
   }, []);
 
-  const connect = useCallback(async () => {
-    if (wsRef.current) return;
+  const disconnect = useCallback(() => {
+    manualDisconnectRef.current = true;
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+    setIsListening(false);
+    setIsAISpeaking(false);
+    isAISpeakingRef.current = false;
+    audioChunksRef.current = [];
+    processorRef.current?.disconnect();
+    processorRef.current = null;
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+    wsRef.current?.close();
+    wsRef.current = null;
+    audioContextRef.current?.close();
+    audioContextRef.current = null;
+  }, []);
+
+  const toggleListening = useCallback(async () => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+    if (isListening) {
+      processorRef.current?.disconnect();
+      processorRef.current = null;
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+      setIsListening(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+
+        const ctx = audioContextRef.current ?? new AudioContext({ sampleRate: 24000 });
+        audioContextRef.current = ctx;
+
+        const source = ctx.createMediaStreamSource(stream);
+        const processor = ctx.createScriptProcessor(4096, 1, 1);
+        processorRef.current = processor;
+
+        processor.onaudioprocess = (e) => {
+          if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+          const floatData = e.inputBuffer.getChannelData(0);
+          // Convert float32 samples to int16 PCM
+          const pcm = new Int16Array(floatData.length);
+          for (let i = 0; i < floatData.length; i++) {
+            pcm[i] = Math.max(-32768, Math.min(32767, Math.round(floatData[i] * 32767)));
+          }
+          const base64 = uint8ArrayToBase64(new Uint8Array(pcm.buffer));
+          wsRef.current.send(
+            JSON.stringify({ type: "input_audio_buffer.append", audio: base64 })
+          );
+        };
+
+        source.connect(processor);
+        // Connect to a silent gain node (volume=0) so onaudioprocess fires without echo
+        const silentGain = ctx.createGain();
+        silentGain.gain.value = 0;
+        processor.connect(silentGain);
+        silentGain.connect(ctx.destination);
+        setIsListening(true);
+        setError(null);
+      } catch {
+        setError("Microphone access denied. Please allow microphone permissions and try again.");
+      }
+    }
+  }, [isListening]);
+
+  const connect = useCallback(async (autoListen = true) => {
+    if (wsRef.current) {
+      if (autoListen && !isListening) {
+        toggleListening();
+      }
+      return;
+    }
     setError(null);
 
     // Get ephemeral token from backend (HTTP, goes through Next.js proxy)
@@ -177,6 +251,12 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
 
     ws.onopen = () => {
       setIsConnected(true);
+      
+      // Auto-start microphone if requested
+      if (autoListen) {
+        toggleListening();
+      }
+
       const { lessonTitle, chapterDescription, keyConcepts, summary, grade, board, subjectName } = optionsRef.current;
 
       // Build a rich, lesson-aware system prompt
@@ -447,76 +527,8 @@ Teaching approach:
       setError("Failed to connect to voice service. Check that the backend is running.");
       ws.close();
     };
-  }, [appendTranscript, playAccumulatedAudio, cancelAIResponse]);
+  }, [appendTranscript, playAccumulatedAudio, cancelAIResponse, toggleListening]);
 
-  const disconnect = useCallback(() => {
-    manualDisconnectRef.current = true;
-    if (pingIntervalRef.current) {
-      clearInterval(pingIntervalRef.current);
-      pingIntervalRef.current = null;
-    }
-    setIsListening(false);
-    setIsAISpeaking(false);
-    isAISpeakingRef.current = false;
-    audioChunksRef.current = [];
-    processorRef.current?.disconnect();
-    processorRef.current = null;
-    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
-    mediaStreamRef.current = null;
-    wsRef.current?.close();
-    wsRef.current = null;
-    audioContextRef.current?.close();
-    audioContextRef.current = null;
-  }, []);
-
-  const toggleListening = useCallback(async () => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-
-    if (isListening) {
-      processorRef.current?.disconnect();
-      processorRef.current = null;
-      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-      setIsListening(false);
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaStreamRef.current = stream;
-
-        const ctx = audioContextRef.current ?? new AudioContext({ sampleRate: 24000 });
-        audioContextRef.current = ctx;
-
-        const source = ctx.createMediaStreamSource(stream);
-        const processor = ctx.createScriptProcessor(4096, 1, 1);
-        processorRef.current = processor;
-
-        processor.onaudioprocess = (e) => {
-          if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-          const floatData = e.inputBuffer.getChannelData(0);
-          // Convert float32 samples to int16 PCM
-          const pcm = new Int16Array(floatData.length);
-          for (let i = 0; i < floatData.length; i++) {
-            pcm[i] = Math.max(-32768, Math.min(32767, Math.round(floatData[i] * 32767)));
-          }
-          const base64 = uint8ArrayToBase64(new Uint8Array(pcm.buffer));
-          wsRef.current.send(
-            JSON.stringify({ type: "input_audio_buffer.append", audio: base64 })
-          );
-        };
-
-        source.connect(processor);
-        // Connect to a silent gain node (volume=0) so onaudioprocess fires without echo
-        const silentGain = ctx.createGain();
-        silentGain.gain.value = 0;
-        processor.connect(silentGain);
-        silentGain.connect(ctx.destination);
-        setIsListening(true);
-        setError(null);
-      } catch {
-        setError("Microphone access denied. Please allow microphone permissions and try again.");
-      }
-    }
-  }, [isListening]);
 
   const injectSentimentContext = useCallback((emotion: string, confidence: number) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;

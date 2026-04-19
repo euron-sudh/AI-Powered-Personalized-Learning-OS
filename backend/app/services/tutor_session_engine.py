@@ -302,14 +302,24 @@ class TutorSessionEngine:
 
         session_id = str(uuid.uuid4())
 
-        # Fetch student and chapter (cast IDs to UUID)
+        # 1. Fetch student
         student = await db_session.get(Student, uuid.UUID(student_id))
-        chapter = await db_session.get(Chapter, uuid.UUID(chapter_id))
+        if not student:
+            raise ValueError(f"Student {student_id} not found")
 
-        if not student or not chapter:
-            raise ValueError(f"Student {student_id} or Chapter {chapter_id} not found")
+        # 2. Fetch chapter
+        try:
+            chapter_uuid = uuid.UUID(chapter_id)
+        except ValueError:
+            raise ValueError(f"Chapter '{chapter_id}' not found")
 
-        # Insert into learning_sessions table
+        chapter = await db_session.get(Chapter, chapter_uuid)
+        if not chapter:
+            raise ValueError(f"Chapter '{chapter_id}' not found")
+
+        topic_title = chapter.title
+
+        # 3. Insert into learning_sessions table
         from sqlalchemy import text
         await db_session.execute(
             text("""
@@ -321,7 +331,7 @@ class TutorSessionEngine:
                 "id": session_id,
                 "student_id": student_id,
                 "chapter_id": chapter_id,
-                "topic": chapter.title,
+                "topic": topic_title,
                 "stage": "TEACH",
                 "emotion": "neutral",
                 "mastery": 0.3,

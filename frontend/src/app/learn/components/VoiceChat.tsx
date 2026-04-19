@@ -66,7 +66,7 @@ export default function VoiceChat({
       <div className="flex items-center gap-3">
         {!isConnected ? (
           <button
-            onClick={connect}
+            onClick={() => connect()}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2"
           >
             <span>🎙️</span> Start Voice Session
