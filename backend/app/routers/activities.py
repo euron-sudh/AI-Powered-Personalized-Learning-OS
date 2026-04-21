@@ -16,6 +16,11 @@ from app.models.subject import Subject
 from app.schemas.activity import ActivityEvaluationResponse, ActivitySubmitRequest
 from app.services.activity_evaluator import evaluate_submission
 from app.services.curriculum_generator import adjust_curriculum_order
+from app.services.gamification import (
+    award_xp,
+    update_streak_and_activity,
+    xp_for_quiz_score,
+)
 
 router = APIRouter()
 
@@ -57,15 +62,43 @@ async def get_chapter_activity(
                 if existing.scalars().first():
                     return
                 try:
+                    from app.services.adaptive import compute_difficulty
+
                     student = await bg_db.get(Student, student_id)
                     subject = await bg_db.get(Subject, chapter.subject_id)
                     content = chapter.content_json or {}
+
+                    # Adaptive difficulty + memory callbacks for the quiz prompt
+                    difficulty = await compute_difficulty(bg_db, student_id, chapter.subject_id)
+                    prog_result = await bg_db.execute(
+                        select(StudentProgress).where(
+                            StudentProgress.student_id == student_id,
+                            StudentProgress.subject_id == chapter.subject_id,
+                        )
+                    )
+                    prog = prog_result.scalar_one_or_none()
+                    weak_topics = (prog.weaknesses or []) if prog else []
+                    prior_q = await bg_db.execute(
+                        select(Chapter.title)
+                        .where(
+                            Chapter.subject_id == chapter.subject_id,
+                            Chapter.status == "completed",
+                            Chapter.id != chapter.id,
+                        )
+                        .order_by(Chapter.order_index.desc())
+                        .limit(5)
+                    )
+                    prior_titles = [t for (t,) in prior_q.all() if t]
+
                     activity_data = await generate_activities(
                         chapter_title=chapter.title,
                         chapter_content={**content, "title": chapter.title},
                         subject_name=subject.name if subject else "General",
                         grade=student.grade if student else "8",
                         board=student.board if student else None,
+                        difficulty=difficulty,
+                        weak_topics=weak_topics,
+                        prior_chapter_titles=prior_titles,
                     )
                     bg_db.add(Activity(
                         chapter_id=chapter_uuid,
@@ -229,9 +262,11 @@ async def evaluate_activity(
 
     score = evaluation.get("score", 0)
 
-    # ── Award XP and update gamification ────────────────────────────────────
-    # NOTE: XP/gamification tracking moved to frontend analytics
-    # (legacy learning_os SQLite engine removed)
+    # ── Award XP and update streak ──────────────────────────────────────────
+    if student:
+        await update_streak_and_activity(student)
+        await award_xp(student, xp_for_quiz_score(int(score)), f"quiz:{activity_id}")
+        await db.commit()
 
     # ── Adaptive curriculum adjustment ──────────────────────────────────────
     if score < 60 and chapter:
@@ -239,6 +274,15 @@ async def evaluate_activity(
             _adjust_curriculum_background(
                 subject_id=chapter.subject_id,
                 student_id=student_id,
+            )
+        )
+
+    # ── Auto-generate flashcards for the just-completed chapter ─────────────
+    if chapter and chapter.status == "completed":
+        asyncio.create_task(
+            _generate_flashcards_background(
+                student_id=student_id,
+                chapter_id=chapter.id,
             )
         )
 
@@ -254,6 +298,21 @@ async def evaluate_activity(
         strengths=evaluation.get("strengths", []),
         areas_for_improvement=evaluation.get("areas_for_improvement", []),
     )
+
+
+async def _generate_flashcards_background(
+    student_id: uuid.UUID,
+    chapter_id: uuid.UUID,
+) -> None:
+    """Fire-and-forget: build SR flashcards for a freshly completed chapter."""
+    from app.core.database import async_session
+    from app.services.flashcards import generate_for_chapter
+
+    try:
+        async with async_session() as db:
+            await generate_for_chapter(db, student_id, chapter_id)
+    except Exception:
+        pass
 
 
 async def _adjust_curriculum_background(

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import Nav from "@/components/Nav";
 
 interface Subject {
   id: string;
@@ -15,19 +14,23 @@ interface Subject {
   total_chapters: number;
   progress_percent: number;
   average_score?: number;
-  color: string;
 }
 
-const SUBJECT_COLORS: Record<string, string> = {
-  mathematics: "#5b5eff",
-  math: "#5b5eff",
-  science: "#1d9e75",
-  english: "#ef9f27",
-  history: "#e24b4a",
-  "computer science": "#00d4ff",
-  arts: "#b366ff",
-  music: "#ff6b9d",
+const SUBJECT_STYLE: Record<string, { color: string; bg: string; icon: string }> = {
+  mathematics: { color: "var(--subject-math)", bg: "var(--subject-math-bg)", icon: "➕" },
+  math: { color: "var(--subject-math)", bg: "var(--subject-math-bg)", icon: "➕" },
+  science: { color: "var(--subject-science)", bg: "var(--subject-science-bg)", icon: "🧪" },
+  english: { color: "var(--subject-english)", bg: "var(--subject-english-bg)", icon: "📖" },
+  history: { color: "var(--subject-history)", bg: "var(--subject-history-bg)", icon: "🏛️" },
+  "computer science": { color: "var(--subject-coding)", bg: "var(--subject-coding-bg)", icon: "💻" },
+  coding: { color: "var(--subject-coding)", bg: "var(--subject-coding-bg)", icon: "💻" },
+  arts: { color: "var(--subject-arts)", bg: "var(--subject-arts-bg)", icon: "🎨" },
+  music: { color: "var(--subject-music)", bg: "var(--subject-music-bg)", icon: "🎵" },
 };
+
+function styleFor(name: string) {
+  return SUBJECT_STYLE[name.toLowerCase()] ?? { color: "var(--brand-blue)", bg: "var(--brand-blue-soft)", icon: "📚" };
+}
 
 export default function LearnPage() {
   const router = useRouter();
@@ -50,7 +53,7 @@ export default function LearnPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch(`/api/proxy/api/curriculum`, {
+      const res = await fetch(`/api/proxy/api/onboarding/subjects`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (res.ok) {
@@ -60,41 +63,28 @@ export default function LearnPage() {
           name: s.name,
           status: s.status || "not_started",
           chapters_completed: s.chapters_completed || 0,
-          total_chapters: s.total_chapters || 0,
+          total_chapters: s.chapter_count ?? s.total_chapters ?? 0,
           progress_percent: s.progress_percent || 0,
           average_score: s.average_score,
-          color: SUBJECT_COLORS[s.name.toLowerCase()] || "#5b5eff",
         }));
         setSubjects(subjectsData);
       } else {
-        setSubjects(getFallbackSubjects());
+        setSubjects([]);
       }
     } catch (err) {
       console.error("Failed to fetch subjects:", err);
-      setSubjects(getFallbackSubjects());
+      setSubjects([]);
     } finally {
       setLoading(false);
     }
   }
 
-  function getFallbackSubjects(): Subject[] {
-    return [
-      { id: "1", name: "Mathematics", status: "in_progress", chapters_completed: 5, total_chapters: 8, progress_percent: 62, average_score: 85, color: "#5b5eff" },
-      { id: "2", name: "Science", status: "not_started", chapters_completed: 0, total_chapters: 6, progress_percent: 0, color: "#1d9e75" },
-      { id: "3", name: "English", status: "in_progress", chapters_completed: 3, total_chapters: 6, progress_percent: 50, average_score: 78, color: "#ef9f27" },
-      { id: "4", name: "History", status: "not_started", chapters_completed: 0, total_chapters: 4, progress_percent: 0, color: "#e24b4a" },
-    ];
-  }
-
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-base)]">
-        <Nav />
-        <div className="flex items-center justify-center min-h-[calc(100vh-54px)]">
-          <div className="text-center">
-            <div className="w-8 h-8 rounded-full border-2 border-[#3d3faa] border-t-[#5b5eff] animate-spin mx-auto mb-3" />
-            <p className="text-[var(--text-muted)] text-sm">Loading your subjects…</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
+        <div className="text-center">
+          <div className="w-10 h-10 rounded-full border-2 border-[var(--brand-blue-soft)] border-t-[var(--brand-blue)] animate-spin mx-auto mb-3" />
+          <p className="text-[var(--text-muted)] text-sm">Loading your subjects…</p>
         </div>
       </div>
     );
@@ -107,109 +97,111 @@ export default function LearnPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
-        return { bg: "#0f2a1f", color: "#1d9e75", text: "Completed" };
+        return { bg: "var(--green-bg)", color: "var(--green)", text: "Completed" };
       case "in_progress":
-        return { bg: "#1a1f35", color: "#5b5eff", text: "In progress" };
+        return { bg: "var(--brand-blue-soft)", color: "var(--brand-blue)", text: "In progress" };
       default:
-        return { bg: "#1e2330", color: "#6b7280", text: "Not started" };
+        return { bg: "var(--bg-deep)", color: "var(--text-muted)", text: "Not started" };
     }
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)]">
-      <Nav />
+    <div className="max-w-7xl mx-auto px-6 py-10">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-extrabold text-[var(--text-primary)] mb-2">Your Curriculum 📚</h1>
+        <p className="text-[var(--text-muted)]">Master your subjects step by step</p>
+      </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Your Curriculum</h1>
-          <p className="text-[var(--text-muted)] text-sm">Master your subjects step by step</p>
-        </div>
-
-        {/* Progress overview */}
-        <div className="mb-8">
+      {/* Progress overview */}
+      {subjects.length > 0 && (
+        <div className="bg-white border border-[var(--border)] rounded-2xl p-6 shadow-card mb-8">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-[var(--text-body)]">Overall Progress</span>
-            <span className="text-sm text-[var(--text-muted)]">{completedChapters}/{totalChapters} chapters</span>
+            <span className="text-sm font-bold text-[var(--text-primary)]">Overall Progress</span>
+            <span className="text-sm font-semibold text-[var(--text-muted)]">
+              {completedChapters}/{totalChapters} chapters
+            </span>
           </div>
-          <div className="h-2 bg-[var(--bg-raised)] rounded-full overflow-hidden">
+          <div className="h-3 bg-[var(--bg-deep)] rounded-full overflow-hidden">
             <div
-              className="h-full bg-[var(--accent)] transition-all duration-300"
+              className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--brand-blue)] transition-all duration-500"
               style={{ width: `${overallProgress}%` }}
             />
           </div>
+          <p className="text-xs text-[var(--text-muted)] mt-2 font-medium">{overallProgress}% complete — keep going!</p>
         </div>
+      )}
 
-        {/* Subject cards grid */}
-        {subjects.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-[var(--text-muted)] mb-4">No subjects available yet. Complete onboarding to generate your curriculum.</p>
-            <Link
-              href="/onboarding"
-              className="inline-block px-6 py-2 bg-[var(--accent)] text-white rounded-xl hover:bg-[#3d3faa] transition"
-            >
-              Complete Onboarding
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {subjects.map((subject) => {
-              const badge = getStatusBadge(subject.status);
-              return (
-                <Link
-                  key={subject.id}
-                  href={`/learn/${subject.id}`}
-                  className="group bg-[var(--bg-surface)] border border-[var(--bg-raised)] rounded-2xl p-6 hover:border-[var(--border-mid)] hover:bg-[#1a1f2e] transition-all cursor-pointer"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white mb-1">{subject.name}</h3>
-                      <p className="text-[12px] text-[var(--text-muted)]">
-                        {subject.chapters_completed} / {subject.total_chapters} chapters
-                      </p>
-                    </div>
-                    <div
-                      className="px-3 py-1 rounded-full text-[11px] font-medium"
-                      style={{ backgroundColor: badge.bg, color: badge.color }}
-                    >
-                      {badge.text}
-                    </div>
+      {subjects.length === 0 ? (
+        <div className="bg-white border border-[var(--border)] rounded-2xl p-12 text-center shadow-card">
+          <div className="text-6xl mb-4">📚</div>
+          <p className="text-[var(--text-muted)] mb-5">No subjects available yet. Complete onboarding to generate your curriculum.</p>
+          <Link
+            href="/onboarding"
+            className="inline-block px-6 py-3 bg-[var(--accent)] text-white rounded-full font-bold text-sm hover:opacity-90 transition"
+          >
+            Complete Onboarding
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {subjects.map((subject) => {
+            const style = styleFor(subject.name);
+            const badge = getStatusBadge(subject.status);
+            return (
+              <Link
+                key={subject.id}
+                href={`/learn/${subject.id}`}
+                className="group bg-white border border-[var(--border)] rounded-2xl p-6 shadow-card hover:-translate-y-1 hover:shadow-elevated transition-all"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl text-white shadow-card"
+                    style={{ background: style.color }}
+                  >
+                    {style.icon}
                   </div>
-
-                  {/* Progress bar */}
-                  <div className="mb-4">
-                    <div className="h-2 bg-[var(--bg-raised)] rounded-full overflow-hidden">
-                      <div
-                        className="h-full transition-all duration-300"
-                        style={{
-                          backgroundColor: subject.color,
-                          width: `${subject.progress_percent}%`,
-                        }}
-                      />
-                    </div>
+                  <div
+                    className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide"
+                    style={{ backgroundColor: badge.bg, color: badge.color }}
+                  >
+                    {badge.text}
                   </div>
+                </div>
 
-                  {/* Score if available */}
-                  {subject.average_score && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-[var(--text-muted)]">Average score</span>
-                      <span className="text-[14px] font-semibold" style={{ color: subject.color }}>
-                        {Math.round(subject.average_score)}%
-                      </span>
-                    </div>
-                  )}
+                <h3 className="text-xl font-extrabold capitalize mb-1" style={{ color: style.color }}>
+                  {subject.name}
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] font-semibold mb-4">
+                  {subject.chapters_completed} / {subject.total_chapters} chapters
+                </p>
 
-                  {subject.status !== "completed" && (
-                    <div className="mt-4 text-[12px] text-[var(--accent)] font-medium group-hover:text-[var(--accent)] transition">
-                      Continue →
-                    </div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                <div className="h-2 bg-[var(--bg-deep)] rounded-full overflow-hidden mb-4">
+                  <div
+                    className="h-full transition-all duration-500"
+                    style={{ background: style.color, width: `${subject.progress_percent}%` }}
+                  />
+                </div>
+
+                {subject.average_score && (
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[12px] text-[var(--text-muted)] font-semibold">Average score</span>
+                    <span className="text-[14px] font-extrabold" style={{ color: style.color }}>
+                      {Math.round(subject.average_score)}%
+                    </span>
+                  </div>
+                )}
+
+                {subject.status !== "completed" && (
+                  <div className="text-[13px] font-bold mt-2 transition" style={{ color: style.color }}>
+                    Continue learning →
+                  </div>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

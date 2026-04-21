@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-19 09:51
+**Last Updated:** 2026-04-21
 
 # LearnOS — Complete Project Structure
 
@@ -30,14 +30,17 @@ AI-Powered-Personalized-Learning-OS/
 │   │   ├── env.py                      # Alembic migration environment
 │   │   ├── script.py.mako              # Migration template
 │   │   └── versions/                   # Individual migration files
-│   │       ├── 0001_init_schema.py
-│   │       ├── 0002_add_chapters.py
-│   │       ├── 0003_add_activities.py
-│   │       ├── 0004_add_chat_messages.py
-│   │       ├── 0005_add_sentiment_logs.py
-│   │       ├── 0006_add_sessions.py
+│   │       ├── 0001_initial_schema.py
+│   │       ├── 0002_add_board.py
+│   │       ├── 0003_add_syllabus_tables.py
+│   │       ├── 0004_add_tutor_sessions.py
+│   │       ├── 0005_add_student_learning_memory.py
+│   │       ├── 0006_add_tutor_session_tables.py
 │   │       ├── 0007_add_adaptive_engine_tables.py
-│   │       └── 0008_add_concept_mcq_fields.py
+│   │       ├── 0008_add_concept_mcq_fields.py
+│   │       ├── 0009_wave1_gamification.py    # Global stats, daily challenges
+│   │       ├── 0010_wave2_flashcards.py      # SM-2 flashcard deck
+│   │       └── 0011_wave6_mood_logs.py       # Mood check-in log
 │   │
 │   ├── app/
 │   │   ├── __init__.py
@@ -55,21 +58,37 @@ AI-Powered-Personalized-Learning-OS/
 │   │   │   ├── video.py                # Video sentiment analysis
 │   │   │   ├── activities.py           # Activity submission & evaluation
 │   │   │   ├── progress.py             # Student progress & analytics
-│   │   │   ├── learning.py             # Learning session management
+│   │   │   ├── learning.py             # Learning memory / adaptive profile
 │   │   │   ├── sessions.py             # Step-through MCQ session management
-│   │   │   ├── practice.py             # Practice quiz endpoints
-│   │   │   └── notes.py                # Student notes management
+│   │   │   ├── practice.py             # Adaptive practice quiz builder
+│   │   │   ├── notes.py                # Student notes management
+│   │   │   ├── tutor_session.py        # LangGraph tutor session state machine
+│   │   │   ├── challenges.py           # Wave 1 — daily challenges + streak/XP grants
+│   │   │   ├── leaderboard.py          # Wave 1 — global + friends leaderboard
+│   │   │   ├── buddy.py                # Wave 1 — AI study buddy state + messages
+│   │   │   ├── flashcards.py           # Wave 2 — SM-2 deck, due cards, backfill
+│   │   │   ├── parent.py               # Wave 4 — parent read-only dashboard
+│   │   │   ├── immersive.py            # Wave 5 — story / podcast / career / doubt-scan
+│   │   │   ├── wellness.py             # Wave 6 — mood log + Pomodoro completion
+│   │   │   ├── projects.py             # Wave 6 — AI multi-day projects
+│   │   │   └── suggest.py              # Wave 7 — next-best-action recommendation
 │   │   │
 │   │   ├── services/                   # Business logic layer
 │   │   │   ├── __init__.py
 │   │   │   ├── curriculum_generator.py # Claude API prompt chains for curriculum
-│   │   │   ├── teaching_engine.py      # Conversational teaching logic with emotion awareness
+│   │   │   ├── teaching_engine.py      # Conversational teaching with emotion awareness
 │   │   │   ├── activity_evaluator.py   # Activity grading & feedback
+│   │   │   ├── adaptive.py             # Adaptive ordering & difficulty tuning
 │   │   │   ├── sentiment_analyzer.py   # Claude Vision for video sentiment
-│   │   │   ├── voice_manager.py        # OpenAI Realtime session creation & context injection
-│   │   │   ├── session_service.py      # MCQ session stepping logic
+│   │   │   ├── voice_manager.py        # OpenAI Realtime session lifecycle
+│   │   │   ├── flashcards.py           # SM-2 scheduling + deck generation
+│   │   │   ├── gamification.py         # XP + level + streak bookkeeping
 │   │   │   ├── tutor_session_engine.py # LangGraph state machine for voice + sentiment
-│   │   │   └── note_summarizer.py      # Note extraction & summarization
+│   │   │   ├── session_service.py      # MCQ session stepping logic
+│   │   │   ├── parent_digest.py        # Parent-facing progress digest
+│   │   │   └── syllabus_data.py        # Official board syllabus data (CBSE/ICSE/…)
+│   │   │   # Note: immersive, wellness, projects, and suggest logic lives in
+│   │   │   # their router modules — no dedicated service files.
 │   │   │
 │   │   ├── models/                     # SQLAlchemy ORM models (Supabase PostgreSQL)
 │   │   │   ├── __init__.py
@@ -78,14 +97,18 @@ AI-Powered-Personalized-Learning-OS/
 │   │   │   ├── chapter.py              # Chapter content & metadata
 │   │   │   ├── concept.py              # Concepts within chapters
 │   │   │   ├── activity.py             # Activities (quizzes, problems, etc.)
-│   │   │   ├── activity_submission.py  # Student activity responses
 │   │   │   ├── chat_message.py         # Teaching chat history
 │   │   │   ├── sentiment_log.py        # Emotion detection results
-│   │   │   ├── student_progress.py     # Aggregated per-subject progress
-│   │   │   ├── learning_session.py     # Voice+sentiment session metadata
-│   │   │   ├── mastery.py              # Concept mastery tracking
+│   │   │   ├── progress.py             # Aggregated per-subject progress
+│   │   │   ├── mastery.py              # Concept mastery snapshots
 │   │   │   ├── session.py              # MCQ session state
-│   │   │   └── note.py                 # Student notes
+│   │   │   ├── tutor_session.py        # LangGraph tutor session state
+│   │   │   ├── notes.py                # Student notes
+│   │   │   ├── adaptive.py             # Adaptive engine tables
+│   │   │   ├── syllabus.py             # Board syllabus references
+│   │   │   ├── daily_challenge.py      # Wave 1 — daily quests
+│   │   │   ├── flashcard.py            # Wave 2 — SM-2 cards
+│   │   │   └── mood.py                 # Wave 6 — mood_logs
 │   │   │
 │   │   ├── schemas/                    # Pydantic request/response schemas
 │   │   │   ├── __init__.py
@@ -139,124 +162,76 @@ AI-Powered-Personalized-Learning-OS/
 │   ├── src/
 │   │   ├── app/                        # Next.js App Router pages
 │   │   │   ├── layout.tsx              # Root layout wrapper
-│   │   │   ├── page.tsx                # Landing page
-│   │   │   ├── not-found.tsx           # 404 page
-│   │   │
+│   │   │   ├── page.tsx                # Landing page (parchment + adventure hero)
+│   │   │   ├── globals.css             # Theme tokens + glossy/parchment utilities
+│   │   │   ├── error.tsx               # Route-level error boundary
+│   │   │   ├── global-error.tsx        # Root error boundary
+│   │   │   │
 │   │   │   ├── (auth)/                 # Auth route group
 │   │   │   │   ├── login/page.tsx
-│   │   │   │   ├── register/page.tsx
-│   │   │   │   └── layout.tsx
+│   │   │   │   └── register/page.tsx
+│   │   │   ├── auth/                   # Supabase auth callback handlers
+│   │   │   ├── forgot-password/        # Password reset flow
+│   │   │   │
+│   │   │   ├── api/                    # Next.js route handlers (API proxy to FastAPI)
+│   │   │   ├── components/             # App-level components (AuthRedirect, etc.)
 │   │   │   │
 │   │   │   ├── onboarding/             # Multi-step onboarding wizard
-│   │   │   │   ├── page.tsx
-│   │   │   │   ├── layout.tsx
-│   │   │   │   └── components/
-│   │   │   │       ├── GradeSelector.tsx
-│   │   │   │       ├── BoardSelector.tsx
-│   │   │   │       ├── SubjectSelector.tsx
-│   │   │   │       └── MarksheetUpload.tsx
+│   │   │   ├── dashboard/              # Student dashboard (parchment hero, glossy stats, NBA)
 │   │   │   │
-│   │   │   ├── dashboard/              # Student dashboard
-│   │   │   │   ├── page.tsx
-│   │   │   │   ├── layout.tsx
-│   │   │   │   └── components/
-│   │   │   │       ├── SubjectCard.tsx
-│   │   │   │       ├── RecentActivity.tsx
-│   │   │   │       └── QuickStats.tsx
-│   │   │   │
-│   │   │   ├── learn/                  # Main learning experience (lesson + voice + sentiment)
+│   │   │   ├── learn/                  # Main learning experience
 │   │   │   │   ├── page.tsx            # Subject/chapter selector
-│   │   │   │   ├── [subjectId]/
-│   │   │   │   │   ├── page.tsx        # Chapters list for subject
-│   │   │   │   │   └── [chapterId]/
-│   │   │   │   │       ├── page.tsx    # Full lesson (content + chat + voice + video + sentiment)
-│   │   │   │   │       └── components/
-│   │   │   │   │           ├── LessonContent.tsx      # Static chapter content
-│   │   │   │   │           ├── TeachingChat.tsx       # Text chat with AI tutor
-│   │   │   │   │           ├── VoiceChat.tsx          # OpenAI Realtime voice interface
-│   │   │   │   │           ├── VideoFeed.tsx          # Webcam stream for sentiment
-│   │   │   │   │           ├── SentimentIndicator.tsx # Real-time emotion display
-│   │   │   │   │           ├── AIContentCard.tsx      # Tool call rendering (videos, diagrams)
-│   │   │   │   │           ├── DiagramRenderer.tsx    # Mermaid.js diagrams
-│   │   │   │   │           ├── FormulaRenderer.tsx    # LaTeX formula display
-│   │   │   │   │           └── QuestionCard.tsx       # Inline questions/discussion
-│   │   │   │   │
-│   │   │   │   └── activity/
-│   │   │   │       └── page.tsx        # Activity submission page
+│   │   │   │   └── [subjectId]/[chapterId]/   # Full lesson (content + chat + voice + video)
+│   │   │   ├── courses/                # Course catalog
 │   │   │   │
-│   │   │   ├── session/                # Step-through MCQ session
-│   │   │   │   ├── page.tsx            # Session question stepping
-│   │   │   │   ├── complete/
-│   │   │   │   │   └── page.tsx        # Session completion summary
-│   │   │   │   └── components/
-│   │   │   │       ├── QuestionCard.tsx
-│   │   │   │       ├── ProgressBar.tsx
-│   │   │   │       └── FeedbackCard.tsx
+│   │   │   ├── practice/               # Adaptive practice quiz mode
+│   │   │   ├── review/                 # Wave 2 — SM-2 flashcard review
+│   │   │   ├── leaderboard/            # Wave 1 — leaderboard
+│   │   │   ├── buddy/                  # Wave 1 — AI study buddy
+│   │   │   ├── parent/                 # Wave 4 — parent read-only dashboard
+│   │   │   ├── path/                   # Wave 4 — learning path view
+│   │   │   ├── focus/                  # Wave 6 — Pomodoro + mood check-in
+│   │   │   ├── project/                # Wave 6 — AI multi-day project builder
+│   │   │   ├── insights/               # Progress insights
 │   │   │   │
-│   │   │   ├── practice/               # Practice quiz mode
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── components/
-│   │   │   │       └── QuizInterface.tsx
+│   │   │   ├── story/[chapterId]/      # Wave 5 — 5-scene story mode
+│   │   │   ├── podcast/[chapterId]/    # Wave 5 — OpenAI TTS audio podcast
+│   │   │   ├── career/[chapterId]/     # Wave 5 — career glimpse paragraph
+│   │   │   ├── scan/                   # Wave 5 — Claude Vision doubt scanner
+│   │   │   ├── sim/projectile/         # Wave 5 — canvas 2D projectile physics sim
 │   │   │   │
 │   │   │   ├── analytics/              # Progress & analytics dashboard
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── components/
-│   │   │   │       ├── SubjectProgress.tsx
-│   │   │   │       ├── WeeklyChart.tsx
-│   │   │   │       └── StatsCard.tsx
-│   │   │   │
 │   │   │   ├── sentiment/              # Emotion/sentiment insights
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── components/
-│   │   │   │       ├── EmotionTimeline.tsx
-│   │   │   │       ├── EmotionStats.tsx
-│   │   │   │       └── RecommendationCard.tsx
-│   │   │   │
-│   │   │   └── (protected)/            # Protected layout group
-│   │   │       └── layout.tsx
+│   │   │   ├── voice/                  # Voice tutor standalone page
+│   │   │   ├── video-session/          # Webcam-based tutoring session
+│   │   │   ├── profile/                # Profile settings
+│   │   │   └── preferences/            # User preferences
 │   │   │
 │   │   ├── components/                 # Reusable components
 │   │   │   ├── ui/                     # shadcn/ui base components
-│   │   │   │   ├── button.tsx
-│   │   │   │   ├── card.tsx
-│   │   │   │   ├── input.tsx
-│   │   │   │   ├── label.tsx
-│   │   │   │   ├── badge.tsx
-│   │   │   │   ├── progress.tsx
-│   │   │   │   ├── tabs.tsx
-│   │   │   │   └── dialog.tsx
-│   │   │   │
 │   │   │   ├── Nav.tsx                 # Top navigation bar
 │   │   │   ├── ProgressBar.tsx         # Reusable progress bar
 │   │   │   ├── SentimentIndicator.tsx  # Emotion badge display
-│   │   │   ├── LessonCard.tsx          # Chapter card component
-│   │   │   ├── StatCard.tsx            # Stat display card
-│   │   │   └── ErrorBoundary.tsx       # Error handler
+│   │   │   └── SubjectIcon.tsx         # Subject iconography
 │   │   │
 │   │   ├── lib/
-│   │   │   ├── supabase.ts             # Supabase JS client config
+│   │   │   ├── supabase.ts             # Supabase JS client (localStorage-backed)
 │   │   │   ├── api.ts                  # Fetch wrapper for FastAPI calls
 │   │   │   ├── constants.ts            # App-wide constants
 │   │   │   └── utils.ts                # Helper utilities (cn, formatting)
 │   │   │
 │   │   ├── hooks/                      # Custom React hooks
-│   │   │   ├── useSupabaseAuth.ts      # Auth state management
+│   │   │   ├── useSupabaseAuth.ts      # Auth state management (expires_at-validated)
 │   │   │   ├── useVoiceChat.ts         # OpenAI Realtime WebSocket logic
+│   │   │   ├── useVideoFeed.ts         # Webcam stream + frame extraction
 │   │   │   ├── useSentiment.ts         # Real-time sentiment from Supabase
-│   │   │   ├── useTutorSession.ts      # Tutor event streaming (Realtime)
-│   │   │   └── useLocalStorage.ts      # Persistent client state
+│   │   │   └── useTutorSession.ts      # Tutor event streaming (Realtime)
 │   │   │
-│   │   ├── types/                      # TypeScript type definitions
-│   │   │   ├── curriculum.ts
-│   │   │   ├── lesson.ts
-│   │   │   ├── student.ts
-│   │   │   ├── sentiment.ts
-│   │   │   ├── session.ts
-│   │   │   └── voice.ts
-│   │   │
-│   │   └── styles/
-│   │       ├── globals.css             # Tailwind base + globals
-│   │       └── animate.css             # Custom animations
+│   │   └── types/                      # TypeScript type definitions
+│   │       ├── curriculum.ts
+│   │       ├── lesson.ts
+│   │       ├── student.ts
+│   │       └── sentiment.ts
 │   │
 │   ├── public/                         # Static assets
 │   │   ├── logo.svg
@@ -272,9 +247,10 @@ AI-Powered-Personalized-Learning-OS/
 └── docs/                               # Additional documentation
     ├── AGENTS.md                       # AI agent definitions (Claude roles)
     ├── SUPABASE_INFO.md                # Supabase setup & configuration
-    ├── IMPLEMENTATION_REPORT.md        # Architecture validation report
     ├── IMPLEMENTATION_FLOW.md          # Feature flow diagrams
-    └── E2E_TEST_REPORT.md              # End-to-end test results
+    ├── PRESENTATION_SLIDES.md          # Demo / presentation deck
+    ├── END-TO-END TESTING PROMPT.md    # E2E testing prompt rubric
+    └── deployment/                     # Deployment guides
 ```
 
 ---
@@ -305,25 +281,40 @@ Request → FastAPI Router → Service Layer → Models/ORM → Supabase Postgre
 | `sentiment_analyzer.py` | Detect emotion from video frames | `analyze_sentiment()` (Claude Vision) |
 | `voice_manager.py` | Create OpenAI Realtime sessions | `create_realtime_session()` (with chapter context injection) |
 | `activity_evaluator.py` | Grade student responses | `evaluate_activity()` (Claude-powered) |
+| `adaptive.py` | Adaptive ordering & difficulty tuning | Concept mastery → chapter re-ordering |
+| `flashcards.py` | SM-2 scheduling + deck generation | Claude deck generation, due-card queue |
+| `gamification.py` | XP, level, streak bookkeeping | Grant XP, advance level, apply streak-freeze |
 | `session_service.py` | Step through MCQ questions | `start_session()`, `step_session()` |
-| `tutor_session_engine.py` | LangGraph state machine (voice + sentiment routing) | `run_voice_session()` (adaptive response selection) |
+| `tutor_session_engine.py` | LangGraph state machine (voice + sentiment) | `run_voice_session()` (adaptive response selection) |
+| `parent_digest.py` | Parent-facing progress digest | Weekly summary for parent dashboard |
+| `syllabus_data.py` | Official board syllabus data | CBSE / ICSE / Cambridge / IB / Common Core |
 
 ### Routers (API Endpoints)
 
-| Router | Routes | Purpose |
+| Router | Wave | Purpose |
 |---|---|---|
-| `auth.py` | `POST /api/auth/verify` | JWT verification & user info |
-| `onboarding.py` | `POST /api/onboarding`, `POST /api/onboarding/profile`, `POST /api/onboarding/marksheet` | Student registration & profile |
-| `curriculum.py` | `POST /api/curriculum/generate`, `GET /api/curriculum` | Curriculum generation & retrieval |
-| `lessons.py` | `GET /api/lessons/{chapter_id}/content`, `POST /api/lessons/{chapter_id}/chat` (SSE) | Lesson content & teaching chat |
-| `voice.py` | `POST /api/voice/session`, `WS /api/voice/ws` | OpenAI Realtime session management |
-| `video.py` | `POST /api/video/analyze`, `WS /api/video/sentiment/ws` | Video sentiment analysis & streaming |
-| `activities.py` | `POST /api/activities/{activity_id}/submit`, `POST /api/activities/{activity_id}/evaluate` | Activity submission & evaluation |
-| `progress.py` | `GET /api/progress/{student_id}` | Student progress analytics |
-| `learning.py` | `GET /api/learning/next`, `WS /api/learning/session/ws` | Learning session management |
-| `sessions.py` | `POST /api/sessions/start`, `POST /api/sessions/{session_id}/step` | MCQ session stepping |
-| `practice.py` | `POST /api/practice/quiz`, `POST /api/practice/submit` | Practice quiz generation |
-| `notes.py` | `POST /api/notes`, `GET /api/notes/{student_id}` | Note taking & retrieval |
+| `auth.py` | core | JWT verification & user info |
+| `onboarding.py` | core | Student registration, profile, marksheet upload |
+| `curriculum.py` | core | Curriculum generation & retrieval |
+| `lessons.py` | core | Lesson content & streaming teaching chat (SSE) |
+| `voice.py` | core | OpenAI Realtime session management |
+| `video.py` | core | Video sentiment analysis (HTTP + WS) |
+| `activities.py` | core | Activity submission & evaluation |
+| `progress.py` | core | Student progress analytics |
+| `learning.py` | core | Learning memory / adaptive profile |
+| `sessions.py` | core | Step-through MCQ sessions |
+| `practice.py` | core | Adaptive practice quiz builder |
+| `notes.py` | core | Per-chapter freeform notes CRUD |
+| `tutor_session.py` | core | LangGraph tutor session state machine |
+| `challenges.py` | Wave 1 | Daily challenges, streak/XP grants |
+| `leaderboard.py` | Wave 1 | Global + friends leaderboard |
+| `buddy.py` | Wave 1 | AI study buddy state + messages |
+| `flashcards.py` | Wave 2 | SM-2 deck, due cards, backfill |
+| `parent.py` | Wave 4 | Parent read-only dashboard |
+| `immersive.py` | Wave 5 | Story / podcast / career / doubt-scan |
+| `wellness.py` | Wave 6 | Mood log + Pomodoro completion |
+| `projects.py` | Wave 6 | AI-generated multi-day projects |
+| `suggest.py` | Wave 7 | Next-best-action recommendation engine |
 
 ---
 
@@ -333,28 +324,43 @@ Request → FastAPI Router → Service Layer → Models/ORM → Supabase Postgre
 
 ```
 /login, /register          → Auth pages (Supabase Auth)
+/forgot-password           → Password reset
 /onboarding                → Multi-step wizard (grade, board, subjects, marksheet)
-/dashboard                 → Home (subject cards, recent activity, quick stats)
+/dashboard                 → Parchment hero, glossy stats, NBA coach, subject cards
 /learn                     → Subject/chapter selector
-/learn/[subjectId]         → Chapters for subject
 /learn/[subjectId]/[chapterId]  → Full lesson (content + chat + voice + sentiment)
-/learn/[subjectId]/[chapterId]/activity → Activity submission
-/session                   → MCQ session (step-through questions)
-/session/complete          → Session summary (XP, streak, level)
-/practice                  → Practice quiz mode
+/courses                   → Course catalog
+/practice                  → Adaptive practice quiz
+/review                    → Wave 2 — SM-2 flashcard review (Again/Hard/Good/Easy)
+/leaderboard               → Wave 1 — leaderboard
+/buddy                     → Wave 1 — AI study buddy
+/parent                    → Wave 4 — parent read-only dashboard
+/path                      → Wave 4 — learning path view
+/focus                     → Wave 6 — Pomodoro + mood check-in
+/project                   → Wave 6 — AI multi-day project builder
+/story/[chapterId]         → Wave 5 — 5-scene story mode
+/podcast/[chapterId]       → Wave 5 — OpenAI TTS podcast
+/career/[chapterId]        → Wave 5 — career glimpse
+/scan                      → Wave 5 — Claude Vision doubt scanner
+/sim/projectile            → Wave 5 — canvas physics sim
+/insights                  → Progress insights
 /analytics                 → Progress dashboard (real data from API)
 /sentiment                 → Emotion insights timeline
+/voice                     → Voice tutor standalone
+/video-session             → Webcam-based tutoring session
+/profile                   → Profile settings
+/preferences               → User preferences
 ```
 
 ### Key Hooks
 
 | Hook | Purpose |
 |---|---|
-| `useSupabaseAuth()` | Manage Supabase JWT & user session |
+| `useSupabaseAuth()` | Manage Supabase JWT & user session (`expires_at`-validated) |
 | `useVoiceChat()` | OpenAI Realtime WebSocket connection, transcript management |
+| `useVideoFeed()` | Webcam stream + periodic frame capture for sentiment |
 | `useSentiment()` | Subscribe to Supabase Realtime sentiment channel |
 | `useTutorSession()` | Subscribe to tutor event streaming from backend |
-| `useLocalStorage()` | Persist state across page reloads |
 
 ### Key Components
 
@@ -550,23 +556,40 @@ setLevel(profile.level || 1);
 
 ## API Endpoint Summary
 
-| Method | Route | Purpose | Response |
-|---|---|---|---|
-| POST | `/api/auth/verify` | Verify JWT | `{user_id, email, name}` |
-| POST | `/api/onboarding` | Save profile | `{student_id}` |
-| GET | `/api/onboarding/profile` | Get student profile | `{name, grade, streak_days, level, xp}` |
-| POST | `/api/curriculum/generate` | Generate curriculum | `{subjects: [...]}` |
-| GET | `/api/curriculum` | List curriculum | `{subjects: [...]}` |
-| GET | `/api/lessons/{chapter_id}/content` | Get chapter content | `{title, content_json, concepts[]}` |
-| POST | `/api/lessons/{chapter_id}/chat` | Chat with tutor (SSE) | Streaming text responses |
-| POST | `/api/voice/session` | Create voice session | `{client_secret, expires_in}` |
-| POST | `/api/video/analyze` | Analyze video frame | `{emotion, confidence}` |
-| POST | `/api/activities/{id}/submit` | Submit activity | `{score, feedback}` |
-| GET | `/api/progress/{student_id}` | Get progress analytics | `{subjects[], streak_days, total_xp}` |
-| POST | `/api/sessions/start` | Start MCQ session | `{session_id, concept, question}` |
-| POST | `/api/sessions/{id}/step` | Step through MCQ | `{is_correct, xp_earned, next}` |
-| POST | `/api/practice/quiz` | Generate practice quiz | `{questions[]}` |
-| GET | `/api/learning/next` | Get next recommended chapter | `{chapter_id, title}` |
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/api/auth/verify` | Verify JWT & return user info |
+| POST | `/api/onboarding` | Save profile & trigger curriculum gen |
+| GET | `/api/onboarding/profile` | Get student profile with streak/XP/level |
+| POST | `/api/curriculum/generate` | Generate curriculum |
+| GET | `/api/curriculum` | List curriculum |
+| GET | `/api/lessons/{chapter_id}/content` | Get chapter content |
+| POST | `/api/lessons/{chapter_id}/chat` | Chat with tutor (SSE) |
+| POST | `/api/voice/session` | Create voice session |
+| POST | `/api/video/analyze` | Analyze video frame |
+| POST | `/api/activities/{id}/submit` | Submit activity |
+| GET | `/api/progress/{student_id}` | Get progress analytics |
+| POST | `/api/sessions/start` | Start MCQ session |
+| POST | `/api/sessions/{id}/step` | Step through MCQ |
+| POST | `/api/practice/quiz` | Generate practice quiz |
+| GET | `/api/learning/next` | Get next recommended chapter |
+| GET | `/api/challenges/today` | Wave 1 — daily challenges |
+| POST | `/api/challenges/{id}/complete` | Wave 1 — grant challenge XP |
+| GET | `/api/leaderboard` | Wave 1 — leaderboard snapshot |
+| GET | `/api/buddy` | Wave 1 — study buddy state |
+| POST | `/api/buddy/message` | Wave 1 — send buddy message |
+| GET | `/api/flashcards/due` | Wave 2 — SM-2 due queue |
+| POST | `/api/flashcards/{id}/grade` | Wave 2 — grade card (Again/Hard/Good/Easy) |
+| POST | `/api/flashcards/generate-missing` | Wave 2 — backfill decks for chapters |
+| GET | `/api/parent/digest` | Wave 4 — parent progress digest |
+| POST | `/api/immersive/story` | Wave 5 — 5-scene story |
+| POST | `/api/immersive/podcast` | Wave 5 — OpenAI TTS podcast |
+| POST | `/api/immersive/career` | Wave 5 — career glimpse paragraph |
+| POST | `/api/immersive/doubt-scan` | Wave 5 — Claude Vision doubt scanner |
+| POST | `/api/wellness/mood` | Wave 6 — log mood + coach line |
+| POST | `/api/wellness/pomodoro/complete` | Wave 6 — grant Pomodoro XP |
+| POST | `/api/projects/generate` | Wave 6 — AI multi-day project plan |
+| GET | `/api/suggest/next-best-action` | Wave 7 — up to 3 NBA cards |
 
 ---
 
@@ -608,5 +631,5 @@ docker-compose up -d
 
 ---
 
-**Last Updated:** 2026-04-19  
-**Status:** Complete — All critical path implementations finished, documentation complete
+**Last Updated:** 2026-04-21  
+**Status:** Waves 1–7 + theme refresh shipped. Docs in sync with current routers, services, and frontend routes.

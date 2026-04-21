@@ -8,11 +8,20 @@ export function useSupabaseAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session }, error }) => {
+        const now = Math.floor(Date.now() / 1000);
+        const isValid = !error && session && (!session.expires_at || session.expires_at > now);
+        setSession(isValid ? session : null);
+        setUser(isValid ? session!.user : null);
+        setLoading(false);
+      })
+      .catch(() => {
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+      });
 
     const {
       data: { subscription },

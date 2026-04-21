@@ -28,6 +28,9 @@ from app.models.adaptive import (
     LibraryChunk,
     AdaptiveAchievement
 )
+from app.models.daily_challenge import DailyChallengeClaim
+from app.models.flashcard import Flashcard
+from app.models.mood import MoodLog
 
 __all__ = [
     "Student",
@@ -61,4 +64,7 @@ __all__ = [
     "LibraryDocument",
     "LibraryChunk",
     "AdaptiveAchievement",
+    "DailyChallengeClaim",
+    "Flashcard",
+    "MoodLog",
 ]

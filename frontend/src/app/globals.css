@@ -6,102 +6,116 @@
 
 @layer base {
   :root {
-    --radius: 0.875rem;
-    /* LearnOS dark theme — deep navy with electric blue accents */
-    --background: 222.2 84% 4.9%; /* Standard fallback */
-    --foreground: 210 40% 98%;
+    --radius: 1rem;
 
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 6px);
+    --radius-md: calc(var(--radius) - 4px);
     --radius-lg: var(--radius);
     --radius-xl: calc(var(--radius) + 4px);
     --radius-2xl: calc(var(--radius) + 8px);
     --radius-3xl: calc(var(--radius) + 12px);
     --radius-4xl: calc(var(--radius) + 16px);
 
-    /* oklch tokens */
-    --ok-background: oklch(0.18 0.03 260);
-    --ok-foreground: oklch(0.98 0.005 250);
-    --ok-card: oklch(0.22 0.035 262);
-    --ok-card-foreground: oklch(0.98 0.005 250);
-    --ok-popover: oklch(0.22 0.035 262);
-    --ok-popover-foreground: oklch(0.98 0.005 250);
-    --ok-primary: oklch(0.62 0.22 260);
-    --ok-primary-foreground: oklch(0.99 0.005 250);
-    --ok-primary-glow: oklch(0.72 0.2 265);
-    --ok-secondary: oklch(0.28 0.04 262);
-    --ok-secondary-foreground: oklch(0.98 0.005 250);
-    --ok-muted: oklch(0.26 0.035 262);
-    --ok-muted-foreground: oklch(0.68 0.03 258);
-    --ok-accent: oklch(0.55 0.24 295);
-    --ok-accent-foreground: oklch(0.99 0.005 250);
-    --ok-destructive: oklch(0.62 0.24 27);
-    --ok-destructive-foreground: oklch(0.98 0.005 250);
-    --ok-border: oklch(0.32 0.04 262);
-    --ok-input: oklch(0.28 0.04 262);
-    --ok-ring: oklch(0.62 0.22 260);
+    /* === LearnSphere-bright theme — clean white with vivid primary blobs === */
 
-    --gradient-primary: linear-gradient(135deg, oklch(0.62 0.22 260), oklch(0.55 0.24 295));
-    --gradient-card: linear-gradient(180deg, oklch(0.24 0.04 262 / 0.8), oklch(0.2 0.035 260 / 0.6));
-    --gradient-accent-soft: linear-gradient(135deg, oklch(0.62 0.22 260 / 0.15), oklch(0.55 0.24 295 / 0.1));
-    --shadow-glow: 0 0 40px -10px oklch(0.62 0.22 260 / 0.5);
-    --shadow-card: 0 8px 32px -12px oklch(0.1 0.04 260 / 0.6);
-    --shadow-elevated: 0 20px 60px -20px oklch(0.62 0.22 260 / 0.35);
+    /* Surfaces — crisp white page, very soft tint on raised elements */
+    --bg-base: #ffffff;
+    --bg-surface: #ffffff;
+    --bg-raised: #f8fafc;
+    --bg-deep: #f1f5f9;
+    --bg-page: #ffffff;
 
-    /* EduAI design system tokens */
-    --bg-base: #0d1117;
-    --bg-surface: #161b27;
-    --bg-raised: #1e2330;
-    --bg-deep: #0a0d14;
-    --border: #1a1f2e;
-    --border-mid: #2a2d45;
-    --accent: #5b5eff;
-    --accent-dim: #3d3faa;
-    --accent-soft: #1a1f35;
-    --text-primary: #ffffff;
-    --text-body: #c5c9d6;
-    --text-muted: #6b7280;
-    --text-faint: #3a3f55;
-    --green: #1d9e75;
-    --green-bg: #0f2a1f;
-    --amber: #ef9f27;
-    --amber-bg: #1f1a0f;
-    --red: #e24b4a;
-    --red-bg: #2a1a1a;
-    --teal: #85b7eb;
-    --teal-bg: #0f1f2a;
+    /* Parchment / scroll surfaces — kept for back-compat, re-tuned to soft cream chips */
+    --parchment: #fff7e6;
+    --parchment-edge: #fbbf24;
+    --parchment-deep: #fde68a;
+
+    /* Borders — cool slate for crisp card edges on white */
+    --border: #e2e8f0;
+    --border-mid: #cbd5e1;
+
+    /* Primary CTA — LearnSphere vivid orange */
+    --accent: #f97316;
+    --accent-dim: #ea580c;
+    --accent-soft: #ffedd5;
+
+    /* Secondary brand — LearnSphere vivid blue */
+    --brand-blue: #2563eb;
+    --brand-blue-soft: #dbeafe;
+
+    /* Subject palette — pastel storybook */
+    --subject-math: #60a5fa;
+    --subject-math-bg: #dbeafe;
+    --subject-science: #34d399;
+    --subject-science-bg: #d1fae5;
+    --subject-english: #fb923c;
+    --subject-english-bg: #fed7aa;
+    --subject-coding: #a855f7;
+    --subject-coding-bg: #ede9fe;
+    --subject-history: #d97706;
+    --subject-history-bg: #fde68a;
+    --subject-arts: #ec4899;
+    --subject-arts-bg: #fce7f3;
+    --subject-music: #14b8a6;
+    --subject-music-bg: #ccfbf1;
+
+    /* Text */
+    --text-primary: #0f172a;
+    --text-body: #334155;
+    --text-muted: #64748b;
+    --text-faint: #94a3b8;
+
+    /* Status */
+    --green: #22c55e;
+    --green-bg: #dcfce7;
+    --amber: #f59e0b;
+    --amber-bg: #fef3c7;
+    --red: #ef4444;
+    --red-bg: #fee2e2;
+    --teal: #06b6d4;
+    --teal-bg: #cffafe;
+
+    /* Gradients & shadows */
+    --gradient-primary: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --gradient-blue: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+    --gradient-hero: linear-gradient(180deg, #fef3c7 0%, #fdf6e4 60%);
+    --gradient-parchment: linear-gradient(180deg, #fdf1d0 0%, #f6e3b0 100%);
+    --gradient-stat-purple: linear-gradient(160deg, #c4b5fd 0%, #8b5cf6 100%);
+    --gradient-stat-teal: linear-gradient(160deg, #99f6e4 0%, #14b8a6 100%);
+    --gradient-stat-orange: linear-gradient(160deg, #fed7aa 0%, #f97316 100%);
+    --gradient-stat-pink: linear-gradient(160deg, #fbcfe8 0%, #ec4899 100%);
+    --shadow-card: 0 4px 16px -4px rgba(15, 23, 42, 0.10);
+    --shadow-elevated: 0 14px 40px -12px rgba(15, 23, 42, 0.18);
+    --shadow-glow: 0 0 24px -4px rgba(249, 115, 22, 0.45);
   }
 
-  /* Map Shadcn variables to OKLCH where possible */
+  /* Shadcn token mapping (light) */
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: 0 0% 100%;
+    --foreground: 222.2 47.4% 11.2%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+    --primary: 142.1 70.6% 45.3%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 142.1 70.6% 45.3%;
   }
 
   * {
-    border-color: var(--ok-border);
+    border-color: var(--border);
     box-sizing: border-box;
   }
 
   html {
-    color-scheme: dark;
+    color-scheme: light;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -109,55 +123,165 @@
   }
 
   body {
-    background-color: var(--ok-background);
-    color: var(--ok-foreground);
+    background-color: var(--bg-page);
+    color: var(--text-body);
+    /* LearnSphere-style colorful soft blobs in the corners of a bright white page.
+       Big, diffuse, saturated — they read as blobs, not vignettes. */
     background-image:
-      radial-gradient(ellipse 70% 40% at 50% -10%, oklch(0.28 0.05 262 / 0.6), transparent 70%),
-      linear-gradient(180deg, oklch(0.16 0.025 260) 0%, oklch(0.18 0.03 260) 100%);
+      radial-gradient(ellipse 620px 520px at -8% -4%, rgba(37, 99, 235, 0.22), transparent 60%),
+      radial-gradient(ellipse 520px 460px at 108% 2%, rgba(250, 204, 21, 0.30), transparent 60%),
+      radial-gradient(ellipse 480px 420px at -6% 102%, rgba(34, 197, 94, 0.22), transparent 60%),
+      radial-gradient(ellipse 540px 460px at 106% 104%, rgba(249, 115, 22, 0.22), transparent 60%),
+      radial-gradient(circle 3px at 18% 28%, rgba(37, 99, 235, 0.18) 0 2px, transparent 3px),
+      radial-gradient(circle 3px at 82% 36%, rgba(249, 115, 22, 0.20) 0 2px, transparent 3px),
+      radial-gradient(circle 3px at 72% 72%, rgba(168, 85, 247, 0.20) 0 2px, transparent 3px),
+      radial-gradient(circle 3px at 24% 78%, rgba(34, 197, 94, 0.18) 0 2px, transparent 3px);
     background-attachment: fixed;
-    font-feature-settings: "ss01", "cv11";
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 220px 220px, 240px 240px, 200px 200px, 260px 260px;
   }
 
   :focus-visible {
-    outline: 2px solid oklch(0.62 0.22 260);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
-  /* Custom Scrollbar */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  /* Headings carry the playful bright look by default */
+  h1, h2, h3, h4 { color: var(--text-primary); }
+
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(15, 23, 42, 0.12);
     border-radius: 10px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(15, 23, 42, 0.22);
   }
 }
 
 @layer utilities {
-  .bg-gradient-primary {
-    background-image: var(--gradient-primary);
+  /* === Legacy dark-hex color compatibility ===
+     Pages used to hard-code the old dark theme's hex values. Map them to the
+     new BrightLearn palette here so we don't have to touch every component. */
+
+  /* Surfaces */
+  .bg-\[\#0d1117\],
+  .bg-\[\#0a0d14\],
+  .bg-\[\#161b27\],
+  .bg-\[\#111520\] { background-color: var(--bg-base) !important; }
+  .bg-\[\#0d1424\] { background-color: var(--bg-surface) !important; box-shadow: var(--shadow-card); border-color: var(--border) !important; }
+  .bg-\[\#1e2330\] { background-color: var(--bg-raised) !important; }
+  .bg-\[\#1a1f2e\] { background-color: var(--bg-deep) !important; }
+  .bg-\[\#1a1f35\] { background-color: var(--accent-soft) !important; }
+  .bg-\[\#2a2d45\] { background-color: var(--bg-deep) !important; }
+  .bg-\[\#3d3faa\] { background-color: var(--accent) !important; }
+  .bg-\[\#5b5eff\] { background-color: var(--accent) !important; }
+  .bg-\[\#e24b4a\] { background-color: var(--red) !important; }
+  .bg-\[\#f09595\] { background-color: var(--red) !important; opacity: 0.85; }
+  .bg-\[\#2a1a1a\] { background-color: var(--red-bg) !important; }
+  .bg-\[\#0f2a1f\] { background-color: var(--green-bg) !important; }
+  .bg-\[\#1f1a0f\] { background-color: var(--amber-bg) !important; }
+
+  /* Text */
+  .text-\[\#5b5eff\] { color: var(--brand-blue) !important; }
+  .text-\[\#3d3faa\] { color: var(--accent) !important; }
+  .text-\[\#c5c9d6\] { color: var(--text-body) !important; }
+  .text-\[\#6b7280\] { color: var(--text-muted) !important; }
+  .text-\[\#3a3f55\] { color: var(--text-faint) !important; }
+  .text-\[\#e24b4a\] { color: var(--red) !important; }
+  .text-\[\#1d9e75\] { color: var(--green) !important; }
+  .text-\[\#ef9f27\] { color: var(--amber) !important; }
+  .text-\[\#85b7eb\] { color: var(--teal) !important; }
+  .text-\[\#a8aaee\] { color: var(--brand-blue) !important; }
+  .text-\[\#f09595\] { color: var(--red) !important; }
+  .text-\[\#00d4ff\] { color: var(--teal) !important; }
+  .text-\[\#b366ff\] { color: var(--subject-coding) !important; }
+  .text-\[\#ff6b9d\] { color: var(--subject-arts) !important; }
+
+  /* Borders */
+  .border-\[\#1a1f2e\] { border-color: var(--border) !important; }
+  .border-\[\#2a2d45\] { border-color: var(--border-mid) !important; }
+  .border-\[\#3d3faa\] { border-color: var(--accent) !important; }
+  .border-\[\#3a3f55\] { border-color: var(--border) !important; }
+  .border-\[\#5b5eff\] { border-color: var(--accent) !important; }
+
+  /* Pure white text rarely makes sense on the new light theme — but it's
+     still correct on top of colored CTA buttons (.bg-[var(--accent)],
+     .bg-blue-600, etc). So instead of globally remapping text-white, we
+     override it only where it appears with a known dark surface from the
+     old theme. */
+  .bg-\[\#0d1424\] .text-white,
+  .bg-\[\#0d1117\] .text-white,
+  .bg-\[\#0a0d14\] .text-white,
+  .bg-\[\#161b27\] .text-white,
+  .bg-\[\#1e2330\] .text-white,
+  .bg-\[\#1a1f2e\] .text-white,
+  .bg-\[\#111520\] .text-white { color: var(--text-primary) !important; }
+
+  /* Page-level body backgrounds use these CSS vars; readable text required */
+  body .text-white { /* default — keep white. Pages that need dark text on
+                       white bg should use text-[var(--text-primary)]. */ }
+
+  /* Soft white overlays in the old dark theme */
+  .bg-white\/\[0\.06\] { background-color: var(--bg-deep) !important; }
+  .border-white\/20,
+  .border-white\/\[0\.07\],
+  .border-white\/10 { border-color: var(--border) !important; }
+  .text-white\/80 { color: var(--text-body) !important; }
+  .text-white\/50 { color: var(--text-muted) !important; }
+  .text-white\/40 { color: var(--text-muted) !important; }
+  .bg-blue-500\/10 { background-color: var(--brand-blue-soft) !important; }
+  .text-blue-400 { color: var(--brand-blue) !important; }
+  .border-blue-500\/20 { border-color: var(--brand-blue) !important; opacity: 0.4; }
+  .shadow-blue-900\/40 { box-shadow: 0 8px 24px -8px rgba(37, 99, 235, 0.4) !important; }
+
+  /* Friendly card defaults */
+  .bg-gradient-primary { background-image: var(--gradient-primary); }
+  .bg-gradient-blue { background-image: var(--gradient-blue); }
+  .bg-gradient-hero { background-image: var(--gradient-hero); }
+  .bg-gradient-parchment { background-image: var(--gradient-parchment); }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
+  .shadow-card { box-shadow: var(--shadow-card); }
+  .shadow-elevated { box-shadow: var(--shadow-elevated); }
+
+  /* Parchment panel — warm bordered surface with soft gradient */
+  .parchment {
+    background-image: var(--gradient-parchment);
+    border: 2px solid var(--parchment-edge);
+    box-shadow: 0 8px 24px -8px rgba(180, 120, 40, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.6);
   }
-  .bg-gradient-card {
-    background-image: var(--gradient-card);
+
+  /* Glossy gradient stat — used for top stat tiles in dashboard */
+  .stat-glossy {
+    position: relative;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    box-shadow:
+      0 10px 24px -8px rgba(120, 80, 20, 0.35),
+      inset 0 2px 0 rgba(255, 255, 255, 0.65),
+      inset 0 -8px 20px rgba(0, 0, 0, 0.10);
   }
-  .bg-gradient-accent-soft {
-    background-image: var(--gradient-accent-soft);
+  .stat-glossy::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, transparent 45%);
+    pointer-events: none;
   }
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
+
+  /* Decorative scatter layer (stars, books) for dashboard pages */
+  .doodle-field {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
   }
-  .shadow-card {
-    box-shadow: var(--shadow-card);
-  }
-  .shadow-elevated {
-    box-shadow: var(--shadow-elevated);
+  .doodle-field > span {
+    position: absolute;
+    opacity: 0.35;
+    font-size: 28px;
+    user-select: none;
   }
   .text-gradient-primary {
     background-image: var(--gradient-primary);
@@ -166,16 +290,11 @@
     color: transparent;
   }
 
-  /* Existing utility classes mapping to OKLCH */
-  .text-primary-glow { color: var(--ok-primary-glow); }
-  .bg-primary-glow { background-color: var(--ok-primary-glow); }
-  .border-primary-glow { border-color: var(--ok-primary-glow); }
-  
-  /* Legacy Animation Support */
+  /* Animations */
   @keyframes pulse-accent {
-    0% { box-shadow: 0 0 0 0 oklch(0.62 0.22 260 / 0.4); }
-    70% { box-shadow: 0 0 0 15px oklch(0.62 0.22 260 / 0); }
-    100% { box-shadow: 0 0 0 0 oklch(0.62 0.22 260 / 0); }
+    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
   }
   .animate-pulse-accent { animation: pulse-accent 2s infinite; }
 
@@ -186,7 +305,6 @@
   }
   .animate-float { animation: float 4s ease-in-out infinite; }
 
-  /* EduAI animations */
   @keyframes pulse-ring {
     0%, 100% { transform: scale(1); opacity: 0.6; }
     50% { transform: scale(1.09); opacity: 0.15; }

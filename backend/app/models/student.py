@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 
-from sqlalchemy import Boolean, DateTime, String, Text, func, Integer, Float
+from sqlalchemy import Boolean, Date, DateTime, String, Text, func, Integer, Float
 from sqlalchemy.dialects.postgresql import ARRAY, UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,12 +19,16 @@ class Student(Base):
     board: Mapped[str | None] = mapped_column(String(50), nullable=True)
     marksheet_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
-    
+
     # Gamification & Adaptive fields
     xp: Mapped[int] = mapped_column(Integer, default=0)
     level: Mapped[int] = mapped_column(Integer, default=1)
     streak_days: Mapped[int] = mapped_column(Integer, default=0)
     last_active_os: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_active_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    longest_streak: Mapped[int] = mapped_column(Integer, default=0)
+    streak_freezes_used: Mapped[int] = mapped_column(Integer, default=0)
+    streak_freeze_week_start: Mapped[date | None] = mapped_column(Date, nullable=True)
     
     pace_preference: Mapped[str] = mapped_column(String(50), default="steady")
     difficulty_tolerance: Mapped[float] = mapped_column(Float, default=0.62)

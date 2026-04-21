@@ -40,6 +40,7 @@ async function handler(req: NextRequest, { params }: { params: { path: string[] 
     try {
       backendRes = await fetch(url, {
         method: req.method,
+        
         headers,
         body: body && body.byteLength > 0 ? body : undefined,
         // Required for Node.js fetch to support streaming response on POST requests

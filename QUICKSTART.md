@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-19 09:51
+**Last Updated:** 2026-04-21
 
 # LearnOS — Quick Start Guide
 
@@ -117,6 +117,8 @@ npm run dev
 
 ✅ Frontend running at: **http://localhost:3000**
 
+> The `dev` script uses `cross-env NODE_OPTIONS=--max-http-header-size=65536` to accommodate large Supabase SSR cookies. If you see `HTTP 431 Request Header Fields Too Large`, clear `localhost:3000` cookies in DevTools → Application → Storage.
+
 ---
 
 ## Step 6: Test the App (2 min)
@@ -140,8 +142,18 @@ npm run dev
 | **Voice Tutoring** | Allow microphone access in the lesson |
 | **Video Sentiment** | Enable webcam in the lesson (emotion detection) |
 | **Practice Quiz** | Click "Practice" in nav |
-| **Progress Analytics** | Click "Analytics" in nav |
-| **Sentiment Insights** | Click "Insights" in profile dropdown |
+| **Flashcard Review (SM-2)** | Click "Review" in nav |
+| **Daily Challenges + Streaks** | Dashboard hero + challenge cards |
+| **Story Mode** | Open a lesson → Story icon in the chat panel |
+| **Audio Podcast (TTS)** | Open a lesson → Listen icon |
+| **Career Glimpse** | Open a lesson → Careers icon |
+| **Doubt Scanner** | Dashboard → Quick Actions → Doubt scanner |
+| **Projectile Sim** | Direct URL: `/sim/projectile` |
+| **Mood + Pomodoro** | Dashboard → Focus & Mood |
+| **AI Project Mode** | Dashboard → Project mode |
+| **Next-Best-Action** | "For you, right now" widget on the dashboard |
+| **Progress Analytics** | Click "Progress" in nav |
+| **Leaderboard / Buddy** | Nav tabs |
 
 ---
 

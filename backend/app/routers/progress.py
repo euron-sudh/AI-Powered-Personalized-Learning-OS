@@ -17,6 +17,18 @@ from app.schemas.progress import ProgressResponse, SubjectProgress
 router = APIRouter()
 
 
+@router.get("/weakness-radar", response_model=dict)
+async def get_weakness_radar(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Aggregated weakness data for the radar chart on /analytics."""
+    from app.services.adaptive import aggregate_weaknesses
+
+    student_id = uuid.UUID(user["sub"])
+    return await aggregate_weaknesses(db, student_id)
+
+
 @router.get("/today-focus", response_model=dict)
 async def get_today_focus(
     user: dict = Depends(get_current_user),

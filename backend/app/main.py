@@ -31,16 +31,25 @@ from app.core.rate_limiter import limiter
 from app.routers import (
     activities,
     auth,
+    buddy,
+    challenges,
     curriculum,
+    flashcards,
+    immersive,
+    leaderboard,
     lessons,
     notes,
     onboarding,
+    parent,
     practice,
     progress,
+    projects,
+    suggest,
     sessions,
     tutor_session,
     video,
     voice,
+    wellness,
     learning,
 )
 
@@ -132,6 +141,15 @@ app.include_router(sessions.router, prefix="/api", tags=["sessions"])
 app.include_router(notes.router, prefix="/api/notes", tags=["notes"])
 app.include_router(tutor_session.router, prefix="/api/tutor-session", tags=["tutor-session"])
 app.include_router(learning.router, prefix="/api/learning", tags=["learning"])
+app.include_router(challenges.router, prefix="/api/challenges", tags=["challenges"])
+app.include_router(flashcards.router, prefix="/api/flashcards", tags=["flashcards"])
+app.include_router(leaderboard.router, prefix="/api/leaderboard", tags=["leaderboard"])
+app.include_router(parent.router, prefix="/api/parent", tags=["parent"])
+app.include_router(buddy.router, prefix="/api/buddy", tags=["buddy"])
+app.include_router(immersive.router, prefix="/api/immersive", tags=["immersive"])
+app.include_router(wellness.router, prefix="/api/wellness", tags=["wellness"])
+app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
+app.include_router(suggest.router, prefix="/api/suggest", tags=["suggest"])
 
 # Adaptive Learning OS — multi-agent engine routes (/api/system/*)
 

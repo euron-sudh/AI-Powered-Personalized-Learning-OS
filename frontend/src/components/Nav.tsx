@@ -7,12 +7,16 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
 import { apiDelete } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { GraduationCap } from "lucide-react";
 
 const NAV_TABS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/learn", label: "Learn" },
   { href: "/learn", label: "AI Tutor" },
   { href: "/practice", label: "Practice" },
+  { href: "/review", label: "Review" },
+  { href: "/buddy", label: "Buddy" },
+  { href: "/leaderboard", label: "Leaderboard" },
   { href: "/analytics", label: "Progress" },
 ];
 
@@ -89,6 +93,9 @@ export default function Nav() {
     if (href === "/dashboard") return pathname === "/dashboard";
     if (href === "/learn") return pathname.startsWith("/learn");
     if (href === "/practice") return pathname.startsWith("/practice");
+    if (href === "/review") return pathname.startsWith("/review");
+    if (href === "/buddy") return pathname.startsWith("/buddy");
+    if (href === "/leaderboard") return pathname.startsWith("/leaderboard");
     if (href === "/analytics") return pathname.startsWith("/analytics");
     return pathname.startsWith(href);
   };
@@ -97,18 +104,22 @@ export default function Nav() {
 
   return (
     <>
-      {/* eduai topbar — 54px height, bg-deep (#0a0d14) */}
+      {/* BrightLearn topbar — white, 64px, soft shadow */}
       {showNav && (
-        <nav className="sticky top-0 z-30 bg-[var(--bg-deep)] border-b border-[var(--border)] h-[54px] flex items-center px-6 gap-0">
+        <nav className="sticky top-0 z-30 bg-white border-b border-[var(--border)] h-[64px] flex items-center px-6 gap-0 shadow-card">
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-0 shrink-0 mr-8">
-            <span className="text-[16px] font-[500] text-white tracking-tight">
-              Learn<span className="text-[var(--accent)]">OS</span>
+          <Link href="/dashboard" className="flex items-center gap-2 shrink-0 mr-8">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[var(--brand-blue)] to-[var(--subject-coding)] flex items-center justify-center shadow-card">
+              <GraduationCap className="w-5 h-5 text-white" strokeWidth={2.2} />
+            </div>
+            <span className="text-[18px] font-extrabold tracking-tight">
+              <span className="text-[var(--text-primary)]">Learn</span>
+              <span className="text-[var(--brand-blue)]">OS</span>
             </span>
           </Link>
 
-          {/* Nav tabs — flex, align-center, 12px font-size */}
-          <div className="flex items-center gap-0 flex-1">
+          {/* Nav tabs */}
+          <div className="flex items-center gap-1 flex-1">
             {NAV_TABS.map(({ href, label }) => {
               const active = isActive(href);
               return (
@@ -116,10 +127,10 @@ export default function Nav() {
                   key={label}
                   href={href}
                   className={cn(
-                    "px-[14px] h-[54px] flex items-center gap-[7px] text-[12px] whitespace-nowrap border-b-2 transition-all duration-150",
+                    "px-4 h-[64px] flex items-center text-[13px] font-semibold whitespace-nowrap border-b-2 transition-all duration-150",
                     active
-                      ? "text-[var(--accent)] border-b-[#5b5eff]"
-                      : "text-[var(--text-muted)] border-b-transparent hover:text-[var(--text-body)]"
+                      ? "text-[var(--brand-blue)] border-b-[var(--brand-blue)]"
+                      : "text-[var(--text-muted)] border-b-transparent hover:text-[var(--text-primary)]"
                   )}
                 >
                   {label}
@@ -129,36 +140,32 @@ export default function Nav() {
           </div>
 
           {/* Right side — grade badge + avatar */}
-          <div className="flex items-center gap-[10px] ml-auto">
-            {/* Grade badge */}
+          <div className="flex items-center gap-3 ml-auto">
             {profileGrade && (
-              <div className="bg-[var(--accent-soft)] border border-[#3d3faa] rounded-full px-3 py-1 text-[11px] text-[var(--accent)] font-[500]">
+              <div className="bg-[var(--brand-blue-soft)] rounded-full px-3.5 py-1.5 text-[12px] text-[var(--brand-blue)] font-bold">
                 Grade {profileGrade}
               </div>
             )}
 
-            {/* Profile dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen((o) => !o)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#3a3f55] text-[var(--accent)] hover:bg-[#1a1f2e] transition-colors"
+                className="flex items-center gap-2 p-1 rounded-full hover:bg-[var(--bg-deep)] transition-colors"
               >
-                <div className="w-6 h-6 rounded-full bg-[#3d3faa] flex items-center justify-center text-[11px] font-[500] text-[var(--accent)] shrink-0">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[var(--brand-blue)] to-[var(--subject-coding)] flex items-center justify-center text-[13px] font-bold text-white shrink-0 shadow-card">
                   {initials}
                 </div>
               </button>
 
-              {/* Dropdown menu */}
               {dropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg shadow-xl overflow-hidden z-50">
-                  {/* Header */}
-                  <div className="px-4 py-3 border-b border-[var(--border)]">
+                <div className="absolute right-0 top-full mt-2 w-60 bg-white border border-[var(--border)] rounded-2xl shadow-elevated overflow-hidden z-50">
+                  <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-deep)]">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-[#3d3faa] flex items-center justify-center text-sm font-[500] text-[var(--accent)] shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--brand-blue)] to-[var(--subject-coding)] flex items-center justify-center text-sm font-bold text-white shrink-0">
                         {initials}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-[500] text-white truncate">{displayName}</p>
+                        <p className="text-sm font-bold text-[var(--text-primary)] truncate">{displayName}</p>
                         <p className="text-xs text-[var(--text-muted)] truncate">{displayEmail}</p>
                       </div>
                     </div>
@@ -166,38 +173,36 @@ export default function Nav() {
 
                   {!deleteConfirm ? (
                     <>
-                      {/* Menu items */}
                       <div className="py-1.5">
                         <Link
                           href="/profile"
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-body)] hover:text-white hover:bg-[#1a1f2e] transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[var(--text-body)] hover:bg-[var(--bg-deep)] transition-colors"
                         >
                           Profile Details
                         </Link>
                         <Link
                           href="/analytics"
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-body)] hover:text-white hover:bg-[#1a1f2e] transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[var(--text-body)] hover:bg-[var(--bg-deep)] transition-colors"
                         >
                           My Progress
                         </Link>
                         <Link
                           href="/learn"
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-body)] hover:text-white hover:bg-[#1a1f2e] transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[var(--text-body)] hover:bg-[var(--bg-deep)] transition-colors"
                         >
                           My Subjects
                         </Link>
                         <button
                           onClick={() => setDeleteConfirm(true)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#e24b4a] hover:text-[#f09595] hover:bg-[#2a1a1a] transition-colors text-left"
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[var(--red)] hover:bg-[var(--red-bg)] transition-colors text-left"
                         >
                           Delete Profile
                         </button>
                       </div>
-                      {/* Sign out */}
                       <div className="border-t border-[var(--border)] py-1.5">
                         <button
                           onClick={handleSignOut}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#e24b4a] hover:text-[#f09595] hover:bg-[#2a1a1a] transition-colors text-left"
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-[var(--red)] hover:bg-[var(--red-bg)] transition-colors text-left"
                         >
                           Sign Out
                         </button>
@@ -209,13 +214,13 @@ export default function Nav() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => setDeleteConfirm(false)}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-sm border border-[var(--border)] text-[var(--text-body)] hover:bg-[#1a1f2e] transition-colors"
+                          className="flex-1 px-3 py-1.5 rounded-lg text-sm border border-[var(--border)] text-[var(--text-body)] hover:bg-[var(--bg-deep)] transition-colors"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={handleDeleteProfile}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-sm bg-[#e24b4a] hover:bg-[#f09595] text-white font-[500] transition-colors"
+                          className="flex-1 px-3 py-1.5 rounded-lg text-sm bg-[var(--red)] hover:opacity-90 text-white font-semibold transition-colors"
                         >
                           Yes, delete
                         </button>

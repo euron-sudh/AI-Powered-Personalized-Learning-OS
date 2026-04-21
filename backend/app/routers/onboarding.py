@@ -2,7 +2,7 @@ import uuid
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Response
-from sqlalchemy import delete, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
@@ -280,6 +280,8 @@ async def get_student_profile(
     if not student:
         raise HTTPException(status_code=404, detail="Student profile not found")
 
+    from app.services.gamification import xp_into_level
+    into, needed = xp_into_level(student.xp or 0)
     return {
         "student_id": str(student.id),
         "name": student.name,
@@ -289,6 +291,33 @@ async def get_student_profile(
         "interests": student.interests,
         "onboarding_completed": student.onboarding_completed,
         "marksheet_path": student.marksheet_path,
+        "xp": student.xp,
+        "level": student.level,
+        "streak_days": student.streak_days,
+        "longest_streak": student.longest_streak or 0,
+        "xp_into_level": into,
+        "xp_to_next_level": needed,
+        "streak_freezes_remaining": max(0, 1 - (student.streak_freezes_used or 0)),
+    }
+
+
+@router.post("/heartbeat")
+async def heartbeat(
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Mark the student as active today; update streak with grace-day support."""
+    from app.services.gamification import update_streak_and_activity
+    student = await db.get(Student, uuid.UUID(user["sub"]))
+    if not student:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+    summary = await update_streak_and_activity(student)
+    await db.commit()
+    return {
+        "streak_days": student.streak_days,
+        "longest_streak": student.longest_streak or 0,
+        "grace_used": summary.get("grace_used", False),
+        "broke": summary.get("broke", False),
     }
 
 
@@ -297,28 +326,37 @@ async def get_student_subjects(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Get all subjects for the current student with chapter counts."""
+    """Get all subjects for the current student with chapter totals and completion."""
     student_id = uuid.UUID(user["sub"])
 
-    result = await db.execute(
-        select(Subject).where(Subject.student_id == student_id)
+    total_col = func.count(Chapter.id)
+    completed_col = func.coalesce(
+        func.sum(case((Chapter.status == "completed", 1), else_=0)), 0
     )
-    subjects = result.scalars().all()
+
+    stmt = (
+        select(Subject, total_col, completed_col)
+        .outerjoin(Chapter, Chapter.subject_id == Subject.id)
+        .where(Subject.student_id == student_id)
+        .group_by(Subject.id)
+        .order_by(Subject.name)
+    )
+    result = await db.execute(stmt)
 
     response = []
-    for subject in subjects:
-        # Count chapters for this subject
-        chapters_result = await db.execute(
-            select(Chapter).where(Chapter.subject_id == subject.id)
-        )
-        chapters = chapters_result.scalars().all()
-
+    for subject, total, completed in result.all():
+        total = int(total or 0)
+        completed = int(completed or 0)
+        progress_percent = round((completed / total) * 100) if total else 0
         response.append({
             "id": str(subject.id),
             "name": subject.name,
             "status": subject.status,
             "difficulty_level": subject.difficulty_level,
-            "chapter_count": len(chapters),
+            "chapter_count": total,
+            "total_chapters": total,
+            "chapters_completed": completed,
+            "progress_percent": progress_percent,
         })
 
     return {"subjects": response}

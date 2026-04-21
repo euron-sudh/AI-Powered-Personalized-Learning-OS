@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-poppins",
   display: "swap",
 });
 
@@ -20,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} dark`}>
-      <body className="min-h-screen bg-[var(--bg-base)] text-white antialiased font-sans">
+    <html lang="en" className={`${inter.variable} ${poppins.variable}`}>
+      <body className="min-h-screen bg-[var(--bg-page)] text-[var(--text-body)] antialiased font-sans">
         <Nav />
         {children}
       </body>

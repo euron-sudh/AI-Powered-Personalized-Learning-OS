@@ -10,7 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-poppins)", "var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+        display: ["var(--font-poppins)", "system-ui", "sans-serif"],
       },
       colors: {
         // Direct hex values for arbitrary bracket notation

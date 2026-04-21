@@ -1,10 +1,12 @@
-**Last Updated:** 2026-04-19 09:51
+**Last Updated:** 2026-04-21
 
 You are a senior QA engineer and system tester.
 
 Your task is to perform a COMPLETE end-to-end test of the LearnOS application from a real student perspective.
 
 You must simulate real user behavior, validate backend data integrity, and identify UX, logic, and system failures.
+
+> **Note:** Steps 0–12 below cover the core learning loop. For the post-MVP waves (flashcards, story mode, podcast, doubt scanner, projectile sim, mood + Pomodoro, project mode, next-best-action, parent dashboard, leaderboard/buddy), also walk the routes listed in [QUICKSTART.md](../QUICKSTART.md#key-features-to-try) — each should load without errors, persist state correctly, and surface XP/streak updates on the dashboard where applicable.
 
 ---
 
@@ -341,5 +343,43 @@ Return:
 3. Minor issues
 4. UX friction points
 5. Final verdict: Production Ready / Not Ready
+
+---
+
+# 🌊 ADDITIONAL WAVE COVERAGE
+
+Beyond the core loop above, also validate each post-MVP wave:
+
+**Wave 1 — Gamification**
+* `/api/challenges/today` returns 3 quests; completing one grants XP + streak update
+* `/leaderboard` renders global + friends board with accurate XP values
+* `/buddy` lets the student send/receive messages with the AI study buddy
+
+**Wave 2 — SM-2 Flashcards**
+* Completing a chapter auto-generates 8–12 cards
+* `/review` surfaces due cards; Again/Hard/Good/Easy grading persists intervals correctly
+* Backfill via `POST /api/flashcards/generate-missing` covers chapters without decks
+
+**Wave 3 — Adaptive engine**
+* Low scores on a chapter re-order subsequent chapters toward weakness
+* Concept-level mastery persists in `mastery` table
+
+**Wave 4 — Parent & Path**
+* `/parent` shows read-only progress digest
+* `/path` shows subject-ordered learning path with lock/unlock state
+
+**Wave 5 — Immersive**
+* `/story/[chapterId]` renders 5 narrative scenes
+* `/podcast/[chapterId]` streams OpenAI TTS audio (6 voices selectable)
+* `/career/[chapterId]` shows career glimpse paragraph
+* `/scan` accepts a doubt photo and returns step-by-step solution via Claude Vision
+* `/sim/projectile` canvas sim launches projectiles with correct analytical predictions
+
+**Wave 6 — Wellness & Projects**
+* `/focus` logs mood with coach-line response; Pomodoro completion grants XP
+* `/project` generates a multi-day project plan; milestone checklist persists across reloads
+
+**Wave 7 — Next-best-action**
+* Dashboard "For you, right now" widget shows up to 3 NBA cards based on signals (streak risk, due flashcards, recent mood, rolling quiz average, missing check-in)
 
 ---

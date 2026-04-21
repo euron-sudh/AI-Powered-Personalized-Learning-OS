@@ -81,8 +81,18 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
   // Accumulate PCM chunks for the current response; play all at once on response.audio.done
   const audioChunksRef = useRef<Uint8Array[]>([]);
   const isAISpeakingRef = useRef(false);
+  // Sources currently scheduled / playing. A response may arrive as multiple
+  // audio.done parts — we queue each part to start exactly when the previous
+  // one ends, so they play back-to-back without cutting each other off.
+  const scheduledSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  // AudioContext time at which the next queued part should start.
+  const nextPlaybackTimeRef = useRef<number>(0);
   // When true, next tutor transcript delta must start a new line (don't append to cancelled partial)
   const newTutorLineRef = useRef(true);
+  // After a cancel, the server may keep streaming deltas for the cancelled response
+  // for a brief window. Drop them until a fresh response.created arrives, otherwise
+  // their text interleaves with the next response in the chat transcript.
+  const responseCancelledRef = useRef(false);
   // Index of the pending "You: ..." placeholder in transcript; -1 if none
   const pendingStudentIndexRef = useRef(-1);
   // Reconnect state
@@ -104,6 +114,10 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
 
     const chunks = audioChunksRef.current;
     audioChunksRef.current = [];
+    // Raise the speaking flag synchronously BEFORE the await on decodeAudioData,
+    // otherwise response.done can arrive during decode and prematurely open the mic.
+    isAISpeakingRef.current = true;
+    setIsAISpeaking(true);
 
     // Concatenate all PCM chunks
     const totalLength = chunks.reduce((sum, c) => sum + c.byteLength, 0);
@@ -122,17 +136,29 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
       const source = ctx.createBufferSource();
       source.buffer = decoded;
       source.connect(ctx.destination);
+
+      // Schedule this part to start exactly when the previously-queued part
+      // ends. If nothing is currently queued (or the queue drained), start now.
+      const startAt = Math.max(ctx.currentTime, nextPlaybackTimeRef.current);
+      source.start(startAt);
+      nextPlaybackTimeRef.current = startAt + decoded.duration;
+
+      scheduledSourcesRef.current.add(source);
       source.onended = () => {
-        // Only clear speaking state if no new response started
-        if (!isAISpeakingRef.current) {
+        scheduledSourcesRef.current.delete(source);
+        // Only drop the speaking flag when the last scheduled part has finished.
+        if (scheduledSourcesRef.current.size === 0) {
+          nextPlaybackTimeRef.current = 0;
+          isAISpeakingRef.current = false;
           setIsAISpeaking(false);
         }
       };
-      source.start();
     } catch (e) {
       console.error("[VoiceChat] Audio playback error:", e);
-      isAISpeakingRef.current = false;
-      setIsAISpeaking(false);
+      if (scheduledSourcesRef.current.size === 0) {
+        isAISpeakingRef.current = false;
+        setIsAISpeaking(false);
+      }
     }
   }, []);
 
@@ -140,7 +166,14 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
     audioChunksRef.current = [];
     isAISpeakingRef.current = false;
     newTutorLineRef.current = true; // force new line after cancel
+    responseCancelledRef.current = true; // drop lingering deltas from cancelled response
     setIsAISpeaking(false);
+    // Stop every queued/playing part so the student's interruption wins immediately.
+    for (const src of scheduledSourcesRef.current) {
+      try { src.stop(); } catch { /* already stopped */ }
+    }
+    scheduledSourcesRef.current.clear();
+    nextPlaybackTimeRef.current = 0;
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "response.cancel" }));
     }
@@ -156,6 +189,11 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
     setIsAISpeaking(false);
     isAISpeakingRef.current = false;
     audioChunksRef.current = [];
+    for (const src of scheduledSourcesRef.current) {
+      try { src.stop(); } catch { /* already stopped */ }
+    }
+    scheduledSourcesRef.current.clear();
+    nextPlaybackTimeRef.current = 0;
     processorRef.current?.disconnect();
     processorRef.current = null;
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -177,7 +215,13 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
       setIsListening(false);
     } else {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
         mediaStreamRef.current = stream;
 
         const ctx = audioContextRef.current ?? new AudioContext({ sampleRate: 24000 });
@@ -189,6 +233,10 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
 
         processor.onaudioprocess = (e) => {
           if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+          // Gate mic while AI is speaking — prevents the speakers' audio from
+          // looping back through the mic, which was causing duplicate voices,
+          // garbage transcription, and the AI talking over itself.
+          if (isAISpeakingRef.current) return;
           const floatData = e.inputBuffer.getChannelData(0);
           // Convert float32 samples to int16 PCM
           const pcm = new Int16Array(floatData.length);
@@ -222,6 +270,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
       }
       return;
     }
+    manualDisconnectRef.current = false;
     setError(null);
 
     // Get ephemeral token from backend (HTTP, goes through Next.js proxy)
@@ -278,13 +327,28 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
       instructions += `
 Teaching approach:
 - ALWAYS respond in English regardless of what language the student speaks
-- Use the Socratic method — ask guiding questions rather than giving direct answers
-- Be patient, encouraging, and age-appropriate in language
-- Relate explanations to the key concepts listed above
-- After answering, check the student's understanding with a follow-up question
-- If the student seems confused, break the concept into smaller steps
-- Keep responses concise and conversational for voice format
-- Ignore background noise, filler words, or off-topic utterances — only respond to genuine lesson-related questions`;
+- Lead with EXPLANATIONS first — teach the concept clearly before quizzing
+- Mix teaching and questions: give a vivid 3–5 sentence explanation, then ONE check-in question
+- Do NOT ask question after question without explaining anything — that frustrates students
+- Use concrete examples, stories, and analogies appropriate for the grade level
+- If the student says "I don't know" or "please explain", give a real explanation — do NOT just rephrase the question
+
+USE VISUAL TOOLS PROACTIVELY — do not just talk:
+- When you introduce a concept that has a great explainer video, call show_youtube_video with a real video_id from Khan Academy, CrashCourse, TED-Ed, or Kurzgesagt that you actually know exists
+- When explaining a process, cycle, hierarchy, or relationship, call show_diagram with valid Mermaid.js code (flowchart, sequenceDiagram, mindmap, classDiagram, etc.). ALWAYS quote node labels that contain parentheses, colons, slashes, commas, or ampersands: A["French Revolution (1789)"]
+- When a real-world photo or illustration explains the concept better (historical figures, maps, biology specimens, architecture), call show_image with a stable public URL (Wikimedia Commons, NASA, Unsplash)
+- Aim to use a visual tool at least once every 2–3 turns when teaching new material
+- Announce the visual briefly ("Let me show you a diagram of this") then call the tool
+- Tool outputs render inline in the student's chat and on the main panel — they CAN see them
+
+Conversational pacing (CRITICAL for voice):
+- Speak in SHORT turns: 3–5 sentences maximum, then STOP and wait for the student
+- After asking a question, say nothing more — wait silently for the student to answer
+- Ask only ONE question at a time
+- Never narrate, repeat yourself, or fill silence — silence is good, it gives the student time to think
+- If the student speaks while you are talking, stop immediately and listen to them
+- If you don't get a clear response after a moment, MOVE ON and teach more — don't keep prompting
+- Ignore background noise and unintelligible noises — do NOT respond to them; just keep waiting`;
 
       // Define tools for the AI tutor to call
       const tools = [
@@ -305,7 +369,7 @@ Teaching approach:
         {
           type: "function",
           name: "show_diagram",
-          description: "Render a Mermaid.js diagram to explain a process, cycle, or relationship visually.",
+          description: "Render a Mermaid.js diagram to explain a process, cycle, or relationship visually. Use flowchart TD / LR, sequenceDiagram, mindmap, or classDiagram. Quote labels that contain parentheses or punctuation (e.g., A[\"Label (extra)\"]).",
           parameters: {
             type: "object",
             properties: {
@@ -313,6 +377,20 @@ Teaching approach:
               title: { type: "string", description: "Diagram title" }
             },
             required: ["mermaid_code", "title"]
+          }
+        },
+        {
+          type: "function",
+          name: "show_image",
+          description: "Show an educational image (photo, illustration, chart) from a public URL. Prefer Wikimedia Commons, NASA, Unsplash, or similar stable sources. Use when a real-world photo or illustration explains the concept better than a diagram.",
+          parameters: {
+            type: "object",
+            properties: {
+              url: { type: "string", description: "Public https URL of the image" },
+              title: { type: "string", description: "Short caption shown above the image" },
+              alt: { type: "string", description: "Alt text for accessibility" }
+            },
+            required: ["url", "title"]
           }
         },
         {
@@ -339,9 +417,11 @@ Teaching approach:
             voice: "alloy",
             input_audio_transcription: { model: "whisper-1" },
             turn_detection: {
+              // Higher threshold + longer silence → less trigger-happy, gives
+              // the student time to think before the AI assumes the turn is done.
               type: "server_vad",
-              threshold: 0.75,
-              silence_duration_ms: 1000,
+              threshold: 0.85,
+              silence_duration_ms: 1500,
               prefix_padding_ms: 300,
             },
             tools: tools,
@@ -350,8 +430,11 @@ Teaching approach:
         })
       );
 
-      // Auto-initiate conversation: send opening message + trigger first response
+      // Auto-initiate conversation: send opening message + trigger first response.
+      // Wait long enough for session.update to be processed (otherwise the first
+      // response is generated without the lesson instructions).
       setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({
           type: "conversation.item.create",
           item: {
@@ -361,7 +444,7 @@ Teaching approach:
           }
         }));
         ws.send(JSON.stringify({ type: "response.create" }));
-      }, 100);
+      }, 500);
 
       // Keepalive ping every 25s to prevent idle timeout
       reconnectCountRef.current = 0;
@@ -393,8 +476,14 @@ Teaching approach:
           newTutorLineRef.current = true; // next AI response starts a fresh line
         }
 
+        // A new response has begun — accept deltas again
+        if (msg.type === "response.created") {
+          responseCancelledRef.current = false;
+        }
+
         // Accumulate PCM chunks as they arrive
         if (msg.type === "response.audio.delta" && msg.delta) {
+          if (responseCancelledRef.current) return; // ignore audio from cancelled response
           isAISpeakingRef.current = true;
           setIsAISpeaking(true);
           audioChunksRef.current.push(base64ToUint8Array(msg.delta));
@@ -405,10 +494,14 @@ Teaching approach:
           playAccumulatedAudio();
         }
 
-        // Response fully complete
+        // Response fully complete on the server — but audio may still be playing
+        // locally. Do NOT clear isAISpeakingRef here; source.onended owns that.
+        // Only clear if no audio ever arrived (text-only response or tool-only turn).
         if (msg.type === "response.done") {
-          isAISpeakingRef.current = false;
-          // setIsAISpeaking(false) is deferred until audio playback ends (in source.onended)
+          if (audioChunksRef.current.length === 0 && scheduledSourcesRef.current.size === 0) {
+            isAISpeakingRef.current = false;
+            setIsAISpeaking(false);
+          }
         }
 
         // Tool/function call from AI — send to parent component handler
@@ -421,13 +514,15 @@ Teaching approach:
             optionsRef.current.onToolCall(toolName, toolArgs);
           }
 
-          // Send function output back to continue conversation
+          // Send function output back to continue conversation.
+          // IMPORTANT: must reference the tool's call_id (not item.id), otherwise
+          // the Realtime API rejects with "Tool call ID ... not found".
           if (wsRef.current?.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
               type: "conversation.item.create",
               item: {
                 type: "function_call_output",
-                call_id: msg.item.id,
+                call_id: msg.item.call_id,
                 output: JSON.stringify({ status: "success", tool: toolName })
               }
             }));
@@ -470,6 +565,7 @@ Teaching approach:
           (msg.type === "response.audio_transcript.delta" || msg.type === "response.text.delta") &&
           msg.delta
         ) {
+          if (responseCancelledRef.current) return; // ignore transcript from cancelled response
           if (newTutorLineRef.current) {
             // Start a fresh tutor line (first delta of a new response)
             newTutorLineRef.current = false;
@@ -512,15 +608,10 @@ Teaching approach:
       isAISpeakingRef.current = false;
       wsRef.current = null;
 
-      const MAX_RETRIES = 3;
-      if (reconnectCountRef.current < MAX_RETRIES && !manualDisconnectRef.current) {
-        const delay = Math.pow(2, reconnectCountRef.current) * 1000;
-        reconnectCountRef.current++;
-        console.log(`[VoiceChat] Reconnecting in ${delay}ms (attempt ${reconnectCountRef.current}/${MAX_RETRIES})`);
-        setTimeout(() => connect(), delay);
-      } else {
-        reconnectCountRef.current = 0;
-      }
+      // Auto-reconnect disabled: it caused duplicate sessions on hot-reload
+      // and during transient network blips, which presented as multiple
+      // overlapping AI voices. The user can manually reconnect via the UI.
+      reconnectCountRef.current = 0;
     };
 
     ws.onerror = () => {

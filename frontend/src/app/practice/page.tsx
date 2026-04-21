@@ -306,7 +306,7 @@ export default function PracticePage() {
               <div className={cn("text-[11px] font-[500] uppercase tracking-wider mb-3 px-2 py-1 rounded w-fit", `badge ${SUBJECT_CLASSES[q.subj] || "badge-math"}`)}>
                 {q.subj}
               </div>
-              <h3 className="text-base font-[500] text-white mb-6 leading-relaxed">{q.text}</h3>
+              <h3 className="text-base font-[500] text-[var(--text-body)] mb-6 leading-relaxed">{q.text}</h3>
 
               {/* Options */}
               <div className="space-y-2.5 mb-4">
@@ -407,7 +407,7 @@ export default function PracticePage() {
               </svg>
             </div>
 
-            <h2 className="text-xl font-[500] text-white mb-1">Quiz complete!</h2>
+            <h2 className="text-xl font-[500] text-[var(--text-body)] mb-1">Quiz complete!</h2>
             <p className="text-[12px] text-[var(--text-muted)] mb-6">
               You scored {score} out of {questions.length} {totalAccuracy >= 80 ? "— great work!" : "— keep practising!"}
             </p>
@@ -415,15 +415,15 @@ export default function PracticePage() {
             {/* Stats grid */}
             <div className="grid grid-cols-3 gap-2.5 mb-6">
               <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-3">
-                <div className="text-xl font-[500] text-white">{score}/{questions.length}</div>
+                <div className="text-xl font-[500] text-[var(--text-body)]">{score}/{questions.length}</div>
                 <div className="text-[10px] text-[var(--text-muted)] mt-1">Score</div>
               </div>
               <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-3">
-                <div className="text-xl font-[500] text-white">{totalAccuracy}%</div>
+                <div className="text-xl font-[500] text-[var(--text-body)]">{totalAccuracy}%</div>
                 <div className="text-[10px] text-[var(--text-muted)] mt-1">Accuracy</div>
               </div>
               <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl p-3">
-                <div className="text-xl font-[500] text-white">{bestStreak}</div>
+                <div className="text-xl font-[500] text-[var(--text-body)]">{bestStreak}</div>
                 <div className="text-[10px] text-[var(--text-muted)] mt-1">Best streak</div>
               </div>
             </div>

@@ -19,6 +19,7 @@ export default function SubjectPage() {
   const params = useParams();
   const { user, loading: authLoading } = useSupabaseAuth();
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [subjectName, setSubjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const subjectId = params.subjectId as string;
@@ -43,6 +44,7 @@ export default function SubjectPage() {
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.subject_name) setSubjectName(data.subject_name);
         setChapters(data.chapters || []);
       }
     } catch (err) {
@@ -54,9 +56,9 @@ export default function SubjectPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-54px)] items-center justify-center bg-[var(--bg-base)]">
+      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 rounded-full border-2 border-[#3d3faa] border-t-[#5b5eff] animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 rounded-full border-2 border-[var(--brand-blue-soft)] border-t-[var(--brand-blue)] animate-spin mx-auto mb-3" />
           <p className="text-[var(--text-muted)] text-sm">Loading chapters…</p>
         </div>
       </div>
@@ -64,123 +66,122 @@ export default function SubjectPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-54px)] bg-[var(--bg-base)] flex">
-      {/* Sidebar */}
-      <div className="w-[200px] bg-[var(--bg-deep)] border-r border-[var(--border)] flex flex-col shrink-0 p-5">
-        <button onClick={() => router.push("/learn")} className="text-[12px] text-[var(--text-muted)] hover:text-[var(--text-body)] mb-6 flex items-center gap-1">
-          ← Back to subjects
-        </button>
-        <div className="space-y-1">
-          {chapters.map((ch) => (
-            <button
-              key={ch.id}
-              onClick={() => setExpandedId(expandedId === ch.id ? null : ch.id)}
-              className={cn(
-                "w-full flex items-center gap-2 px-3 py-2 text-[12px] rounded transition-all text-left",
-                ch.status === "completed"
-                  ? "text-[#1d9e75]"
-                  : ch.status === "in_progress"
-                  ? "bg-[#111520] text-[var(--accent)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--text-body)]"
-              )}
-            >
-              <span className="text-[10px]">
-                {ch.status === "completed" ? "✓" : ch.status === "in_progress" ? "▶" : "○"}
-              </span>
-              <span className="flex-1 truncate">{ch.title}</span>
-            </button>
-          ))}
-        </div>
+    <div className="max-w-5xl mx-auto px-6 py-10">
+      <button
+        onClick={() => router.push("/learn")}
+        className="text-sm font-bold text-[var(--brand-blue)] hover:underline mb-4"
+      >
+        ← Back to subjects
+      </button>
+
+      <div className="mb-8">
+        <h1 className="text-4xl font-extrabold text-[var(--text-primary)] mb-2 capitalize">
+          {subjectName || "Chapters"} 📘
+        </h1>
+        <p className="text-[var(--text-muted)]">{chapters.length} chapters in your learning path</p>
       </div>
 
-      {/* Main */}
-      <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-4xl">
-          <button onClick={() => router.push("/learn")} className="text-[12px] text-[var(--accent)] hover:text-[var(--accent)] mb-6">
-            ← Back
-          </button>
-          <h1 className="text-2xl font-[500] text-white mb-6">Chapters</h1>
-          <div className="space-y-3">
-            {chapters.map((ch) => (
-              <div key={ch.id}>
-                <button
-                  onClick={() => setExpandedId(expandedId === ch.id ? null : ch.id)}
-                  className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-6 hover:border-[#3d3faa] transition-all text-left"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-base font-[500] text-white mb-2">{ch.title}</h3>
-                      <p className="text-[12px] text-[var(--text-muted)]">{ch.description}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          "px-3 py-1 rounded-full text-[10px] font-[500] whitespace-nowrap",
-                          ch.status === "completed"
-                            ? "bg-[#0f2a1f] text-[#5dcaa5]"
-                            : ch.status === "in_progress"
-                            ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                            : "bg-[var(--bg-raised)] text-[var(--text-muted)]"
-                        )}
-                      >
-                        {ch.status === "completed" ? "Complete" : ch.status === "in_progress" ? "In progress" : "Locked"}
-                      </div>
-                      <span className={cn(
-                        "text-[12px] text-[var(--text-muted)] transition-transform",
-                        expandedId === ch.id && "rotate-180"
-                      )}>
-                        ▼
-                      </span>
+      <div className="space-y-3">
+        {chapters.map((ch, i) => {
+          const isExpanded = expandedId === ch.id;
+          const isComplete = ch.status === "completed";
+          const isInProgress = ch.status === "in_progress";
+          const isLocked = ch.status === "locked";
+          return (
+            <div key={ch.id} className="bg-white border border-[var(--border)] rounded-2xl shadow-card overflow-hidden">
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : ch.id)}
+                className="w-full p-5 hover:bg-[var(--bg-deep)] transition-colors text-left"
+              >
+                <div className="flex items-center gap-4">
+                  <div
+                    className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center text-base font-extrabold shrink-0",
+                      isComplete
+                        ? "bg-[var(--green-bg)] text-[var(--green)]"
+                        : isInProgress
+                        ? "bg-[var(--brand-blue-soft)] text-[var(--brand-blue)]"
+                        : isLocked
+                        ? "bg-[var(--bg-deep)] text-[var(--text-muted)]"
+                        : "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    )}
+                  >
+                    {isComplete ? "✓" : isLocked ? "🔒" : i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-[var(--text-primary)] mb-0.5 truncate">{ch.title}</h3>
+                    <p className="text-xs text-[var(--text-muted)] line-clamp-1">{ch.description}</p>
+                  </div>
+                  <div
+                    className={cn(
+                      "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide whitespace-nowrap",
+                      isComplete
+                        ? "bg-[var(--green-bg)] text-[var(--green)]"
+                        : isInProgress
+                        ? "bg-[var(--brand-blue-soft)] text-[var(--brand-blue)]"
+                        : isLocked
+                        ? "bg-[var(--bg-deep)] text-[var(--text-muted)]"
+                        : "bg-[var(--accent-soft)] text-[var(--accent-dim)]"
+                    )}
+                  >
+                    {isComplete ? "Complete" : isInProgress ? "In progress" : isLocked ? "Locked" : "Available"}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-xs text-[var(--text-muted)] transition-transform",
+                      isExpanded && "rotate-180"
+                    )}
+                  >
+                    ▼
+                  </span>
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="border-t border-[var(--border)] p-5 bg-[var(--bg-deep)]">
+                  <p className="text-sm text-[var(--text-body)] mb-4">{ch.description}</p>
+                  <div className="mb-4">
+                    <h4 className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wide mb-2">Topics covered</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {["Fundamentals", "Applications", "Practice"].map((topic) => (
+                        <span key={topic} className="px-3 py-1.5 bg-white border border-[var(--border)] rounded-full text-[11px] font-semibold text-[var(--text-body)]">
+                          {topic}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                </button>
 
-                {/* Expanded Content */}
-                {expandedId === ch.id && (
-                  <div className="bg-[#0f1218] border-l border-r border-b border-[var(--border)] rounded-b-3xl p-6">
-                    <div className="mb-6">
-                      <h4 className="text-[12px] font-[500] text-[var(--accent)] mb-3">Topics covered</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {["Fundamentals", "Applications", "Practice"].map((topic) => (
-                          <span key={topic} className="px-3 py-1.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-full text-[11px] text-[var(--text-body)]">
-                            {topic}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => router.push(`/learn/${subjectId}/${ch.id}`)}
-                        disabled={ch.status === "locked"}
-                        className={cn(
-                          "flex-1 py-3 rounded-2xl font-[500] text-[13px] transition-all",
-                          ch.status === "locked"
-                            ? "bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed"
-                            : "bg-[var(--accent)] text-white hover:bg-[#3d3faa]"
-                        )}
-                      >
-                        {ch.status === "completed" ? "Review Lesson" : "Open Lesson"}
-                      </button>
-                      <button
-                        onClick={() => router.push(`/learn/${subjectId}/${ch.id}/activity`)}
-                        disabled={ch.status === "locked"}
-                        className={cn(
-                          "flex-1 py-3 rounded-2xl font-[500] text-[13px] transition-all",
-                          ch.status === "locked"
-                            ? "bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed"
-                            : "bg-[var(--accent-soft)] text-[var(--accent)] border border-[#3d3faa] hover:bg-[var(--bg-raised)]"
-                        )}
-                      >
-                        Take Quiz →
-                      </button>
-                    </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => router.push(`/learn/${subjectId}/${ch.id}`)}
+                      disabled={isLocked}
+                      className={cn(
+                        "flex-1 py-3 rounded-full font-bold text-sm transition-all",
+                        isLocked
+                          ? "bg-[var(--bg-deep)] text-[var(--text-muted)] cursor-not-allowed"
+                          : "bg-[var(--accent)] text-white hover:opacity-90 hover:scale-[1.02] shadow-card"
+                      )}
+                    >
+                      {isComplete ? "Review Lesson" : "🎙️ Start with AI Tutor"}
+                    </button>
+                    <button
+                      onClick={() => router.push(`/learn/${subjectId}/${ch.id}/activity`)}
+                      disabled={isLocked}
+                      className={cn(
+                        "flex-1 py-3 rounded-full font-bold text-sm transition-all border-2",
+                        isLocked
+                          ? "border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed"
+                          : "border-[var(--brand-blue)] text-[var(--brand-blue)] hover:bg-[var(--brand-blue-soft)]"
+                      )}
+                    >
+                      Take Quiz →
+                    </button>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

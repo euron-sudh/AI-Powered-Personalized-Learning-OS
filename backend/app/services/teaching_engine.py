@@ -68,6 +68,16 @@ EMOTION_GUIDANCE: dict[str, str] = {
     "drowsy": "The student appears drowsy or tired. Gently suggest they take a 2-minute break, stand up, or get water. Keep this response very brief and caring.",
 }
 
+MODE_GUIDANCE: dict[str, str] = {
+    "explain_differently": (
+        "The student pressed 'Explain it differently'. They did NOT understand the previous explanation. "
+        "Start over with a COMPLETELY different approach: pick a fresh analogy from a different domain "
+        "(sports, food, video games, music — something concrete and fun for their age), avoid reusing the "
+        "same vocabulary as last time, and rebuild the concept from the simplest possible starting point. "
+        "Use a short Mermaid diagram or a worked example if it helps. End with one tiny check-for-understanding question."
+    ),
+}
+
 
 async def stream_teaching_response(
     chapter_content: dict,
@@ -79,6 +89,8 @@ async def stream_teaching_response(
     subject_name: str | None = None,
     emotion: str | None = None,
     confidence: float | None = None,
+    mode: str | None = None,
+    learning_memory: dict | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream a teaching response using Claude API.
 
@@ -137,6 +149,22 @@ RESPONSE FORMATTING
 REAL-TIME EMOTION DETECTED (priority instruction)
 ══════════════════════════════════════════
 {EMOTION_GUIDANCE[emotion]}"""
+
+    # Memory callbacks — references prior chapters, strengths, struggles, lapsed cards
+    if learning_memory:
+        from app.services.adaptive import memory_to_prompt_block
+        memory_block = memory_to_prompt_block(learning_memory)
+        if memory_block:
+            system_prompt += memory_block
+
+    # Mode override (e.g. "Explain it differently" button)
+    if mode and mode in MODE_GUIDANCE:
+        system_prompt += f"""
+
+══════════════════════════════════════════
+TEACHING MODE OVERRIDE (highest priority)
+══════════════════════════════════════════
+{MODE_GUIDANCE[mode]}"""
 
     # Build message history (last 20 exchanges for context)
     messages = []

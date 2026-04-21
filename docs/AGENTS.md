@@ -1,111 +1,94 @@
-**Last Updated:** 2026-04-19 09:51
+**Last Updated:** 2026-04-21
 
-# AGENTS.md — LearnOS Project Guide for Codex
+# AGENTS.md — LearnOS Project Guide for Codex / Automated Agents
 
-This file provides the authoritative context for automated agents (Codex, etc.) working in this repository.
+Authoritative context for automated agents (Codex, Claude Code, etc.) working in this repo. For full architecture see [CLAUDE.md](../CLAUDE.md); for the file tree see [PROJECT_TREE.md](../PROJECT_TREE.md).
 
 ---
 
 ## Project Summary
 
-LearnOS is an AI-powered adaptive learning OS for K-12 students. The active, working implementation uses:
+LearnOS is an AI-powered K-12 learning platform. The stack is:
 
-- **Backend**: Python FastAPI with a SQLite-backed multi-agent learning engine (`/api/system/*`)
-- **Frontend**: Next.js 14 App Router, TypeScript, Tailwind CSS, shadcn/ui, Recharts
+- **Backend**: Python 3.11+ FastAPI, SQLAlchemy (async) against Supabase PostgreSQL, Alembic migrations
+- **Frontend**: Next.js 14 App Router, TypeScript, Tailwind, shadcn/ui
+- **AI**: Claude API (curriculum, teaching, evaluation, story, doubt-scan), OpenAI Realtime (voice), OpenAI TTS (podcast), Claude Vision (sentiment + doubt scanner)
 
-The classic Supabase/PostgreSQL routes (`/api/lessons/*`, `/api/curriculum/*`) are scaffolded but not actively used by the frontend.
+All Supabase/Postgres routes under `/api/*` are live and in use.
 
 ---
 
-## Repository Layout
+## Repository Layout (condensed)
 
 ```
-project4/
+LearnOS/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                     # FastAPI app entry (lifespan, CORS, Sentry)
-│   │   ├── config.py                   # Pydantic Settings (reads .env)
-│   │   ├── learning_os/                # ← PRIMARY ACTIVE ENGINE
-│   │   │   ├── service.py              # LearningOSService (7 agents, all business logic)
-│   │   │   ├── router.py               # /api/system/* endpoints (7 routes)
-│   │   │   ├── schemas.py              # Pydantic request/response models
-│   │   │   ├── adaptive.py             # Adaptive difficulty / planner logic
-│   │   │   ├── retrieval.py            # RAG vector search (192-dim token embeddings)
-│   │   │   ├── storage.py              # SQLite persistence layer (11 tables)
-│   │   │   └── seed.py                 # Demo learner + topic/quiz/document seed data
-│   │   ├── routers/                    # REST routes (legacy / scaffolded)
-│   │   └── services/                   # Claude/OpenAI service wrappers (scaffolded)
-│   ├── tests/                          # pytest suite
-│   │   └── conftest.py                 # Shared fixtures (mock Claude, mock Supabase)
-│   └── pyproject.toml                  # pytest config: asyncio_mode=auto, testpaths=tests
+│   │   ├── main.py                 # FastAPI app entry (lifespan, CORS)
+│   │   ├── config.py               # Pydantic Settings
+│   │   ├── dependencies.py         # Auth + DB session injection
+│   │   ├── routers/                # 23 routers (see table below)
+│   │   ├── services/               # 12 service modules
+│   │   ├── models/                 # SQLAlchemy ORM models
+│   │   ├── schemas/                # Pydantic request/response schemas
+│   │   ├── core/                   # supabase_client, ai_client, database, security
+│   │   └── utils/                  # audio, image helpers
+│   ├── alembic/versions/           # 0001–0011 migrations
+│   └── tests/                      # pytest
 └── frontend/
     ├── src/
-    │   ├── app/                        # Next.js App Router pages
-    │   │   ├── layout.tsx              # Root layout (IBM Plex Sans + Space Grotesk fonts)
-    │   │   ├── page.tsx                # Landing page
-    │   │   ├── dashboard/page.tsx      # Dashboard (uses LearningWorkspace)
-    │   │   ├── analytics/page.tsx      # Analytics view
-    │   │   ├── learn/                  # Subject → Chapter → Activity routes
-    │   │   ├── tutor/page.tsx          # Tutor chat page
-    │   │   └── api/proxy/[...path]/    # Backend proxy route
-    │   ├── components/
-    │   │   ├── learning-os/
-    │   │   │   └── LearningWorkspace.tsx  # Main interactive workspace component
-    │   │   └── ui/                     # shadcn/ui primitives
-    │   ├── lib/
-    │   │   ├── learning-os.ts          # Typed API wrappers for /api/system/*
-    │   │   └── api.ts                  # Generic fetch wrapper (4-min auth cache, 5-min response cache)
-    │   ├── hooks/                      # useVoiceChat, useVideoFeed, useSentiment, useSupabaseAuth
-    │   └── types/                      # curriculum.ts, lesson.ts, student.ts, sentiment.ts
-    ├── tests/
-    │   ├── unit/                       # Vitest unit tests
-    │   └── e2e/                        # Playwright e2e tests
-    └── package.json
+    │   ├── app/                    # App Router routes (see PROJECT_TREE.md)
+    │   ├── components/             # Nav, ProgressBar, SentimentIndicator, SubjectIcon, ui/
+    │   ├── lib/                    # supabase.ts, api.ts, constants.ts, utils.ts
+    │   ├── hooks/                  # useSupabaseAuth, useVoiceChat, useVideoFeed, useSentiment, useTutorSession
+    │   └── types/                  # curriculum, lesson, student, sentiment
+    └── package.json                # dev script uses cross-env NODE_OPTIONS=--max-http-header-size=65536
 ```
 
 ---
 
-## Active API Endpoints (`/api/system/*`)
+## Routers (`/api/*`)
 
-| Method | Route | Handler | Description |
-|--------|-------|---------|-------------|
-| POST | `/api/system/learners/bootstrap` | `bootstrap_learner` | Create/initialize a learner |
-| GET | `/api/system/workspace/{learner_id}` | `get_workspace` | Full workspace dump (plan, roadmap, analytics) |
-| POST | `/api/system/quizzes/generate` | `generate_quiz` | Create quiz for a topic |
-| POST | `/api/system/quizzes/submit` | `submit_quiz` | Evaluate answers, update mastery |
-| POST | `/api/system/tutor/query` | `tutor` | Scaffolded tutoring with retrieval context |
-| POST | `/api/system/feedback/lesson` | `capture_feedback` | Submit confidence/friction feedback |
-| POST | `/api/system/library/ingest` | `ingest_document` | Add document to vector store |
-| POST | `/api/system/library/search` | `search_library` | Semantic search over documents |
+Core: `auth`, `onboarding`, `curriculum`, `lessons`, `voice`, `video`, `activities`, `progress`, `learning`, `sessions`, `practice`, `notes`, `tutor_session`
 
-Also: `GET /api/health` — returns status + `default_learner_id`
+Wave add-ons:
+- **Wave 1 (gamification)**: `challenges`, `leaderboard`, `buddy`
+- **Wave 2 (spaced repetition)**: `flashcards` (SM-2)
+- **Wave 4 (parent/path)**: `parent`
+- **Wave 5 (immersive)**: `immersive` (story / podcast / career / doubt-scan)
+- **Wave 6 (wellness + projects)**: `wellness`, `projects`
+- **Wave 7 (coach)**: `suggest` (next-best-action)
 
----
-
-## Learning OS Agents (in `service.py`)
-
-| Agent | Responsibility |
-|-------|---------------|
-| **RetrievalAgent** | RAG search over chunked documents (token-hash embeddings, cosine similarity) |
-| **MemoryAgent** | Append-only event log (profile, quiz, feedback, tutor, library events) |
-| **PlannerAgent** | Priority-scored roadmap (mastery + trend + prerequisite graph) |
-| **QuizAgent** | Quiz generation from seeded `quiz_bank`; persists quiz metadata |
-| **AnalyzerAgent** | Auto-grades MCQ (exact) + short-answer (keyword); blends scores: `0.45*old + 0.55*new` |
-| **GamificationAgent** | XP, levels, streaks, achievements (3-day streak, score ≥ 85, level 3 unlock) |
-| **TutorAgent** | Adaptive scaffolding/coaching/challenge modes based on mastery; uses retrieval context |
+Full endpoint table in [PROJECT_TREE.md](../PROJECT_TREE.md#api-endpoint-summary).
 
 ---
 
-## SQLite Schema (11 tables via `storage.py`)
+## Services
 
-```
-learners, topics, roadmap_items, mastery_records,
-quizzes, quiz_attempts, feedback_events,
-documents, document_chunks, memory_events, achievements
-```
+| Service | Purpose |
+|---|---|
+| `curriculum_generator.py` | Claude-driven curriculum + chapter content + activity generation |
+| `teaching_engine.py` | Streaming Socratic tutor with emotion-aware prompting |
+| `activity_evaluator.py` | AI grading & feedback |
+| `adaptive.py` | Concept mastery → chapter re-ordering + difficulty tuning |
+| `sentiment_analyzer.py` | Claude Vision frame classification |
+| `voice_manager.py` | OpenAI Realtime session lifecycle with context injection |
+| `flashcards.py` | SM-2 scheduling + Claude deck generation |
+| `gamification.py` | XP, level, streak, streak-freeze bookkeeping |
+| `tutor_session_engine.py` | LangGraph state machine routing voice + sentiment |
+| `session_service.py` | Step-through MCQ session lifecycle |
+| `parent_digest.py` | Weekly parent-facing progress summary |
+| `syllabus_data.py` | Board syllabus data (CBSE / ICSE / Cambridge / IB / Common Core) |
 
-Database file: `backend/data/learning_os_v2.db`  
-Default learner: `demo-learner` (seeded on startup)
+Note: `immersive`, `wellness`, `projects`, and `suggest` logic lives inside their router modules, not as separate services.
+
+---
+
+## Supabase Database Schema
+
+See [CLAUDE.md](../CLAUDE.md#database-schema-supabase-postgresql) for the canonical schema. Key tables: `students`, `subjects`, `chapters`, `concepts`, `activities`, `activity_submissions`, `chat_messages`, `sentiment_logs`, `learning_sessions`, `student_progress`, `mastery`, `notes`, `daily_challenges`, `flashcards`, `mood_logs`.
+
+Migrations live in `backend/alembic/versions/0001_initial_schema.py` through `0011_wave6_mood_logs.py`.
 
 ---
 
@@ -113,17 +96,19 @@ Default learner: `demo-learner` (seeded on startup)
 
 ### Backend (`backend/.env`)
 ```env
-ANTHROPIC_API_KEY=        # Claude API (curriculum gen, teaching, eval)
-OPENAI_API_KEY=           # OpenAI Realtime API (voice)
-SUPABASE_URL=             # Optional (classic routes only)
+ANTHROPIC_API_KEY=        # Claude API
+OPENAI_API_KEY=           # OpenAI Realtime + TTS
+SUPABASE_URL=
 SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_JWT_SECRET=
 SUPABASE_DB_URL=
-REDIS_URL=redis://localhost:6379
-SENTRY_DSN=
-LOCAL_DB_PATH=data/learning_os_v2.db
-DEFAULT_LEARNER_ID=demo-learner
+REDIS_URL=redis://localhost:6379     # optional
+API_HOST=0.0.0.0
+API_PORT=8000
+CORS_ORIGINS=["http://localhost:3000"]
+SENTIMENT_FRAME_INTERVAL_MS=5000
+SENTIMENT_CONFIDENCE_THRESHOLD=0.6
 ```
 
 ### Frontend (`frontend/.env.local`)
@@ -131,7 +116,6 @@ DEFAULT_LEARNER_ID=demo-learner
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_SENTRY_DSN=    # If set, withSentryConfig wraps next.config.mjs
 ```
 
 ---
@@ -142,46 +126,39 @@ NEXT_PUBLIC_SENTRY_DSN=    # If set, withSentryConfig wraps next.config.mjs
 # Backend
 cd backend
 python -m venv venv
-venv\Scripts\activate          # Windows
+# Windows: venv\Scripts\activate   |   *nix: source venv/bin/activate
 pip install -r requirements.txt
+alembic upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Run backend tests
 python -m pytest
 
 # Frontend
 cd frontend
 npm install
-npm run dev                    # http://localhost:3000
-npm run build                  # Production validation (must pass before committing)
-npx tsc --noEmit               # Type-check only (faster)
-npm run test                   # Vitest unit tests
-npm run test:e2e               # Playwright e2e
-
-# Both (from repo root, Windows PowerShell)
-.\tools\run-local-tests.ps1              # backend + frontend unit
-.\tools\run-local-tests.ps1 -IncludeE2E # + e2e
+npm run dev      # http://localhost:3000 — cross-env sets NODE_OPTIONS=--max-http-header-size=65536
+npm run build    # authoritative validation before commit
+npx tsc --noEmit # faster type check only
 ```
 
 ---
 
 ## Known Build Constraints
 
-- **`IBM_Plex_Sans` font** requires explicit `weight` array: `["400", "500", "600", "700"]`
-- **JSX arrows**: Use `→` (Unicode) not `->` in JSX text — raw `->` triggers a TypeScript parse error
-- **`npm run build`** is the authoritative validation step. `npx tsc --noEmit` is a faster preliminary check
-- **`NEXT_PUBLIC_SENTRY_DSN`**: Only set if Sentry is configured — when set, `withSentryConfig` wraps the Next.js config; this is gated in `next.config.mjs`
-- Sentry config files (`sentry.client.config.ts`, `sentry.server.config.ts`) guard on `NEXT_PUBLIC_SENTRY_DSN` before calling `Sentry.init()`
+- **Elevated HTTP header size is required** for the frontend dev server because `@supabase/ssr` session cookies can exceed Node's 8KB default. The `dev` script sets `NODE_OPTIONS=--max-http-header-size=65536` via `cross-env`. Do not remove it. If a user hits `HTTP 431`, first clear `localhost:3000` cookies.
+- **JSX arrows**: use `→` (Unicode) not `->` in JSX text — raw `->` triggers a TypeScript parse error.
+- **`IBM_Plex_Sans` font** requires explicit `weight` array (`["400", "500", "600", "700"]`).
+- **`npm run build`** is the authoritative pre-commit validation step.
 
 ---
 
 ## Frontend Architecture Notes
 
-- All backend calls go through `src/app/api/proxy/[...path]/route.ts` (server-side proxy, avoids CORS)
-- `lib/learning-os.ts` provides typed wrappers: `getWorkspace()`, `generateQuiz()`, `submitQuiz()`, `queryTutor()`, `submitFeedback()`
-- `lib/api.ts` handles auth token caching (4-min TTL) and response caching (5-min default)
-- Main interactive UI lives in `components/learning-os/LearningWorkspace.tsx`
-- Visualization libraries available: **Recharts** (charts), **Mermaid** (diagrams), **KaTeX** (formulas)
+- All backend calls go through `src/app/api/proxy/[...path]/route.ts` (server-side proxy, avoids CORS and forwards the Supabase JWT).
+- `lib/api.ts` — generic fetch wrapper with short auth cache + response cache.
+- `lib/supabase.ts` — `createBrowserClient` from `@supabase/ssr` with `localStorage` backing + `autoRefreshToken`.
+- Auth state: `hooks/useSupabaseAuth.ts` validates `session.expires_at` before treating the session as authenticated (avoids stale-cookie flicker).
+- `AuthRedirect` component is intentionally NOT used on the landing page — the landing renders for all users. Auth-gated features redirect internally.
+- Visualization libraries: Recharts, Mermaid (diagrams), KaTeX (formulas).
 
 ---
 
@@ -189,52 +166,29 @@ npm run test:e2e               # Playwright e2e
 
 ### Backend (pytest)
 ```python
-# conftest.py provides:
-sample_student, sample_chapter, sample_chapter_content, sample_activity_prompt
-
-# Mock pattern for AI calls:
+# conftest.py provides fixtures; mock AI calls:
 with patch("app.services.curriculum_generator.anthropic_client") as mock:
     mock.messages.create = AsyncMock(return_value=...)
 ```
 
 ### Frontend (Vitest)
 ```ts
-// Tests in tests/unit/
-// @testing-library/react + @testing-library/jest-dom available
+// tests/unit/ — @testing-library/react + jest-dom available
 ```
 
 ### E2E (Playwright)
 ```ts
-// Tests in tests/e2e/
-// Config in playwright.config.ts
-// Currently: auth.spec.ts
+// tests/e2e/ — Config in playwright.config.ts
 ```
 
 ---
 
-## Codex Task Progress (as of April 17 2026)
+## What Agents Should Know
 
-From the active Codex session "Build learning OS platform":
-
-- [x] Audit current backend/frontend entrypoints and dependency constraints
-- [x] Design a new modular learning OS domain model, storage layer, and service interfaces
-- [x] Implement backend services for planning, tutoring, quizzes, mastery, memory, analytics, gamification, and retrieval
-- [x] Wire new API routes and seed/sample data flows end-to-end
-- [x] Refit the frontend into a dashboard-driven learning OS experience backed by the new APIs
-- [x] Integrate Hybrid Architecture (Voice Chat + Webcam Sentiment analysis)
-- [x] Finalize migration of all legacy frontend pages to the new Multi-Agent Engine
-- [x] Update documentation with final architecture and timestamps
-
-**Current blocker**: `npm run build` EPERM error in Codex's sandbox (spawn permission denied). The build itself is passing locally — `frontend/src/app/layout.tsx` weight fix and `LearningWorkspace.tsx` JSX arrow fix are both applied.
-
----
-
-## What Codex Should Know
-
-1. **Primary system is `learning_os/`** — the SQLite multi-agent engine. All new features should extend this, not the classic Supabase routes.
-2. **Frontend ↔ Backend** talk via `/api/proxy/[...path]` — add new endpoints in `learning_os/router.py` and wire them via `lib/learning-os.ts`.
-3. **The build passes** (`npm run build` succeeds locally, 19 pages). TypeScript types are clean.
-4. **Do not use `->` in JSX text** — use `→` or wrap with `{">"}`.
-5. **IBM_Plex_Sans** always needs `weight: ["400", "500", "600", "700"]` in the font config.
-6. **Tests**: run `python -m pytest` from `backend/` and `npm run test` from `frontend/`. Both must pass.
-7. **Seed data** (4 topics, 2 documents, 1 demo learner) is re-seeded on every `LearningOSService.initialize()` call — safe to re-run.
+1. **Supabase + FastAPI is the real system.** There is no `learning_os/` subsystem; any reference to one is from an abandoned branch — ignore.
+2. **Authoritative docs:** [CLAUDE.md](../CLAUDE.md) for architecture, [PROJECT_TREE.md](../PROJECT_TREE.md) for file structure, [README.md](../README.md) for feature overview, [QUICKSTART.md](../QUICKSTART.md) for setup.
+3. **Waves 1–7 + theme refresh are shipped.** When adding a feature, check whether it belongs in an existing wave router before creating a new one.
+4. **Immersive / wellness / projects / suggest logic lives in the router module itself** — don't hunt for separate service files that don't exist.
+5. **Teaching is emotion-aware**: `teaching_engine.py` receives emotion + confidence from the frontend (sentiment analysis) and adjusts tone via an `EMOTION_GUIDANCE` map.
+6. **Voice sessions inject chapter context**: `voice_manager.create_realtime_session()` builds grade/board/chapter-specific instructions for the OpenAI Realtime session.
+7. **Theme is global via CSS variables** in `frontend/src/app/globals.css` (parchment palette, glossy gradients). Most components inherit automatically — avoid hardcoding hex colors in new components.

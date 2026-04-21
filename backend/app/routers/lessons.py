@@ -174,6 +174,7 @@ async def teaching_chat(
     # Do all DB work up-front in a short-lived session that closes before streaming starts
     emotion_to_use = data.emotion
     confidence_to_use = data.confidence
+    learning_memory: dict | None = None
 
     async with async_session() as db:
         chapter = await db.get(Chapter, chapter_uuid)
@@ -210,6 +211,13 @@ async def teaching_chat(
             if recent_log and recent_log.confidence >= 0.6:
                 emotion_to_use = recent_log.emotion
                 confidence_to_use = recent_log.confidence
+
+        # Build memory snapshot for the tutor (Wave 3 memory callbacks)
+        try:
+            from app.services.adaptive import build_learning_memory
+            learning_memory = await build_learning_memory(db, student_id, chapter_uuid)
+        except Exception:
+            learning_memory = None
 
         # Persist the student's message
         db.add(ChatMessage(
@@ -248,6 +256,8 @@ async def teaching_chat(
                 subject_name=subject_name,
                 emotion=emotion_to_use,
                 confidence=confidence_to_use,
+                mode=data.mode,
+                learning_memory=learning_memory,
             ):
                 full_response_parts.append(chunk)
                 yield f"data: {json.dumps({'text': chunk})}\n\n"

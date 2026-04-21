@@ -15,6 +15,20 @@ interface SubjectProgress {
   progress_percent: number;
 }
 
+interface WeaknessSubject {
+  subject_id: string;
+  subject_name: string;
+  score: number | null;
+  chapters_completed: number;
+  total_chapters: number;
+  weak_topics: { topic: string; count: number }[];
+}
+
+interface WeaknessRadar {
+  subjects: WeaknessSubject[];
+  top_weaknesses: { topic: string; count: number }[];
+}
+
 interface Stats {
   lessonsCompleted: number;
   accuracy: number;
@@ -59,6 +73,10 @@ export default function AnalyticsPage() {
   const [viewFilter, setViewFilter] = useState("Overview");
   const [timeRange, setTimeRange] = useState("This week");
   const [weekData, setWeekData] = useState<number[]>([72, 0, 88, 80, 91, 84, 76]);
+  const [radar, setRadar] = useState<WeaknessRadar | null>(null);
+  const [recommendations, setRecommendations] = useState<
+    { subject_id: string; chapter_id: string; title: string; sub: string; dot: string }[]
+  >([]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -77,19 +95,57 @@ export default function AnalyticsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const [progressRes, profileRes] = await Promise.all([
+      const [progressRes, profileRes, radarRes] = await Promise.all([
         fetch(`/api/proxy/api/progress/${user?.id}`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }),
         fetch(`/api/proxy/api/onboarding/profile`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }),
+        fetch(`/api/proxy/api/progress/weakness-radar`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
       ]);
+
+      if (radarRes.ok) {
+        setRadar(await radarRes.json());
+      }
 
       if (progressRes.ok) {
         const data = await progressRes.json();
         const subjectList: SubjectProgress[] = data.subjects || [];
         setSubjects(subjectList);
+
+        const recs = await Promise.all(
+          subjectList.slice(0, 4).map(async (s) => {
+            try {
+              const cRes = await fetch(`/api/proxy/api/curriculum/${s.subject_id}`, {
+                headers: { Authorization: `Bearer ${session.access_token}` },
+              });
+              if (!cRes.ok) return null;
+              const cur = await cRes.json();
+              const chapters: { id: string; title: string; status: string; order_index: number }[] =
+                cur.chapters || [];
+              const next =
+                chapters.find((ch) => ch.status === "in_progress") ||
+                chapters.find((ch) => ch.status === "available") ||
+                chapters.find((ch) => ch.status !== "completed");
+              if (!next) return null;
+              return {
+                subject_id: s.subject_id,
+                chapter_id: next.id,
+                title: next.title,
+                sub: `${s.subject_name} · Lesson ${next.order_index + 1}`,
+                dot: SUBJECT_COLORS[s.subject_name] || "#5b5eff",
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+        setRecommendations(
+          recs.filter((r): r is NonNullable<typeof r> => r !== null)
+        );
         const totalCompleted = subjectList.reduce((s: number, x: SubjectProgress) => s + (x.chapters_completed || 0), 0);
         const scores = subjectList.filter((x: SubjectProgress) => x.average_score != null).map((x: SubjectProgress) => x.average_score as number);
         const avgScore = scores.length > 0 ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length : 0;
@@ -342,6 +398,9 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
+          {/* Weakness Radar — Wave 3 */}
+          <WeaknessRadarCard radar={radar} />
+
           {/* Two-col: Sessions Table + Recommendations */}
           <div className="grid grid-cols-2 gap-3">
             {/* Recent tutor sessions */}
@@ -387,30 +446,204 @@ export default function AnalyticsPage() {
                 Recommended next
               </div>
               <div className="space-y-2">
-                {[
-                  { dot: "#5b5eff", title: "Systems of equations", sub: "Math · Lesson 3" },
-                  { dot: "#1d9e75", title: "Genetics & DNA", sub: "Science · Lesson 3" },
-                  { dot: "#ef9f27", title: "Essay argumentation", sub: "English · Lesson 2" },
-                  { dot: "#e24b4a", title: "The Great War", sub: "History · Lesson 2" },
-                ].map((rec, i) => (
-                  <div key={i} className="flex items-center gap-2.5 bg-[var(--bg-raised)] rounded-2xl p-2.5">
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: rec.dot }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[12px] text-[var(--text-body)] font-[500]">{rec.title}</div>
-                      <div className="text-[11px] text-[var(--text-muted)]">{rec.sub}</div>
-                    </div>
-                    <a href="/learn" className="text-[11px] text-[var(--accent)] hover:text-[var(--accent)] whitespace-nowrap">
-                      Start →
-                    </a>
+                {recommendations.length === 0 ? (
+                  <div className="text-[12px] text-[var(--text-muted)] py-2">
+                    No recommendations yet — complete a chapter to unlock the next one.
                   </div>
-                ))}
+                ) : (
+                  recommendations.map((rec) => (
+                    <div key={`${rec.subject_id}-${rec.chapter_id}`} className="flex items-center gap-2.5 bg-[var(--bg-raised)] rounded-2xl p-2.5">
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ background: rec.dot }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12px] text-[var(--text-body)] font-[500]">{rec.title}</div>
+                        <div className="text-[11px] text-[var(--text-muted)]">{rec.sub}</div>
+                      </div>
+                      <a
+                        href={`/learn/${rec.subject_id}/${rec.chapter_id}`}
+                        className="text-[11px] text-[var(--accent)] hover:text-[var(--accent)] whitespace-nowrap"
+                      >
+                        Start →
+                      </a>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function WeaknessRadarCard({ radar }: { radar: WeaknessRadar | null }) {
+  if (!radar) return null;
+  const subjects = radar.subjects.filter((s) => (s.score ?? 0) > 0 || s.chapters_completed > 0);
+  const hasData = subjects.length > 0 || radar.top_weaknesses.length > 0;
+  if (!hasData) return null;
+
+  // Polygon radar — needs >=3 subjects with a score; otherwise show bars only
+  const radarPoints = subjects.filter((s) => s.score != null);
+  const showRadar = radarPoints.length >= 3;
+
+  const SIZE = 220;
+  const CENTER = SIZE / 2;
+  const RADIUS = 80;
+  const RINGS = [0.25, 0.5, 0.75, 1];
+
+  const polarCoord = (i: number, n: number, value01: number) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+    const r = RADIUS * value01;
+    return { x: CENTER + Math.cos(angle) * r, y: CENTER + Math.sin(angle) * r };
+  };
+
+  const masteryPoly = showRadar
+    ? radarPoints
+        .map((s, i) => {
+          const v = Math.max(0.05, Math.min(1, (s.score ?? 0) / 100));
+          const { x, y } = polarCoord(i, radarPoints.length, v);
+          return `${x},${y}`;
+        })
+        .join(" ")
+    : "";
+
+  return (
+    <div className="grid grid-cols-2 gap-3 mb-3">
+      {/* Mastery radar */}
+      <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
+        <div className="text-[11px] text-[var(--text-muted)] font-[500] uppercase tracking-wider mb-3">
+          Mastery radar
+        </div>
+        {showRadar ? (
+          <div className="flex items-center justify-center">
+            <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+              {/* Rings */}
+              {RINGS.map((r) => (
+                <circle
+                  key={r}
+                  cx={CENTER}
+                  cy={CENTER}
+                  r={RADIUS * r}
+                  fill="none"
+                  stroke="var(--border)"
+                  strokeWidth={1}
+                />
+              ))}
+              {/* Spokes + labels */}
+              {radarPoints.map((s, i) => {
+                const { x, y } = polarCoord(i, radarPoints.length, 1);
+                const label = polarCoord(i, radarPoints.length, 1.18);
+                return (
+                  <g key={s.subject_id}>
+                    <line
+                      x1={CENTER}
+                      y1={CENTER}
+                      x2={x}
+                      y2={y}
+                      stroke="var(--border)"
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={label.x}
+                      y={label.y}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize={9}
+                      fill="var(--text-muted)"
+                    >
+                      {s.subject_name.length > 10
+                        ? s.subject_name.slice(0, 9) + "…"
+                        : s.subject_name}
+                    </text>
+                  </g>
+                );
+              })}
+              {/* Mastery polygon */}
+              <polygon
+                points={masteryPoly}
+                fill="rgba(91, 94, 255, 0.25)"
+                stroke="#5b5eff"
+                strokeWidth={2}
+              />
+              {radarPoints.map((s, i) => {
+                const v = Math.max(0.05, Math.min(1, (s.score ?? 0) / 100));
+                const { x, y } = polarCoord(i, radarPoints.length, v);
+                return (
+                  <circle key={s.subject_id} cx={x} cy={y} r={3} fill="#5b5eff" />
+                );
+              })}
+            </svg>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {subjects.map((s) => {
+              const score = s.score ?? 0;
+              const color =
+                score >= 80 ? "#1d9e75" : score >= 60 ? "#5b5eff" : "#ef9f27";
+              return (
+                <div key={s.subject_id} className="flex items-center gap-2.5">
+                  <span className="text-[12px] text-[var(--text-body)] w-24 truncate">
+                    {s.subject_name}
+                  </span>
+                  <div className="flex-1 h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${score}%`, background: color }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-[var(--text-muted)] w-10 text-right">
+                    {score ? `${score}%` : "—"}
+                  </span>
+                </div>
+              );
+            })}
+            {subjects.length < 3 && (
+              <p className="text-[10px] text-[var(--text-faint)] mt-2">
+                Complete a few more chapters to unlock the radar view.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Top weak topics */}
+      <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
+        <div className="text-[11px] text-[var(--text-muted)] font-[500] uppercase tracking-wider mb-3">
+          Topics to revisit
+        </div>
+        {radar.top_weaknesses.length === 0 ? (
+          <p className="text-[12px] text-[var(--text-muted)]">
+            No recurring weak spots yet — keep going!
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {radar.top_weaknesses.map((w) => {
+              const intensity = Math.min(1, w.count / 3);
+              return (
+                <li
+                  key={w.topic}
+                  className="flex items-center gap-2.5 bg-[var(--bg-raised)] rounded-2xl px-3 py-2"
+                >
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{
+                      background: `rgba(239, 159, 39, ${0.4 + intensity * 0.6})`,
+                    }}
+                  />
+                  <span className="text-[12px] text-[var(--text-body)] flex-1 truncate">
+                    {w.topic}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-[500]">
+                    ×{w.count}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );

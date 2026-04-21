@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-19 09:51
+**Last Updated:** 2026-04-21
 
 # LearnOS — 20-Slide Presentation Content
 **Audience**: Complete beginners | **Purpose**: Understand what LearnOS is and does
@@ -176,17 +176,21 @@
 
 ---
 
-## SLIDE 15 — Behind the Scenes: 7 AI Agents
-**Headline:** LearnOS runs 7 specialised AI agents working together
-| Agent | Job |
+## SLIDE 15 — Behind the Scenes: Specialised AI Services
+**Headline:** LearnOS orchestrates multiple AI services working together
+| Service | Job |
 |-------|-----|
-| Planner | Builds and updates your learning roadmap |
-| Tutor | Adapts teaching style (coaching, scaffolding, challenge) |
-| Quiz | Generates questions from your topic history |
-| Analyzer | Grades answers and blends your mastery score |
-| Memory | Logs every interaction so context is never lost |
-| Retrieval | Searches your personal document library for relevant content |
-| Gamification | Awards XP, tracks streaks, unlocks achievements |
+| Curriculum Generator | Builds personalised K-12 curriculum from onboarding data |
+| Teaching Engine | Streams Socratic lessons that adapt to detected emotion |
+| Adaptive Engine | Re-orders chapters and tunes difficulty from concept mastery |
+| Activity Evaluator | Grades quizzes and gives detailed, targeted feedback |
+| Sentiment Analyzer | Reads webcam frames via Claude Vision, every few seconds |
+| Voice Manager | Runs OpenAI Realtime speech-to-speech with chapter context |
+| Flashcards Engine | SM-2 spaced repetition deck generation + scheduling |
+| Gamification | XP, levels, streaks, streak-freeze, daily challenges |
+| Tutor Session Engine | LangGraph state machine fusing voice + sentiment signals |
+| Parent Digest | Weekly read-only progress summary for parents |
+| Next-Best-Action Coach | Aggregates signals into 3 prioritised action cards |
 
 ---
 
@@ -240,18 +244,26 @@ uvicorn app.main:app --port 8000
 cd frontend
 npm install
 npm run dev
-# → Open http://localhost:3001
+# → Open http://localhost:3000
 ```
 **Full guide:** See GETTING_STARTED.md
 
 ---
 
-## SLIDE 20 — The Future of LearnOS
-**Headline:** This is just the beginning
+## SLIDE 20 — Recently Shipped & What's Next
+**Headline:** Already live on LearnOS today
+- 🏆 Wave 1 — Gamification: XP, levels, streaks, daily challenges, leaderboard, AI study buddy
+- 🃏 Wave 2 — SM-2 flashcards with Again/Hard/Good/Easy review
+- 🧭 Wave 3 — Adaptive engine (concept-level mastery, auto chapter re-ordering)
+- 👨‍👩‍👧 Wave 4 — Parent read-only dashboard + learning-path view
+- 🎭 Wave 5 — Story mode, audio podcast (TTS), career glimpse, doubt scanner (Vision), physics sim
+- 🧘 Wave 6 — Mood check-in + Pomodoro, AI multi-day project builder
+- 🎯 Wave 7 — Next-best-action coach on the dashboard
+- 🎨 Theme refresh — parchment palette, glossy gradient stat tiles, adventure hero
+
 **On the roadmap:**
 - 📱 Mobile app (iOS & Android)
 - 🌍 Multi-language support (Hindi, Tamil, Spanish…)
-- 👨‍👩‍👧 Parent dashboard to track child's progress
 - 🏫 School admin panel for classroom deployment
 - 📖 Upload your own textbooks for AI to teach from
 - 🤝 Peer learning rooms (study with friends, AI as moderator)
@@ -261,16 +273,3 @@ npm run dev
 ---
 *LearnOS — AI-Powered Personalized Learning OS*
 *Built with Claude AI + OpenAI + Next.js + FastAPI*
----
-
-## SLIDE — Recent Updates (Auto-synced from CHANGELOG)
-**Headline:** What changed in LearnOS — 🗂️ April 16 — File Organization & Automated Audit System
-**Latest fixes and improvements:**
-- ✅ Deleted: `Updates_emkay/` folder (6 unused markdown files)
-- ✅ Deleted: `knowledgeforge.db` (unrelated SQLite database, 552KB)
-- ✅ Moved: `IMPLEMENTATION_REPORT.html` → `docs/`
-- ✅ Moved: `amplify.yml` → `docs/deployment/`
-- ✅ Moved: `package-lock.json` → `frontend/`
-- ✅ Moved: `tools/` contents → `scripts/`
-
-*Last synced: 2026-04-17*

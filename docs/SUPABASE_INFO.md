@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-19 09:51
+**Last Updated:** 2026-04-21
 
 # 🔷 Supabase Configuration & Database Schema
 
@@ -203,6 +203,81 @@ Student notes per chapter.
 
 ---
 
+### 11. **concepts** (Wave 3)
+Concept-level breakdown within chapters.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| chapter_id | UUID | FK to chapters.id |
+| title | VARCHAR(255) | Concept title |
+| explanation | TEXT | AI-generated concept explanation |
+| order_index | INTEGER | Position within chapter |
+
+### 12. **mastery** (Wave 3)
+Per-concept mastery snapshots.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| student_id | UUID | FK to students.id |
+| concept_id | UUID | FK to concepts.id |
+| level | FLOAT | 0.0–1.0 |
+| last_assessed_at | TIMESTAMP | Latest assessment time |
+
+### 13. **daily_challenges** (Wave 1 — migration 0009)
+Daily quests for streak/XP grants.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| student_id | UUID | FK to students.id |
+| challenge_key | VARCHAR | Challenge identifier |
+| completed_at | TIMESTAMP | Nullable until completion |
+| xp_reward | INTEGER | XP awarded on completion |
+
+### 14. **flashcards** (Wave 2 — migration 0010)
+SM-2 spaced-repetition cards.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| student_id | UUID | FK to students.id |
+| chapter_id | UUID | FK to chapters.id |
+| front | TEXT | Question side |
+| back | TEXT | Answer side |
+| interval_days | INTEGER | SM-2 interval |
+| ease_factor | FLOAT | SM-2 ease (default 2.5) |
+| due_at | TIMESTAMP | Next review time |
+| repetitions | INTEGER | Successful reviews count |
+
+### 15. **mood_logs** (Wave 6 — migration 0011)
+Mood check-ins for wellness coaching.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| student_id | UUID | FK to students.id |
+| mood | VARCHAR | happy / focused / tired / anxious / stressed |
+| note | TEXT | Optional student note |
+| coach_line | TEXT | AI-generated response |
+| created_at | TIMESTAMP | Log time |
+
+### 16. **tutor_sessions** / **tutor_events** (Wave 3)
+LangGraph state-machine session + event stream.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| student_id | UUID | FK to students.id |
+| chapter_id | UUID | FK to chapters.id |
+| state_json | JSONB | Serialized LangGraph state |
+| started_at / ended_at | TIMESTAMP | Session lifecycle |
+
+Global student counters (`xp`, `level`, `streak_days`, `last_active_date`) live on the `students` table and are maintained by `services/gamification.py`.
+
+---
+
 ## Storage Buckets
 
 ### Bucket: `marksheets`
@@ -266,14 +341,14 @@ AI-generated content.
 
 ## Current Status
 
-✅ Database initialized with 10 tables  
+✅ Database initialized — 16+ application tables across migrations 0001–0011  
 ✅ Auth configured (email + OAuth)  
-✅ All migrations applied  
+✅ All migrations applied (latest: `0011_wave6_mood_logs`)  
 ✅ Backup enabled (daily automatic)  
 ✅ RLS policies enforced  
 
 ---
 
-**Last Updated**: April 17, 2026  
-**Storage**: Cloud-managed by Supabase  
+**Last Updated**: 2026-04-21
+**Storage**: Cloud-managed by Supabase
 **Backups**: Automatic daily snapshots

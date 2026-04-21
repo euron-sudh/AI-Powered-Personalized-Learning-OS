@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     conversation_history: list[dict] = []
     emotion: str | None = None
     confidence: float | None = None
+    mode: str | None = None  # e.g. "explain_differently"
 
 
 class ChatMessageResponse(BaseModel):

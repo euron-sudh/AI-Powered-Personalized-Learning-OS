@@ -301,15 +301,44 @@ async def generate_activities(
     subject_name: str,
     grade: str,
     board: str | None = None,
+    difficulty: str = "standard",
+    weak_topics: list[str] | None = None,
+    prior_chapter_titles: list[str] | None = None,
 ) -> dict:
     """Generate activities for a chapter after the lesson content.
 
     Returns a set of activities including quiz, problem set, etc.
+
+    `difficulty` is one of "easier", "standard", "harder" (Wave 3 adaptive).
+    `weak_topics` and `prior_chapter_titles` let the quiz weave callbacks to
+    things the student previously struggled with or already mastered.
     """
+    from app.services.adaptive import DIFFICULTY_GUIDANCE
+
     key_concepts = chapter_content.get("key_concepts", [])
     summary = chapter_content.get("summary", "")
     board_instruction = BOARD_ACTIVITY_GUIDELINES.get(board or "", "")
     board_section = f"\nBoard: {board}\nActivity style: {board_instruction}" if board_instruction else (f"\nBoard: {board}" if board else "")
+
+    difficulty_section = ""
+    if difficulty in DIFFICULTY_GUIDANCE:
+        difficulty_section = f"\n\n{DIFFICULTY_GUIDANCE[difficulty]}"
+
+    callback_section = ""
+    if weak_topics:
+        callback_section += (
+            "\n\nThe student has previously struggled with: "
+            + "; ".join(weak_topics[:5])
+            + ". If this chapter relates to any of these, include ONE question that "
+              "explicitly revisits the connection (a memory callback)."
+        )
+    if prior_chapter_titles:
+        callback_section += (
+            "\n\nPreviously completed chapters in this subject: "
+            + "; ".join(prior_chapter_titles[:5])
+            + ". Where natural, include ONE question that links the current chapter "
+              "to a prior one to reinforce cumulative understanding."
+        )
 
     prompt = f"""You are an expert K-12 educator. Generate a set of activities to assess student understanding of:
 
@@ -317,7 +346,7 @@ Subject: {subject_name}
 Grade: {grade}
 Chapter: {chapter_title}
 Key Concepts: {", ".join(key_concepts)}
-Chapter Summary: {summary}{board_section}
+Chapter Summary: {summary}{board_section}{difficulty_section}{callback_section}
 
 Create a varied activity set that tests different levels of understanding.
 

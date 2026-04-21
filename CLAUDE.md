@@ -1,10 +1,10 @@
-**Last Updated:** 2026-04-19 09:51
+**Last Updated:** 2026-04-21
 
 # AI-Powered Personalized Learning OS (LearnOS)
 
 ## Vision
 
-A Netflix-like AI education platform for K-12 students that adapts content, teaching style, and pacing in real time using speech-to-speech conversation, live video sentiment analysis, and AI-generated personalized curricula.
+A warm, gamified AI education platform for K-12 students that adapts content, teaching style, and pacing in real time using speech-to-speech conversation, live video sentiment analysis, and AI-generated personalized curricula. Includes spaced-repetition flashcards (SM-2), multi-day AI-generated projects, story mode, audio podcast (TTS), career glimpses, doubt scanner (Claude Vision), physics sims, mood check-ins + Pomodoro, and a next-best-action coach.
 
 ---
 
@@ -97,22 +97,45 @@ A Netflix-like AI education platform for K-12 students that adapts content, teac
 │   │   │
 │   │   ├── routers/                   # API route modules
 │   │   │   ├── __init__.py
-│   │   │   ├── auth.py                # Auth routes (proxy to Supabase Auth)
-│   │   │   ├── onboarding.py          # Student profile & onboarding
-│   │   │   ├── curriculum.py          # Curriculum generation & retrieval
-│   │   │   ├── lessons.py             # Lesson content & teaching chat
-│   │   │   ├── voice.py               # OpenAI Realtime session management
-│   │   │   ├── video.py               # Video frame sentiment analysis
-│   │   │   ├── activities.py          # Activity submission & evaluation
-│   │   │   └── progress.py            # Student progress & analytics
+│   │   │   ├── auth.py                # JWT verify / user info
+│   │   │   ├── onboarding.py          # Student profile, heartbeat, marksheet upload
+│   │   │   ├── curriculum.py          # Curriculum generation, retrieval, adjustment
+│   │   │   ├── lessons.py             # Lesson content & streaming teaching chat (SSE)
+│   │   │   ├── voice.py               # OpenAI Realtime WebSocket proxy
+│   │   │   ├── video.py               # Video frame sentiment (HTTP + WS)
+│   │   │   ├── activities.py          # Activity fetch, submit, AI evaluate
+│   │   │   ├── progress.py            # Student progress & analytics
+│   │   │   ├── notes.py               # Per-chapter freeform notes CRUD
+│   │   │   ├── sessions.py            # Learning session lifecycle
+│   │   │   ├── tutor_session.py       # LangGraph tutor session state machine
+│   │   │   ├── learning.py            # Learning memory / adaptive profile
+│   │   │   ├── practice.py            # Adaptive practice quiz builder
+│   │   │   ├── challenges.py          # Daily challenges, streak/XP grants
+│   │   │   ├── flashcards.py          # SM-2 flashcard deck + due cards + backfill
+│   │   │   ├── leaderboard.py         # Global + friends leaderboard
+│   │   │   ├── parent.py              # Parent dashboard (read-only)
+│   │   │   ├── buddy.py               # AI study buddy state + messages
+│   │   │   ├── immersive.py           # Story / podcast / career / doubt-scan
+│   │   │   ├── wellness.py            # Mood log + Pomodoro completion
+│   │   │   ├── projects.py            # AI-generated multi-day projects
+│   │   │   └── suggest.py             # Next-best-action recommendation engine
 │   │   │
 │   │   ├── services/                  # Business logic layer
 │   │   │   ├── __init__.py
-│   │   │   ├── curriculum_generator.py # Prompt chains for curriculum creation
-│   │   │   ├── teaching_engine.py     # Conversational teaching logic
-│   │   │   ├── activity_evaluator.py  # Activity grading & feedback
-│   │   │   ├── sentiment_analyzer.py  # Video frame analysis via Claude Vision
-│   │   │   └── voice_manager.py       # OpenAI Realtime session lifecycle
+│   │   │   ├── curriculum_generator.py # Curriculum + chapter content + activity gen
+│   │   │   ├── teaching_engine.py     # Conversational Socratic tutor (SSE stream)
+│   │   │   ├── activity_evaluator.py  # AI grading & feedback
+│   │   │   ├── adaptive.py            # Adaptive ordering & difficulty tuning
+│   │   │   ├── sentiment_analyzer.py  # Claude Vision frame analysis
+│   │   │   ├── voice_manager.py       # OpenAI Realtime session lifecycle
+│   │   │   ├── flashcards.py          # SM-2 scheduling + deck generation
+│   │   │   ├── gamification.py        # XP + level + streak bookkeeping
+│   │   │   ├── tutor_session_engine.py # LangGraph tutor session state machine
+│   │   │   ├── session_service.py     # Learning session lifecycle
+│   │   │   ├── parent_digest.py       # Parent-facing progress digest
+│   │   │   └── syllabus_data.py       # Official board syllabus data (CBSE/ICSE/…)
+│   │   │   # Note: immersive, wellness, projects, and suggest logic lives inside
+│   │   │   # their router modules — no dedicated service files.
 │   │   │
 │   │   ├── models/                    # SQLAlchemy ORM models
 │   │   │   ├── __init__.py
@@ -122,7 +145,17 @@ A Netflix-like AI education platform for K-12 students that adapts content, teac
 │   │   │   ├── activity.py
 │   │   │   ├── chat_message.py
 │   │   │   ├── sentiment_log.py
-│   │   │   └── progress.py
+│   │   │   ├── progress.py
+│   │   │   ├── notes.py
+│   │   │   ├── session.py
+│   │   │   ├── tutor_session.py
+│   │   │   ├── adaptive.py            # Adaptive engine tables
+│   │   │   ├── concept.py             # Concept-level tracking
+│   │   │   ├── mastery.py             # Mastery snapshots
+│   │   │   ├── syllabus.py
+│   │   │   ├── daily_challenge.py     # Wave 1
+│   │   │   ├── flashcard.py           # Wave 2
+│   │   │   └── mood.py                # Wave 6 mood_logs
 │   │   │
 │   │   ├── schemas/                   # Pydantic request/response schemas
 │   │   │   ├── __init__.py
@@ -395,6 +428,24 @@ Row-Level Security (RLS) policies enforce that students can only access their ow
 20. **Learning profile** — Aggregated view of strengths, weaknesses, learning style
 21. **Progress analytics** — Charts showing progress across subjects, chapters, scores over time
 22. **Adaptive curriculum adjustment** — Re-order or regenerate chapters based on performance and sentiment data
+
+### Post-MVP Waves (shipped)
+
+**Wave 1 — Gamification.** Global stats (XP / level / streak), streak-freeze auto-apply, daily challenges (3 rotating quests), leaderboard, AI study buddy. Keeps students returning daily; `challenges.py`, `leaderboard.py`, `buddy.py`, `gamification.py` service.
+
+**Wave 2 — Spaced repetition.** SM-2 flashcard decks per chapter (Claude generates 8–12 cards on completion); `/review` UI with Again/Hard/Good/Easy grading; due-card queue; backfill tool. `flashcards.py` router + service.
+
+**Wave 3 — Adaptive engine.** Concept-level mastery tracking, adaptive difficulty, chapter re-ordering on weak scores. `adaptive.py` service + `concept`, `mastery` models.
+
+**Wave 4 — Parent & path.** Parent-facing read-only dashboard (`parent.py` router, `parent_digest.py` service), learning path view.
+
+**Wave 5 — Immersive learning.** Story mode (5-scene Claude narrative), audio podcast (OpenAI TTS with 6 voices), career glimpse paragraph, doubt scanner (Claude Vision → step-by-step), projectile physics simulator (canvas 2D with analytical predictions). All in `immersive.py` router; frontend pages under `/story`, `/podcast`, `/career`, `/scan`, `/sim/projectile`.
+
+**Wave 6 — Wellness & projects.** Mood log (`mood_logs` table, migration 0011) with coach-line responses; Pomodoro timer with XP grants; AI-generated multi-day project builder with milestone checklist persisted to `localStorage`. `wellness.py`, `projects.py` routers.
+
+**Wave 7 — Next-best-action coach.** `/api/suggest/next-best-action` aggregates signals (streak risk, due flashcards, recent mood, rolling quiz average, missing check-in) into up to 3 prioritized action cards rendered on the dashboard. `suggest.py` router.
+
+**Theme refresh.** Warm cream + parchment palette, glossy gradient stat tiles, kid-friendly emoji doodles, adventure hero banner. Lives in `globals.css` as CSS variables; most components read tokens and automatically inherit the new theme.
 
 ---
 
