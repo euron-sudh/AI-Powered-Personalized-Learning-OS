@@ -63,16 +63,39 @@ export default function OnboardingPage() {
   const [selectedSubjects, setSelectedSubjects] = useState(["Mathematics", "Science", "English"]);
   const [genProgress, setGenProgress] = useState(0);
 
-  useEffect(() => {
-    if (user && isLogin) router.push("/dashboard");
-  }, [user, isLogin, router]);
-
   const updateInitials = (fullName: string) => {
     const parts = fullName.trim().split(" ");
     const init = parts.map((p) => p[0] || "").join("").toUpperCase().slice(0, 2) || "?";
     setInitials(init);
     setName(fullName);
   };
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch(`/api/proxy/api/onboarding/profile`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (res.ok) {
+          const profile = await res.json();
+          if (!cancelled && profile?.onboarding_completed) {
+            router.replace("/dashboard");
+            return;
+          }
+        }
+      } catch { /* fall through to skip auth form */ }
+      if (cancelled) return;
+      setStep((s) => (s === 0 ? 1 : s));
+      const fullName = user.user_metadata?.full_name;
+      if (fullName) updateInitials(fullName);
+      else if (user.email && !name) updateInitials(user.email.split("@")[0]);
+    })();
+    return () => { cancelled = true; };
+  }, [user, router]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,16 +104,21 @@ export default function OnboardingPage() {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        setIsLogin(true);
       } else {
         if (password !== confirmPassword) return setAuthError("Passwords do not match");
         if (password.length < 8) return setAuthError("Password must be at least 8 characters");
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { full_name: name } },
         });
         if (error) throw error;
+        if (!data.session) {
+          setAuthError(
+            "Account created. Check your email to confirm, then return here to continue."
+          );
+          return;
+        }
         goStep(1);
       }
     } catch (err: any) {
@@ -123,7 +151,12 @@ export default function OnboardingPage() {
   const submitOnboarding = async () => {
     try {
       const { data: session } = await supabase.auth.getSession();
-      if (!session?.session) return;
+      if (!session?.session) {
+        setAuthError("Your session expired. Please sign in to finish onboarding.");
+        setStep(0);
+        setIsLogin(true);
+        return;
+      }
       await apiPost("/onboarding", {
         name,
         grade: selectedGrade || "9",

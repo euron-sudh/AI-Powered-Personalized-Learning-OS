@@ -32,8 +32,9 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-4" style={{ backgroundColor: "var(--bg-base)" }}>
       <div className="w-full max-w-md">
-        <div className="text-[18px] font-[500] text-white mb-8 tracking-tight">
-          Learn<span className="text-[var(--accent)]">OS</span>
+        <div className="text-[22px] font-extrabold mb-8 tracking-tight text-center">
+          <span className="text-[var(--text-primary)]">Learn</span>
+          <span className="text-[var(--brand-blue)]">OS</span>
         </div>
         <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-8">
           <h1 className="text-2xl font-bold text-center text-white mb-2">Welcome back</h1>
