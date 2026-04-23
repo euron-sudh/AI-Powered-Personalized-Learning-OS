@@ -27,10 +27,30 @@ const INPUT_SAMPLE_RATE = 16000;
 // Gemini Live emits 24 kHz output PCM.
 const OUTPUT_SAMPLE_RATE = 24000;
 
-// `gemini-2.0-flash-exp` was retired on the Live API in early 2026. The
-// current native-audio Live model (which gives the warm conversational voice
-// we want) is `gemini-2.5-flash-native-audio-latest`.
-const GEMINI_MODEL = "models/gemini-2.5-flash-native-audio-latest";
+// Gemini Live model selection — chosen empirically from a side-by-side
+// test of every bidi-capable model our API key can reach (2026-04-24):
+//
+//   • gemini-3.1-flash-live-preview        — returns ZERO audio on our key
+//                                             (preview, not GA).
+//   • gemini-2.5-flash-native-audio-latest — a floating alias; silently
+//                                             flips versions. Tool-calling
+//                                             broke in last test.
+//   • gemini-2.5-flash-native-audio-preview-12-2025
+//                                           — ships audio on plain prompts
+//                                             BUT silently produces no
+//                                             audio and no tool call when a
+//                                             diagram is requested. Tools
+//                                             are broken on this revision.
+//   • gemini-2.5-flash-native-audio-preview-09-2025  ← CURRENT PIN
+//                                           — natural conversational voice,
+//                                             tool-calling works, supports
+//                                             maxOutputTokens + NO_INTERRUPTION.
+//                                             The only native-audio revision
+//                                             where everything works today.
+//
+// Re-test this list if Google ships a newer Live model; pick the newest
+// one where tool-calling + narration both fire on "show me a diagram of X".
+const GEMINI_MODEL = "models/gemini-2.5-flash-native-audio-preview-09-2025";
 // "Aoede" = soft/warm female; "Kore" = professional female; "Puck" = playful.
 // The user asked for calm / gentle / student-friendly → Aoede.
 const GEMINI_VOICE = "Aoede";
@@ -213,6 +233,14 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
   const [error, setError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
+  // Synchronous guard against double-connect. `wsRef` alone isn't enough —
+  // `connect()` does two awaits (`import('@/lib/supabase')`, then
+  // `supabase.auth.getSession()`) BEFORE it assigns wsRef, and during that
+  // window a second connect call (React StrictMode re-invocation, or
+  // useCallback deps changing) passes the wsRef null-check and also creates
+  // a WebSocket. Two parallel Gemini sessions then talk over each other —
+  // which is exactly the "tutor is breaking / interrupting" symptom.
+  const connectingRef = useRef(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const inputContextRef = useRef<AudioContext | null>(null);
   const outputContextRef = useRef<AudioContext | null>(null);
@@ -290,8 +318,18 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
   const playPcmChunk = useCallback((chunk: Uint8Array) => {
     if (disposedRef.current) return;
     try {
-      const ctx = outputContextRef.current ?? new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
-      outputContextRef.current = ctx;
+      let ctx = outputContextRef.current;
+      if (!ctx) {
+        // Browsers may refuse a 24 kHz AudioContext on some hardware (e.g.
+        // 48 kHz forced devices on Windows); fall back to the default rate
+        // and let Web Audio resample the 24 kHz buffers at play time.
+        try {
+          ctx = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+        } catch {
+          ctx = new AudioContext();
+        }
+        outputContextRef.current = ctx;
+      }
       if (ctx.state === "suspended") ctx.resume().catch(() => {});
 
       const numSamples = chunk.byteLength >> 1; // 2 bytes per sample
@@ -307,7 +345,25 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(ctx.destination);
-      const startAt = Math.max(ctx.currentTime, nextPlaybackTimeRef.current);
+      // Drift guard: if nextPlaybackTime has fallen significantly behind the
+      // AudioContext clock (tab was backgrounded, context suspended, etc.),
+      // snap forward to now so chunks don't schedule in the past — that's
+      // what produces robotic stuttering / runaway queue growth.
+      if (nextPlaybackTimeRef.current < ctx.currentTime - 0.05) {
+        nextPlaybackTimeRef.current = ctx.currentTime;
+      }
+      // Jitter buffer: the FIRST audio chunk of a turn is scheduled 150 ms
+      // in the future. This gives Web Audio, the WebSocket pipeline, and the
+      // network a cushion so later chunks arrive before the playhead needs
+      // them. Without this, scheduling slips of just a few ms at chunk
+      // boundaries produce audible clicks that sound like "the tutor is
+      // cutting in and out." Continuation chunks inherit from the stable
+      // timeline and stay sample-accurate back-to-back.
+      const JITTER_S = 0.15;
+      const isFirstOfTurn = nextPlaybackTimeRef.current === 0;
+      const startAt = isFirstOfTurn
+        ? ctx.currentTime + JITTER_S
+        : Math.max(ctx.currentTime, nextPlaybackTimeRef.current);
       source.start(startAt);
       nextPlaybackTimeRef.current = startAt + audioBuffer.duration;
       scheduledSourcesRef.current.add(source);
@@ -357,6 +413,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
     mediaStreamRef.current = null;
     try { wsRef.current?.close(); } catch { /* already closed */ }
     wsRef.current = null;
+    connectingRef.current = false;
     if (inputContextRef.current && inputContextRef.current.state !== "closed") {
       inputContextRef.current.suspend().catch(() => {});
       inputContextRef.current.close().catch(() => {});
@@ -408,19 +465,37 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
 
       const NOISE_FLOOR_RMS = 0.012;
       const srcRate = ctx.sampleRate;
+      // Diagnostic: every ~2s, log mic state so we can see which gate (if any)
+      // is blocking speech from reaching Gemini. Look at the "peakRms" — if
+      // it's < 0.012 while you're speaking, your mic is too quiet for the
+      // noise floor. If `wsReady=false` or `turnActive=true` you'll see that
+      // here instead.
+      let lastLogAt = 0;
+      let peakRms = 0;
+      let framesSent = 0;
+      let framesBlocked = 0;
 
       processor.onaudioprocess = (e) => {
-        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-        // Gate on TURN state, not queue state — see aiTurnActiveRef docstring.
-        if (aiTurnActiveRef.current) return; // avoid speaker->mic loopback
         const floatData = e.inputBuffer.getChannelData(0);
-
-        // Client-side amplitude gate — drops room hum, typing, distant chatter
-        // before it ever reaches the server's VAD.
         let sumSq = 0;
         for (let i = 0; i < floatData.length; i++) sumSq += floatData[i] * floatData[i];
         const rms = Math.sqrt(sumSq / floatData.length);
-        if (rms < NOISE_FLOOR_RMS) return;
+        if (rms > peakRms) peakRms = rms;
+
+        const now = performance.now();
+        if (now - lastLogAt > 2000) {
+          console.debug(
+            `[VoiceChat mic] peakRms=${peakRms.toFixed(3)} sent=${framesSent} blocked=${framesBlocked} wsReady=${wsRef.current?.readyState === WebSocket.OPEN} turnActive=${aiTurnActiveRef.current}`,
+          );
+          peakRms = 0;
+          framesSent = 0;
+          framesBlocked = 0;
+          lastLogAt = now;
+        }
+
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+        if (aiTurnActiveRef.current) { framesBlocked++; return; }
+        if (rms < NOISE_FLOOR_RMS) { framesBlocked++; return; }
 
         // Resample to 16 kHz if the context sample rate didn't match.
         let resampled: Float32Array;
@@ -445,6 +520,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
             mediaChunks: [{ mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}`, data: base64 }],
           },
         }));
+        framesSent++;
       };
 
       source.connect(processor);
@@ -462,10 +538,17 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
   // --- Connect ----------------------------------------------------------
 
   const connect = useCallback(async (autoListen = true) => {
-    if (wsRef.current) {
-      if (autoListen && !isListening) toggleListening();
+    if (wsRef.current || connectingRef.current) {
+      // The winning connect() already owns listening-state setup. We must
+      // NOT call toggleListening() here — it's a toggle, not a setter, so
+      // calling it twice (once from this early-return, once from the
+      // winning sendSetup) ends up disabling the mic. Just bail.
       return;
     }
+    // Flip the connecting flag synchronously — BEFORE any await — so a
+    // concurrent connect() call (StrictMode, useCallback dep change) can't
+    // slip past the guard while we're awaiting the Supabase session.
+    connectingRef.current = true;
     disposedRef.current = false;
     setError(null);
 
@@ -474,11 +557,16 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
     try {
       const { supabase } = await import("@/lib/supabase");
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) { setError("Not authenticated."); return; }
+      if (!session?.access_token) {
+        setError("Not authenticated.");
+        connectingRef.current = false;
+        return;
+      }
       accessToken = session.access_token;
     } catch (err) {
       console.error("[VoiceChat] auth error:", err);
       setError("Failed to get auth token.");
+      connectingRef.current = false;
       return;
     }
 
@@ -494,9 +582,12 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
     } catch (e) {
       console.error("[VoiceChat] WS constructor threw:", e);
       setError(`Couldn't open voice socket: ${e instanceof Error ? e.message : String(e)}`);
+      connectingRef.current = false;
       return;
     }
     wsRef.current = ws;
+    // wsRef is now the authoritative guard; release the pre-WS flag.
+    connectingRef.current = false;
     console.log("[VoiceChat] WS created, readyState=", ws.readyState);
     // Auth happens as the first message so the URL stays short and we don't
     // hit browser/handshake edge cases with long JWTs in query strings.
@@ -520,7 +611,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
       // Bundle-freshness marker. If you don't see this line in the browser
       // console on connect, you're running a stale JS bundle — hard-refresh.
       console.log(
-        "[VoiceChat] Gemini setup · NO_INTERRUPTION ON · temp=0.3 · image_query tool on",
+        "[VoiceChat] Gemini setup · model=preview-09-2025 · NO_INTERRUPTION · temp=0.2",
       );
       ws.send(JSON.stringify({
         setup: {
@@ -534,7 +625,13 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
             },
             // Low temperature → more deterministic, fewer hallucinated
             // facts, formulas, video IDs, or URLs.
-            temperature: 0.3,
+            temperature: 0.2,
+            // NOTE: `maxOutputTokens` looks tempting as a hard length cap
+            // but Gemini Live truncates the audio stream mid-sentence when
+            // the limit hits AND never emits turnComplete afterwards — so
+            // the client's turn-state machine hangs, the mic stays gated,
+            // and the user sees "tutor isn't speaking / not conversing".
+            // Length is controlled by the system prompt instead.
           },
           systemInstruction: {
             parts: [{ text: systemPrompt }],
@@ -737,6 +834,7 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
       setIsAISpeaking(false);
       isAISpeakingRef.current = false;
       wsRef.current = null;
+      connectingRef.current = false;
     };
   }, [isListening, playPcmChunk, stopAllPlayback, toggleListening, setMicEnabled]);
 

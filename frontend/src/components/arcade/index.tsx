@@ -395,19 +395,25 @@ export function LiveArcadeTopBar({ active }: { active: ArcadeTab }) {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
         const headers = { Authorization: `Bearer ${session.access_token}` };
+        // The student's live XP/streak/level live on the Student row via
+        // /api/onboarding/profile — that's what the dashboard uses and
+        // what /api/progress bumps behind the scenes. UserGlobalStats
+        // (backing /api/progress) is a secondary aggregate table and is
+        // often empty for newer accounts, which is why the topbar was
+        // showing zeros while the dashboard showed "100 XP, 3d".
         const [profileRes, gameRes] = await Promise.all([
           fetch("/api/proxy/api/onboarding/profile", { headers }).catch(() => null),
-          fetch("/api/proxy/api/challenges/global-stats", { headers }).catch(() => null),
+          fetch(`/api/proxy/api/progress/${user.id}`, { headers }).catch(() => null),
         ]);
         if (cancelled) return;
         const profile = profileRes && profileRes.ok ? await profileRes.json() : null;
         const game = gameRes && gameRes.ok ? await gameRes.json() : null;
         const name: string = profile?.name ?? user.email ?? "U";
         setStats({
-          xp: game?.xp ?? game?.total_xp ?? 0,
-          streak: game?.streak ?? game?.current_streak ?? 0,
-          coins: game?.coins ?? 0,
-          level: game?.level ?? 1,
+          xp: profile?.xp ?? game?.total_xp ?? 0,
+          streak: profile?.streak_days ?? game?.streak_days ?? 0,
+          coins: profile?.coins ?? game?.coins ?? 0,
+          level: profile?.level ?? game?.current_level ?? 1,
           initial: (name[0] ?? "U").toUpperCase(),
         });
       } catch {

@@ -100,7 +100,24 @@ export default function ProjectModePage() {
         }),
       });
       if (!res.ok) {
-        setErr("Couldn't generate a project right now.");
+        // Surface the real backend error instead of a generic message —
+        // otherwise e.g. "Anthropic credits exhausted" looks to the user
+        // like a broken button.
+        let detail = `${res.status} ${res.statusText}`;
+        try {
+          const body = await res.json();
+          if (body?.detail) detail = String(body.detail);
+          else if (body?.error) detail = String(body.error);
+        } catch {
+          /* response wasn't JSON */
+        }
+        if (/credit balance is too low|billing/i.test(detail)) {
+          setErr(
+            "Anthropic API credits are exhausted on this account — top up at console.anthropic.com to re-enable AI features.",
+          );
+        } else {
+          setErr(`Couldn't generate a project: ${detail}`);
+        }
         return;
       }
       setProject(await res.json());

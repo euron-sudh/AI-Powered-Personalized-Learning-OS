@@ -33,6 +33,39 @@ const SUBJECT_ALIASES: Record<string, string[]> = {
   History: ["History", "Social Studies"],
 };
 
+// Question-level keyword hints that refine a generic "Science" tag into a
+// specific discipline. Without this, a Physics question like "Sound travels
+// fastest through…" gets routed to Biology just because Biology shows up
+// alphabetically first in the student's enrolled subjects.
+const SCIENCE_KEYWORDS: Array<{ discipline: string; patterns: RegExp[] }> = [
+  {
+    discipline: "Physics",
+    patterns: [
+      /\b(sound|wave|light|force|gravity|friction|velocity|acceleration|momentum|energy|electricity|magnet|circuit|newton|mass|weight|pressure|optics|lens|refract|reflect|motion|heat|thermodynamic)\b/i,
+    ],
+  },
+  {
+    discipline: "Chemistry",
+    patterns: [
+      /\b(atom|molecul|element|compound|acid|base|reaction|bond|periodic|chemical|oxidation|solution|ph|mole|stoichiom|ionic|covalent|metal|alloy|crystal)\b/i,
+    ],
+  },
+  {
+    discipline: "Biology",
+    patterns: [
+      /\b(cell|dna|rna|gene|chromosome|organism|mitochondria|nucleus|tissue|organ|blood|heart|lung|brain|muscle|bone|plant|photosynthesis|respiration|enzyme|protein|bacteria|virus|evolution|species|ecosystem)\b/i,
+    ],
+  },
+];
+
+function refineSubject(rawSubj: string, questionText: string): string {
+  if (rawSubj !== "Science") return rawSubj;
+  for (const { discipline, patterns } of SCIENCE_KEYWORDS) {
+    if (patterns.some((p) => p.test(questionText))) return discipline;
+  }
+  return rawSubj;
+}
+
 const SUBJECT_COLORS: Record<string, string> = {
   Math: "#5b5eff",
   Science: "#1d9e75",
@@ -210,20 +243,26 @@ export default function PracticePage() {
     }
   }
 
-  async function handleAskTutor() {
-    // Pick the topic to ask about: the first wrong question if any, otherwise
-    // the first question of the quiz so the tutor can expand on something the
-    // student actually saw. Pick the subject with the most misses.
+  async function askTutorAbout(specific?: AnswerRecord) {
+    // If called with a specific answer row (the per-question "Ask" buttons
+    // in the combat log), route the tutor to THAT question. Otherwise fall
+    // back to the "first wrong / most-missed subject" logic for the big
+    // bottom CTA.
     const wrong = answers.filter((a) => !a.correct);
-    const topicAnswer = wrong[0] ?? answers[0];
+    const topicAnswer = specific ?? wrong[0] ?? answers[0];
     if (!topicAnswer) {
       router.push("/learn");
       return;
     }
     const missesBySubject: Record<string, number> = {};
     for (const a of wrong) missesBySubject[a.subj] = (missesBySubject[a.subj] ?? 0) + 1;
-    const targetSubj = Object.entries(missesBySubject).sort((a, b) => b[1] - a[1])[0]?.[0]
-      ?? topicAnswer.subj;
+    const rawTarget = specific
+      ? specific.subj
+      : Object.entries(missesBySubject).sort((a, b) => b[1] - a[1])[0]?.[0]
+        ?? topicAnswer.subj;
+    // Refine generic "Science" → Physics/Chem/Bio based on keywords in the
+    // question text, so a sound-waves question doesn't land on Biology.
+    const targetSubj = refineSubject(rawTarget, topicAnswer.q);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -241,9 +280,18 @@ export default function PracticePage() {
       const data = await res.json();
       const subjects: Array<{ id: string; name: string }> = data.subjects ?? [];
       const aliases = SUBJECT_ALIASES[targetSubj] ?? [targetSubj];
-      const matched = subjects.find((s) =>
-        aliases.some((alias) => s.name.toLowerCase().includes(alias.toLowerCase()))
-      ) ?? subjects[0];
+      // Iterate aliases in priority order — the old `subjects.find(s =>
+      // aliases.some(...))` returned whichever student subject appeared
+      // FIRST in the enrolled list (alphabetical), so "Biology" beat
+      // "Physics" even when Physics was a higher-priority alias.
+      let matched: { id: string; name: string } | undefined;
+      for (const alias of aliases) {
+        matched = subjects.find((s) =>
+          s.name.toLowerCase().includes(alias.toLowerCase()),
+        );
+        if (matched) break;
+      }
+      matched = matched ?? subjects[0];
       if (!matched) {
         router.push("/learn");
         return;
@@ -740,6 +788,26 @@ export default function PracticePage() {
                   >
                     {ans.correct ? ans.answer : ans.chosen}
                   </span>
+                  {!ans.correct && (
+                    <button
+                      onClick={() => askTutorAbout(ans)}
+                      title="Ask Byte to explain this concept"
+                      className="pill"
+                      style={{
+                        fontSize: 10,
+                        padding: "4px 10px",
+                        cursor: "pointer",
+                        color: "var(--neon-yel)",
+                        borderColor: "var(--neon-yel)",
+                        fontFamily: "var(--f-display)",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                    >
+                      🧠 Ask
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -755,7 +823,7 @@ export default function PracticePage() {
               ↻ TRY AGAIN
             </button>
             <button
-              onClick={handleAskTutor}
+              onClick={() => askTutorAbout()}
               className="chunky-btn yel"
               style={{ flex: 1, minWidth: 160, cursor: "pointer" }}
             >

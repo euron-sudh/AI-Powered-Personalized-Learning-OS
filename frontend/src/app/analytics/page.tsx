@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
-import { ArcadeShell, PixelBar } from "@/components/arcade";
+import { ArcadeShell, PixelBar, Byte } from "@/components/arcade";
 
 interface SubjectProgress {
   subject_id: string;
@@ -211,14 +211,52 @@ export default function AnalyticsPage() {
       <div
         className="arcade-root"
         data-grade="68"
+        data-motion="on"
         style={{
           minHeight: "100vh",
           display: "grid",
           placeItems: "center",
           color: "var(--ink)",
+          fontFamily: "var(--f-display)",
+          background:
+            "radial-gradient(circle at 50% 40%, rgba(155,92,255,0.18), transparent 60%)",
         }}
       >
-        Loading…
+        <div style={{ textAlign: "center" }}>
+          <div className="anim-float" style={{ display: "inline-block" }}>
+            <Byte size={120} />
+          </div>
+          <div
+            className="h-display"
+            style={{
+              marginTop: 22,
+              fontSize: 16,
+              color: "var(--neon-cyan)",
+              letterSpacing: "0.08em",
+            }}
+          >
+            Byte is crunching your stats
+            <span className="byte-dots">
+              <span>.</span>
+              <span>.</span>
+              <span>.</span>
+            </span>
+          </div>
+          <style jsx>{`
+            .byte-dots span {
+              display: inline-block;
+              margin-left: 2px;
+              animation: byte-dot-pulse 1.2s ease-in-out infinite;
+              opacity: 0.2;
+            }
+            .byte-dots span:nth-child(2) { animation-delay: 0.2s; }
+            .byte-dots span:nth-child(3) { animation-delay: 0.4s; }
+            @keyframes byte-dot-pulse {
+              0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
+              40%           { opacity: 1;   transform: translateY(-3px); }
+            }
+          `}</style>
+        </div>
       </div>
     );
   }
@@ -232,6 +270,35 @@ export default function AnalyticsPage() {
 
   const viewOptions = ["Overview", "By subject", "Tutor sessions", "Quiz history"];
   const rangeOptions = ["This week", "This month", "All time"];
+
+  // Which sections to render under the filter bar. "Overview" shows
+  // everything; the other tabs focus on one slice so the user sees a
+  // real visual change when they click a tab.
+  const showSubjectProgress =
+    viewFilter === "Overview" || viewFilter === "By subject";
+  const showWeeklyChart =
+    viewFilter === "Overview" || viewFilter === "Quiz history";
+  const showWeaknessRadar =
+    viewFilter === "Overview" || viewFilter === "By subject";
+  const showTutorSessionsTable =
+    viewFilter === "Overview" || viewFilter === "Tutor sessions";
+  const showRecommendations =
+    viewFilter === "Overview" || viewFilter === "By subject";
+
+  // Range tab only has weekly data from the backend right now, so we
+  // surface it by relabeling the period rather than fabricating numbers.
+  const rangeLabel =
+    timeRange === "This week"
+      ? "this week"
+      : timeRange === "This month"
+        ? "this month"
+        : "all time";
+  const chartTitle =
+    timeRange === "This week"
+      ? "Weekly quiz accuracy"
+      : timeRange === "This month"
+        ? "Monthly quiz accuracy"
+        : "Quiz accuracy · all time";
 
   return (
     <ArcadeShell active="Dashboard" pixels={14}>
@@ -332,7 +399,7 @@ export default function AnalyticsPage() {
             {stats.lessonsCompleted}
           </div>
           <div style={{ color: "var(--neon-lime)", fontSize: 11, marginTop: 6, fontWeight: 700 }}>
-            ↑ 3 this week
+            ↑ 3 {rangeLabel}
           </div>
         </div>
 
@@ -343,7 +410,7 @@ export default function AnalyticsPage() {
             {stats.accuracy}%
           </div>
           <div style={{ color: "var(--neon-lime)", fontSize: 11, marginTop: 6, fontWeight: 700 }}>
-            ↑ 6% vs last week
+            ↑ 6% vs last {rangeLabel.startsWith("all") ? "period" : rangeLabel.replace(/^this\s+/, "")}
           </div>
         </div>
 
@@ -479,7 +546,7 @@ export default function AnalyticsPage() {
 
         {/* Weekly accuracy bar chart */}
         <div className="panel mag" style={{ padding: 18 }}>
-          <span className="label" style={{ color: "var(--neon-mag)" }}>Weekly quiz accuracy</span>
+          <span className="label" style={{ color: "var(--neon-mag)" }}>{chartTitle}</span>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 120, justifyContent: "space-between", marginTop: 16, padding: "0 4px" }}>
             {weekData.map((value, i) => {
               let color = "rgba(155, 92, 255, 0.18)";
