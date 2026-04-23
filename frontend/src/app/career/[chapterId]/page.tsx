@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Briefcase, ChevronLeft, Sparkles } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
+import { ArcadeShell, Byte } from "@/components/arcade";
 
 export default function CareerGlimpsePage() {
   const params = useParams();
@@ -37,38 +37,76 @@ export default function CareerGlimpsePage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-deep)] text-sm text-[var(--text-muted)]">
-        <Sparkles className="w-4 h-4 mr-2 animate-pulse" /> Looking up real-world careers…
+      <div
+        className="arcade-root"
+        data-grade="68"
+        style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "var(--ink)" }}
+      >
+        Loading…
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)] py-8 px-4">
-      <div className="max-w-xl mx-auto">
+    <ArcadeShell active="Learn" pixels={12}>
+      <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <button
           onClick={() => router.back()}
-          className="text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-body)] flex items-center gap-1 mb-4"
+          className="pill"
+          style={{ marginBottom: 14, cursor: "pointer", border: "2px solid var(--line)", background: "transparent", color: "var(--ink-dim)" }}
         >
-          <ChevronLeft className="w-3 h-3" /> Back
+          ← Back
         </button>
 
-        <header className="mb-6">
-          <h1 className="text-3xl font-extrabold text-[var(--text-primary)] flex items-center gap-2">
-            <Briefcase className="w-7 h-7 text-[var(--brand-blue)]" strokeWidth={2} />
-            Where this shows up
-          </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            A real-world glimpse of careers that use this topic.
-          </p>
+        <header style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
+          <Byte size={56} />
+          <div>
+            <div className="label" style={{ color: "var(--neon-lime)", marginBottom: 4 }}>
+              ✦ Future you
+            </div>
+            <h1 className="h-display" style={{ fontSize: 30, lineHeight: 1.1 }}>
+              Where this shows up
+            </h1>
+            <p
+              style={{
+                color: "var(--ink-dim)",
+                fontFamily: "var(--f-body)",
+                fontSize: 13,
+                marginTop: 4,
+              }}
+            >
+              A real-world glimpse of careers that use this topic.
+            </p>
+          </div>
         </header>
 
-        <section className="bg-white border border-[var(--border)] rounded-2xl p-6 shadow-card">
-          <p className="text-[var(--text-body)] text-[15px] leading-relaxed">
+        <section
+          className="panel yel anim-glow"
+          style={{ padding: 24, marginBottom: 18 }}
+        >
+          <div className="label" style={{ color: "var(--neon-yel)", marginBottom: 10 }}>
+            ⚜ Career glimpse
+          </div>
+          <p
+            style={{
+              color: "var(--ink)",
+              fontFamily: "var(--f-body)",
+              fontSize: 15,
+              lineHeight: 1.75,
+            }}
+          >
             {glimpse}
           </p>
         </section>
+
+        <button
+          onClick={() => router.push("/learn")}
+          className="chunky-btn cyan"
+          style={{ cursor: "pointer" }}
+        >
+          ▶ Explore a related quest
+        </button>
       </div>
-    </div>
+    </ArcadeShell>
   );
 }

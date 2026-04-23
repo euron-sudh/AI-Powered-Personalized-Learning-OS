@@ -13,8 +13,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_session
 from app.dependencies import get_current_user
 from app.models.mood import MoodLog
+from app.models.student import Student
 
 router = APIRouter()
+
+
+async def _ensure_student(db: AsyncSession, student_id: uuid.UUID, email: str | None) -> None:
+    """Ensure a students row exists for this auth user (FK parent for mood_logs)."""
+    if await db.get(Student, student_id):
+        return
+    placeholder = (email.split("@")[0] if email else "Student") or "Student"
+    db.add(Student(id=student_id, name=placeholder, onboarding_completed=False))
+    await db.flush()
 
 
 # ── Mood check-in ────────────────────────────────────────────────────────
@@ -54,6 +64,7 @@ async def log_mood(
     db: AsyncSession = Depends(get_db_session),
 ):
     sid = uuid.UUID(user["sub"])
+    await _ensure_student(db, sid, user.get("email"))
     log = MoodLog(student_id=sid, mood=data.mood, energy=data.energy, note=data.note)
     db.add(log)
     await db.commit()
@@ -131,6 +142,7 @@ async def pomodoro_complete(
 ):
     """Log a completed pomodoro. Returns a short congratulatory line."""
     sid = uuid.UUID(user["sub"])
+    await _ensure_student(db, sid, user.get("email"))
     note = f"Pomodoro {data.minutes}m" + (f" · chapter {data.chapter_id}" if data.chapter_id else "")
     log = MoodLog(student_id=sid, mood="focused", energy=4, note=note)
     db.add(log)

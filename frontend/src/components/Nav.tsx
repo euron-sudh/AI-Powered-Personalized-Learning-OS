@@ -100,7 +100,37 @@ export default function Nav() {
     return pathname.startsWith(href);
   };
 
-  const showNav = !loading && user && !['/', '/login', '/register'].includes(pathname);
+  // Arcade-migrated routes render their own TopBar, so suppress the global Nav.
+  const ARCADE_MIGRATED_PREFIXES = [
+    '/arcade',
+    '/dashboard',
+    '/learn',
+    '/practice',
+    '/buddy',
+    '/leaderboard',
+    '/onboarding',
+    '/analytics',
+    '/profile',
+    '/career',
+    '/podcast',
+    '/project',
+    '/review',
+    '/scan',
+    '/story',
+    '/focus',
+    '/sim',
+    '/parent',
+    '/path',
+    '/insights',
+    '/sentiment',
+    '/preferences',
+    '/voice',
+    '/video-session',
+    '/courses',
+    '/forgot-password',
+  ];
+  const isArcadeRoute = ARCADE_MIGRATED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
+  const showNav = !loading && user && !['/', '/login', '/register'].includes(pathname) && !isArcadeRoute;
 
   return (
     <>

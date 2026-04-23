@@ -49,6 +49,7 @@ from app.routers import (
     tutor_session,
     video,
     voice,
+    voice_gemini,
     wellness,
     learning,
 )
@@ -133,6 +134,7 @@ app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboardin
 app.include_router(curriculum.router, prefix="/api/curriculum", tags=["curriculum"])
 app.include_router(lessons.router, prefix="/api/lessons", tags=["lessons"])
 app.include_router(voice.router, prefix="/api/voice", tags=["voice"])
+app.include_router(voice_gemini.router, prefix="/api/voice", tags=["voice-gemini"])
 app.include_router(video.router, prefix="/api/video", tags=["video"])
 app.include_router(activities.router, prefix="/api/activities", tags=["activities"])
 app.include_router(practice.router, prefix="/api/practice", tags=["practice"])

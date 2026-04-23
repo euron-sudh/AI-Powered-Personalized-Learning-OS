@@ -1,0 +1,281 @@
+/* LearnOS Arcade — scoped tokens + primitives. */
+/* All rules are namespaced under .arcade-root so the arcade theme does not */
+/* leak into the rest of the app (which uses a warm-cream palette). */
+
+.arcade-root {
+  --bg: #0b0716;
+  --bg-1: #140b28;
+  --bg-2: #1c1138;
+  --panel: #180d31;
+  --panel-2: #221147;
+  --ink: #f5f1ff;
+  --ink-dim: #b7a8e6;
+  --ink-mute: #7d6fae;
+  --grid: rgba(138, 92, 255, 0.10);
+
+  --neon-cyan: #27e0ff;
+  --neon-mag: #ff3ea5;
+  --neon-yel: #ffe53d;
+  --neon-lime: #a6ff3b;
+  --neon-vio: #9b5cff;
+  --neon-ora: #ff8a3d;
+
+  --s-math: #27e0ff;
+  --s-sci: #a6ff3b;
+  --s-eng: #ff8a3d;
+  --s-cs:  #9b5cff;
+  --s-art: #ff3ea5;
+  --s-his: #ffe53d;
+
+  --line: rgba(155, 92, 255, 0.35);
+  --line-soft: rgba(155, 92, 255, 0.18);
+
+  --sh-card: 0 8px 0 0 #0a0515, 0 16px 40px -18px rgba(155, 92, 255, 0.55);
+  --sh-cyan: 0 0 0 2px rgba(39, 224, 255, 0.35), 0 0 24px rgba(39, 224, 255, 0.35);
+  --sh-mag:  0 0 0 2px rgba(255, 62, 165, 0.35), 0 0 24px rgba(255, 62, 165, 0.35);
+  --sh-yel:  0 0 0 2px rgba(255, 229, 61, 0.35), 0 0 24px rgba(255, 229, 61, 0.25);
+
+  --f-display: "Rubik", "Baloo 2", system-ui, sans-serif;
+  --f-body: "Nunito", system-ui, sans-serif;
+  --f-pixel: "Press Start 2P", monospace;
+
+  --g-scale: 0.96;
+  --g-radius: 18px;
+
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  min-height: 100vh;
+}
+
+.arcade-root[data-grade="k2"] {
+  --f-display: "Baloo 2", system-ui, sans-serif;
+  --g-scale: 1.08;
+  --g-radius: 28px;
+}
+.arcade-root[data-grade="35"] {
+  --f-display: "Rubik", system-ui, sans-serif;
+  --g-scale: 1.0;
+  --g-radius: 22px;
+}
+.arcade-root[data-grade="68"] {
+  --f-display: "Rubik", system-ui, sans-serif;
+  --g-scale: 0.96;
+  --g-radius: 18px;
+}
+.arcade-root[data-grade="912"] {
+  --f-display: "Space Grotesk", system-ui, sans-serif;
+  --g-scale: 0.92;
+  --g-radius: 14px;
+  --neon-mag: #ff2e8a;
+  --neon-cyan: #00d4ff;
+}
+
+.arcade-root * { box-sizing: border-box; }
+
+.arcade-root .scanline {
+  position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,0.025) 0 1px,
+    transparent 1px 3px
+  );
+  mix-blend-mode: overlay;
+  border-radius: inherit;
+}
+.arcade-root .gridbg {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.arcade-root .panel {
+  background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+  border: 2px solid var(--line);
+  border-radius: var(--g-radius, 20px);
+  box-shadow: var(--sh-card);
+  position: relative;
+}
+.arcade-root .panel.clean { background: var(--panel); }
+.arcade-root .panel.cyan  { border-color: var(--neon-cyan); box-shadow: var(--sh-cyan), 0 10px 0 0 #0a0515; }
+.arcade-root .panel.mag   { border-color: var(--neon-mag);  box-shadow: var(--sh-mag),  0 10px 0 0 #0a0515; }
+.arcade-root .panel.yel   { border-color: var(--neon-yel);  box-shadow: var(--sh-yel),  0 10px 0 0 #0a0515; }
+
+.arcade-root .chunky-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 14px 22px;
+  background: var(--neon-mag);
+  color: #170826;
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: 2px solid #170826;
+  border-radius: 14px;
+  box-shadow: 0 6px 0 0 #170826, 0 0 18px rgba(255, 62, 165, 0.5);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.arcade-root .chunky-btn.cyan { background: var(--neon-cyan); box-shadow: 0 6px 0 0 #170826, 0 0 18px rgba(39,224,255,0.5); }
+.arcade-root .chunky-btn.yel  { background: var(--neon-yel);  box-shadow: 0 6px 0 0 #170826, 0 0 18px rgba(255,229,61,0.35); }
+.arcade-root .chunky-btn.lime { background: var(--neon-lime); box-shadow: 0 6px 0 0 #170826, 0 0 18px rgba(166,255,59,0.4); }
+.arcade-root .chunky-btn:hover { transform: translateY(-2px); }
+.arcade-root .chunky-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 0 #170826; }
+
+.arcade-root .pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: rgba(255,255,255,0.04);
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+.arcade-root .dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 999px;
+  background: var(--neon-lime); box-shadow: 0 0 10px currentColor; color: var(--neon-lime);
+}
+
+.arcade-root .h-display {
+  font-family: var(--f-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.02;
+  color: var(--ink);
+}
+.arcade-root .label {
+  font-family: var(--f-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10px;
+  color: var(--ink-mute);
+}
+.arcade-root .pixel { font-family: var(--f-pixel); }
+
+.arcade-root .byte {
+  position: relative;
+  width: 72px; height: 72px;
+  image-rendering: pixelated;
+}
+.arcade-root .byte .body {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 30% 30%, #d7b8ff 0%, #9b5cff 45%, #5c2fb8 100%);
+  border-radius: 22px;
+  border: 3px solid #170826;
+  box-shadow: 0 6px 0 0 #170826, inset 0 -10px 0 rgba(0,0,0,0.15);
+}
+.arcade-root .byte .eye {
+  position: absolute; width: 14px; height: 14px; border-radius: 4px;
+  background: #fff; border: 3px solid #170826;
+}
+.arcade-root .byte .eye::after {
+  content: ""; position: absolute; width: 5px; height: 5px; background: #170826;
+  right: 0; top: 2px; border-radius: 2px;
+}
+.arcade-root .byte .eye.l { top: 20px; left: 14px; }
+.arcade-root .byte .eye.r { top: 20px; right: 14px; }
+.arcade-root .byte .mouth {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  width: 18px; height: 8px; background: #170826; border-radius: 0 0 10px 10px;
+}
+.arcade-root .byte .antenna {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  width: 4px; height: 14px; background: #170826;
+}
+.arcade-root .byte .antenna::after {
+  content: ""; position: absolute; top: -8px; left: -4px;
+  width: 12px; height: 12px; border-radius: 999px; background: var(--neon-yel);
+  box-shadow: 0 0 10px var(--neon-yel);
+}
+
+@keyframes arcade-float-y { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes arcade-bop { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-4px) scale(1.04); } }
+@keyframes arcade-pulse-glow {
+  0%,100% { filter: drop-shadow(0 0 6px currentColor); }
+  50%     { filter: drop-shadow(0 0 18px currentColor); }
+}
+@keyframes arcade-pixel-rain {
+  0% { transform: translateY(-20px); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(200px); opacity: 0; }
+}
+@keyframes arcade-wobble {
+  0%,100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+@keyframes arcade-blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+.arcade-root .anim-float { animation: arcade-float-y 3.6s ease-in-out infinite; }
+.arcade-root .anim-bop   { animation: arcade-bop 1.8s ease-in-out infinite; }
+.arcade-root .anim-glow  { animation: arcade-pulse-glow 2.2s ease-in-out infinite; }
+.arcade-root .anim-wobble{ animation: arcade-wobble 3s ease-in-out infinite; transform-origin: 50% 100%; }
+.arcade-root .anim-blink .eye { animation: arcade-blink 4s infinite; transform-origin: 50% 50%; }
+
+.arcade-root[data-motion="off"] .anim-float,
+.arcade-root[data-motion="off"] .anim-bop,
+.arcade-root[data-motion="off"] .anim-glow,
+.arcade-root[data-motion="off"] .anim-wobble,
+.arcade-root[data-motion="off"] .anim-blink .eye,
+.arcade-root[data-motion="off"] .floating-pixels i { animation: none !important; }
+
+.arcade-root .subj-chip {
+  width: 64px; height: 64px; border-radius: 18px;
+  background: rgba(255,255,255,0.04);
+  border: 3px solid currentColor;
+  display: grid; place-items: center;
+  box-shadow: 0 0 18px currentColor, inset 0 0 18px rgba(255,255,255,0.06);
+}
+
+.arcade-root .screen {
+  width: 100%;
+  border-radius: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(155,92,255,0.25), transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgba(39,224,255,0.18), transparent 50%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg) 100%);
+  border: 2px solid var(--line);
+  position: relative;
+}
+
+.arcade-root .floating-pixels {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+}
+.arcade-root .floating-pixels i {
+  position: absolute;
+  width: 8px; height: 8px; display: block;
+  border-radius: 2px;
+  animation: arcade-pixel-rain 6s linear infinite;
+}
+
+/* Arcade nav link between screens — rendered by the layout */
+.arcade-root .arcade-subnav {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding: 10px 24px;
+  border-bottom: 2px solid var(--line-soft);
+  background: rgba(11, 7, 22, 0.7);
+  position: sticky; top: 0; z-index: 10;
+  backdrop-filter: blur(8px);
+}
+.arcade-root .arcade-subnav a {
+  padding: 6px 12px; font-size: 11px;
+  border-radius: 10px; text-decoration: none;
+  font-family: var(--f-display); font-weight: 700; letter-spacing: 0.06em;
+  color: var(--ink-dim); border: 2px solid transparent;
+  text-transform: uppercase;
+}
+.arcade-root .arcade-subnav a.active {
+  color: #170826; background: var(--neon-cyan);
+  border-color: #170826;
+  box-shadow: 0 3px 0 0 #170826, 0 0 16px rgba(39,224,255,0.45);
+}
+
+.arcade-root input, .arcade-root button { font-family: inherit; }

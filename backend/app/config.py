@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     # AI
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    gemini_api_key: str = ""
 
     # Server
     api_host: str = "0.0.0.0"

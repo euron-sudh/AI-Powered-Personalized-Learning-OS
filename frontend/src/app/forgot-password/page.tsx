@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { Byte, FloatingPixels } from "@/components/arcade";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -29,91 +30,316 @@ export default function ForgotPasswordPage() {
     setLoading(false);
   }
 
-  if (sent) {
-    return (
-      <main className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-8 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-5">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-blue-400">
-                <path d="M3 8l9 6 9-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                <rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
-              </svg>
+  return (
+    <div
+      className="arcade-root"
+      data-grade="68"
+      data-motion="on"
+      style={{ minHeight: "100vh" }}
+    >
+      <main
+        className="screen"
+        style={{
+          minHeight: "100vh",
+          position: "relative",
+          display: "grid",
+          placeItems: "center",
+          borderRadius: 0,
+          border: "none",
+        }}
+      >
+        <div
+          className="gridbg"
+          style={{ position: "absolute", inset: 0, opacity: 0.4 }}
+        />
+        <FloatingPixels count={18} />
+
+        <div
+          style={{
+            position: "relative",
+            zIndex: 2,
+            maxWidth: 420,
+            width: "100%",
+            padding: 32,
+          }}
+        >
+          {/* Logo */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12,
+              marginBottom: 24,
+            }}
+          >
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 16,
+                background:
+                  "linear-gradient(135deg, var(--neon-mag), var(--neon-vio))",
+                border: "3px solid #170826",
+                display: "grid",
+                placeItems: "center",
+                boxShadow:
+                  "0 5px 0 #170826, 0 0 20px rgba(255,62,165,0.5)",
+                fontFamily: "var(--f-pixel)",
+                fontSize: 20,
+                color: "#fff",
+              }}
+            >
+              L
             </div>
-            <h1 className="text-xl font-bold text-white mb-2">Check your email</h1>
-            <p className="text-white/50 text-sm mb-1">We sent a password reset link to</p>
-            <p className="text-white font-medium text-sm mb-5">{email}</p>
-            <p className="text-white/30 text-xs mb-6">
-              Click the link in the email to set a new password. Check your spam folder if you don&apos;t see it within a few minutes.
-            </p>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => { setSent(false); setEmail(""); }}
-                className="w-full border border-white/[0.1] text-white/60 hover:text-white hover:border-white/20 py-2.5 rounded-xl text-sm font-medium transition"
-              >
-                Try a different email
-              </button>
-              <Link
-                href="/login"
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl text-sm font-medium transition text-center"
-              >
-                Back to sign in
-              </Link>
+            <div className="h-display" style={{ fontSize: 26 }}>
+              Learn<span style={{ color: "var(--neon-cyan)" }}>OS</span>
             </div>
+          </div>
+
+          <div
+            className="panel cyan"
+            style={{ padding: 28, position: "relative", overflow: "hidden" }}
+          >
+            <div className="scanline" />
+
+            {sent ? (
+              <>
+                <div
+                  style={{
+                    textAlign: "center",
+                    marginBottom: 18,
+                  }}
+                >
+                  <div
+                    style={{
+                      margin: "0 auto 10px",
+                      display: "inline-block",
+                    }}
+                  >
+                    <Byte size={68} mood="happy" />
+                  </div>
+                  <div className="h-display" style={{ fontSize: 20 }}>
+                    Check your email
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--ink-mute)",
+                      marginTop: 4,
+                    }}
+                  >
+                    A magic reset link is on its way
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginBottom: 16,
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    background: "rgba(166, 255, 59, 0.1)",
+                    border: "2px solid var(--neon-lime)",
+                    fontSize: 13,
+                    color: "var(--ink)",
+                    fontFamily: "var(--f-body)",
+                    textAlign: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "var(--ink-dim)",
+                      fontSize: 11,
+                      marginBottom: 4,
+                    }}
+                  >
+                    Sent to
+                  </div>
+                  <div
+                    style={{
+                      color: "var(--neon-lime)",
+                      fontWeight: 700,
+                      fontSize: 14,
+                    }}
+                  >
+                    {email}
+                  </div>
+                </div>
+
+                <p
+                  style={{
+                    fontSize: 12,
+                    color: "var(--ink-mute)",
+                    textAlign: "center",
+                    marginBottom: 18,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Click the link in the email to set a new password. Check your
+                  spam folder if you don&apos;t see it within a few minutes.
+                </p>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setSent(false);
+                      setEmail("");
+                    }}
+                    className="pill"
+                    style={{
+                      width: "100%",
+                      justifyContent: "center",
+                      padding: "10px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Try a different email
+                  </button>
+                  <Link
+                    href="/login"
+                    className="chunky-btn cyan"
+                    style={{
+                      width: "100%",
+                      justifyContent: "center",
+                      textDecoration: "none",
+                      textAlign: "center",
+                    }}
+                  >
+                    ▶ Back to sign in
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    textAlign: "center",
+                    marginBottom: 22,
+                  }}
+                >
+                  <div
+                    style={{
+                      margin: "0 auto 12px",
+                      display: "inline-block",
+                    }}
+                  >
+                    <Byte size={72} mood="neutral" />
+                  </div>
+                  <div className="h-display" style={{ fontSize: 22 }}>
+                    Lost the password?
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--ink-mute)",
+                      marginTop: 4,
+                    }}
+                  >
+                    Byte will send a reset link to your email
+                  </div>
+                </div>
+
+                {error && (
+                  <div
+                    style={{
+                      marginBottom: 16,
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      background: "rgba(255, 62, 165, 0.12)",
+                      border: "2px solid var(--neon-mag)",
+                      color: "var(--neon-mag)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                    role="alert"
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <form
+                  onSubmit={handleSubmit}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 14,
+                  }}
+                >
+                  <label>
+                    <div className="label" style={{ marginBottom: 6 }}>
+                      Email address
+                    </div>
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@school.edu"
+                      style={inputStyle}
+                    />
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="chunky-btn cyan"
+                    style={{
+                      width: "100%",
+                      justifyContent: "center",
+                      marginTop: 4,
+                      opacity: loading ? 0.6 : 1,
+                      cursor: loading ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {loading ? "Sending…" : "✉ Send Reset Link"}
+                  </button>
+                </form>
+
+                <p
+                  style={{
+                    textAlign: "center",
+                    marginTop: 18,
+                    fontSize: 12,
+                    color: "var(--ink-mute)",
+                  }}
+                >
+                  Remember your password?{" "}
+                  <Link
+                    href="/login"
+                    style={{
+                      color: "var(--neon-cyan)",
+                      fontWeight: 700,
+                      fontFamily: "var(--f-display)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </>
+            )}
           </div>
         </div>
       </main>
-    );
-  }
-
-  return (
-    <main className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-8">
-          <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-5">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-blue-400">
-              <path d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2h-1V6a4 4 0 00-4-4z" stroke="currentColor" strokeWidth="1.4" fill="none" />
-              <circle cx="10" cy="13" r="1.5" fill="currentColor" />
-            </svg>
-          </div>
-
-          <h1 className="text-2xl font-bold text-center text-white mb-2">Forgot password?</h1>
-          <p className="text-center text-white/40 text-sm mb-6">
-            Enter your email and we&apos;ll send you a link to reset your password.
-          </p>
-
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-white/60 mb-1">
-                Email address
-              </label>
-              <input
-                id="email" type="email" required value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl bg-white/[0.06] border border-white/[0.1] px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition"
-                placeholder="you@example.com"
-              />
-            </div>
-            <button
-              type="submit" disabled={loading}
-              className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-blue-900/30"
-            >
-              {loading ? "Sending…" : "Send Reset Link"}
-            </button>
-          </form>
-
-          <p className="mt-5 text-center text-sm text-white/40">
-            Remember your password?{" "}
-            <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium">Sign in</Link>
-          </p>
-        </div>
-      </div>
-    </main>
+    </div>
   );
 }
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: 12,
+  border: "2px solid var(--line)",
+  background: "rgba(0,0,0,0.35)",
+  color: "var(--ink)",
+  fontFamily: "var(--f-body)",
+  fontSize: 14,
+  outline: "none",
+};

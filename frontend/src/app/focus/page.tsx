@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Battery,
   BatteryFull,
@@ -15,17 +16,17 @@ import {
 } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { ArcadeShell, PixelBar } from "@/components/arcade";
 
 type Mood = "happy" | "calm" | "focused" | "tired" | "stressed" | "stuck";
 
-const MOODS: { id: Mood; label: string; emoji: string; color: string }[] = [
-  { id: "happy", label: "Happy", emoji: "😊", color: "var(--subject-english)" },
-  { id: "calm", label: "Calm", emoji: "😌", color: "var(--subject-science)" },
-  { id: "focused", label: "Focused", emoji: "🎯", color: "var(--brand-blue)" },
-  { id: "tired", label: "Tired", emoji: "😴", color: "var(--text-muted)" },
-  { id: "stressed", label: "Stressed", emoji: "😣", color: "var(--red)" },
-  { id: "stuck", label: "Stuck", emoji: "🤔", color: "var(--subject-coding)" },
+const MOODS: { id: Mood; label: string; emoji: string; neon: string }[] = [
+  { id: "happy",    label: "Happy",    emoji: "😊", neon: "var(--neon-lime)" },
+  { id: "calm",     label: "Calm",     emoji: "😌", neon: "var(--neon-cyan)" },
+  { id: "focused",  label: "Focused",  emoji: "🎯", neon: "var(--neon-vio)" },
+  { id: "tired",    label: "Tired",    emoji: "😴", neon: "var(--neon-mag)" },
+  { id: "stressed", label: "Stressed", emoji: "😣", neon: "var(--neon-ora)" },
+  { id: "stuck",    label: "Stuck",    emoji: "🤔", neon: "var(--neon-yel)" },
 ];
 
 const ENERGY_ICONS = [BatteryLow, BatteryLow, BatteryMedium, Battery, BatteryFull];
@@ -33,6 +34,7 @@ const ENERGY_ICONS = [BatteryLow, BatteryLow, BatteryMedium, Battery, BatteryFul
 const PRESETS = [25, 15, 50];
 
 export default function FocusPage() {
+  const router = useRouter();
   const { user, loading: authLoading } = useSupabaseAuth();
 
   // Mood
@@ -114,6 +116,7 @@ export default function FocusPage() {
         const d = await res.json();
         setMoodSaved({ mood: d.mood, suggestion: d.suggestion });
         setNote("");
+        router.push("/dashboard");
       }
     } finally {
       setSavingMood(false);
@@ -137,158 +140,360 @@ export default function FocusPage() {
   const EnergyIcon = ENERGY_ICONS[Math.max(0, Math.min(4, energy - 1))];
 
   if (authLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center">Loading…</div>;
+    return (
+      <ArcadeShell active="Dashboard" pixels={10}>
+        <div style={{ display: "grid", placeItems: "center", minHeight: "60vh", textAlign: "center" }}>
+          <div>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                margin: "0 auto 16px",
+                borderRadius: 12,
+                background: "linear-gradient(135deg, var(--neon-cyan), var(--neon-mag))",
+                border: "3px solid #170826",
+                boxShadow: "0 0 24px rgba(39,224,255,0.6)",
+              }}
+              className="anim-bop"
+            />
+            <span className="label" style={{ color: "var(--neon-cyan)" }}>BOOTING FOCUS ARENA…</span>
+          </div>
+        </div>
+      </ArcadeShell>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)] py-8 px-4">
-      <div className="max-w-2xl mx-auto space-y-5">
-        <header>
-          <h1 className="text-3xl font-extrabold text-[var(--text-primary)] flex items-center gap-2">
-            <HeartPulse className="w-7 h-7 text-[var(--brand-blue)]" strokeWidth={2} />
-            Focus & wellbeing
-          </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Quick mood check, then a Pomodoro to lock in.
-          </p>
-        </header>
+    <ArcadeShell active="Dashboard" pixels={12}>
+      {/* Header */}
+      <div style={{ marginBottom: 20, maxWidth: 860, margin: "0 auto 20px" }}>
+        <span className="label" style={{ color: "var(--neon-mag)" }}>
+          <HeartPulse className="w-3 h-3" style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
+          FOCUS ARENA
+        </span>
+        <h1 className="h-display" style={{ fontSize: 40, margin: "8px 0 4px" }}>
+          Lock <span style={{ color: "var(--neon-cyan)" }}>In</span>
+        </h1>
+        <p style={{ color: "var(--ink-dim)" }}>
+          Check your vibe, then smash a pomodoro power-up.
+        </p>
+      </div>
 
-        {/* Mood card */}
-        <section className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
-          <div className="text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-3">
-            How are you feeling?
-          </div>
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {MOODS.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setMood(m.id)}
-                className={cn(
-                  "px-3 py-3 rounded-xl border-2 transition-all text-center",
-                  mood === m.id
-                    ? "border-[var(--brand-blue)] bg-[var(--brand-blue-soft)]"
-                    : "border-[var(--border)] hover:border-[var(--brand-blue)]",
-                )}
-              >
-                <div className="text-2xl mb-1">{m.emoji}</div>
-                <div className="text-xs font-bold text-[var(--text-body)]">{m.label}</div>
-              </button>
-            ))}
-          </div>
+      <div style={{ maxWidth: 860, margin: "0 auto", display: "grid", gap: 20 }}>
+        {/* Mood panel */}
+        <div className="panel cyan" style={{ padding: 24, position: "relative", overflow: "hidden" }}>
+          <div className="scanline" />
 
-          <div className="flex items-center gap-3 mb-3">
-            <EnergyIcon className="w-5 h-5 text-[var(--brand-blue)]" />
-            <div className="flex-1">
-              <div className="flex justify-between text-xs font-bold text-[var(--text-muted)] mb-1">
-                <span>Energy</span>
-                <span>{energy}/5</span>
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                value={energy}
-                onChange={(e) => setEnergy(+e.target.value)}
-                className="w-full accent-[var(--brand-blue)]"
-              />
+          <div style={{ position: "relative" }}>
+            <span className="label" style={{ color: "var(--neon-cyan)" }}>
+              ✦ Mood Check · How are you feeling?
+            </span>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 10,
+                marginTop: 14,
+                marginBottom: 18,
+              }}
+            >
+              {MOODS.map((m) => {
+                const active = mood === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setMood(m.id)}
+                    style={{
+                      padding: "16px 10px 12px",
+                      borderRadius: 14,
+                      border: `2px solid ${active ? m.neon : "var(--line)"}`,
+                      background: active ? `${m.neon}22` : "rgba(0,0,0,0.35)",
+                      boxShadow: active ? `0 0 18px ${m.neon}66, 0 4px 0 0 #0a0515` : "0 4px 0 0 #0a0515",
+                      cursor: "pointer",
+                      textAlign: "center",
+                      transition: "all 0.15s ease",
+                      color: active ? m.neon : "var(--ink)",
+                    }}
+                  >
+                    <div style={{ fontSize: 28, marginBottom: 6, lineHeight: 1 }}>{m.emoji}</div>
+                    <div
+                      className="h-display"
+                      style={{
+                        fontSize: 13,
+                        color: active ? m.neon : "var(--ink-dim)",
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      {m.label}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          </div>
 
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Anything on your mind? (optional)"
-            rows={2}
-            className="w-full bg-[var(--bg-deep)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[var(--brand-blue)]"
+            {/* Energy slider */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: 14,
+                borderRadius: 12,
+                background: "rgba(0,0,0,0.4)",
+                border: "2px solid var(--line)",
+                marginBottom: 14,
+              }}
+            >
+              <EnergyIcon className="w-6 h-6" style={{ color: "var(--neon-yel)" }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span className="label" style={{ color: "var(--neon-yel)" }}>Energy</span>
+                  <span className="label">{energy} / 5</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  value={energy}
+                  onChange={(e) => setEnergy(+e.target.value)}
+                  style={{ width: "100%", accentColor: "#ffe53d" }}
+                />
+                <div style={{ marginTop: 8 }}>
+                  <PixelBar value={(energy / 5) * 100} color="var(--neon-yel)" height={10} />
+                </div>
+              </div>
+            </div>
+
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Anything on your mind? (optional)"
+              rows={2}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "2px solid var(--line)",
+                background: "rgba(0,0,0,0.45)",
+                color: "var(--ink)",
+                fontFamily: "var(--f-body)",
+                fontSize: 14,
+                resize: "vertical",
+                outline: "none",
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--neon-cyan)")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--line)")}
+            />
+
+            <button
+              onClick={saveMood}
+              disabled={!mood || savingMood}
+              className="chunky-btn cyan"
+              style={{
+                marginTop: 14,
+                width: "100%",
+                cursor: !mood || savingMood ? "not-allowed" : "pointer",
+                opacity: !mood || savingMood ? 0.45 : 1,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <Sparkles className="w-4 h-4" /> SAVE CHECK-IN
+            </button>
+
+            {moodSaved && (
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: 14,
+                  borderRadius: 12,
+                  border: "2px solid var(--neon-lime)",
+                  background: "rgba(166,255,59,0.1)",
+                  boxShadow: "0 0 16px rgba(166,255,59,0.3)",
+                }}
+              >
+                <span className="label" style={{ color: "var(--neon-lime)" }}>
+                  ✦ Buddy says
+                </span>
+                <p style={{ marginTop: 6, fontSize: 14, color: "var(--ink)", lineHeight: 1.5 }}>
+                  {moodSaved.suggestion}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pomodoro panel */}
+        <div className="panel mag" style={{ padding: 24, position: "relative", overflow: "hidden" }}>
+          <div className="scanline" />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(ellipse at 50% 0%, rgba(255,62,165,0.2), transparent 60%)",
+              pointerEvents: "none",
+            }}
           />
 
-          <button
-            onClick={saveMood}
-            disabled={!mood || savingMood}
-            className="mt-3 w-full bg-[var(--brand-blue)] hover:opacity-90 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm flex items-center justify-center gap-2"
-          >
-            <Sparkles className="w-4 h-4" /> Save check-in
-          </button>
+          <div style={{ position: "relative" }}>
+            <span className="label" style={{ color: "var(--neon-mag)" }}>
+              <Coffee className="w-3 h-3" style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
+              Pomodoro · pick a power-up
+            </span>
 
-          {moodSaved && (
-            <div className="mt-3 bg-[var(--brand-blue-soft)] border-l-4 border-[var(--brand-blue)] rounded-r-xl px-4 py-3">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--brand-blue)] mb-0.5">
-                Buddy says
-              </div>
-              <p className="text-sm text-[var(--text-body)]">{moodSaved.suggestion}</p>
+            {/* Presets */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12, marginBottom: 20 }}>
+              {PRESETS.map((p) => {
+                const active = duration === p;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setDur(p)}
+                    disabled={running}
+                    className="pill"
+                    style={{
+                      cursor: running ? "not-allowed" : "pointer",
+                      color: active ? "#170826" : "var(--neon-mag)",
+                      borderColor: "var(--neon-mag)",
+                      background: active ? "var(--neon-mag)" : "transparent",
+                      fontWeight: 700,
+                      opacity: running ? 0.55 : 1,
+                    }}
+                  >
+                    {p} MIN
+                  </button>
+                );
+              })}
             </div>
-          )}
-        </section>
 
-        {/* Pomodoro */}
-        <section className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
-          <div className="text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-3 flex items-center gap-2">
-            <Coffee className="w-4 h-4" /> Pomodoro
-          </div>
-
-          <div className="flex justify-center gap-2 mb-4">
-            {PRESETS.map((p) => (
-              <button
-                key={p}
-                onClick={() => setDur(p)}
-                disabled={running}
-                className={cn(
-                  "px-4 py-1.5 rounded-full border text-xs font-bold transition-colors",
-                  duration === p
-                    ? "bg-[var(--brand-blue)] border-[var(--brand-blue)] text-white"
-                    : "bg-white border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--brand-blue)]",
-                )}
+            {/* Big countdown */}
+            <div
+              style={{
+                position: "relative",
+                padding: "28px 20px",
+                borderRadius: 20,
+                background: "linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.35) 100%)",
+                border: "3px solid var(--line)",
+                textAlign: "center",
+                marginBottom: 18,
+              }}
+              className={running ? "anim-glow" : ""}
+            >
+              <div
+                className="pixel"
+                style={{
+                  fontSize: 88,
+                  fontWeight: 900,
+                  lineHeight: 1,
+                  color: running ? "var(--neon-mag)" : completed ? "var(--neon-lime)" : "var(--neon-cyan)",
+                  textShadow: running
+                    ? "0 0 30px rgba(255,62,165,0.7)"
+                    : completed
+                    ? "0 0 30px rgba(166,255,59,0.7)"
+                    : "0 0 30px rgba(39,224,255,0.6)",
+                  letterSpacing: 4,
+                  fontVariantNumeric: "tabular-nums",
+                }}
               >
-                {p} min
-              </button>
-            ))}
-          </div>
-
-          {/* Timer ring */}
-          <div className="relative w-44 h-44 mx-auto mb-4">
-            <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-              <circle cx="50" cy="50" r="45" fill="none" stroke="var(--border)" strokeWidth="6" />
-              <circle
-                cx="50" cy="50" r="45" fill="none"
-                stroke="var(--brand-blue)" strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={`${(pct / 100) * 282.7} 282.7`}
-                style={{ transition: "stroke-dasharray 0.4s linear" }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-4xl font-extrabold text-[var(--text-primary)] tabular-nums">
                 {mm}:{ss}
               </div>
-              <div className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold mt-1">
-                {running ? "in focus" : completed ? "complete!" : "ready"}
+
+              <div style={{ marginTop: 10 }}>
+                <span
+                  className="label"
+                  style={{
+                    color: running
+                      ? "var(--neon-mag)"
+                      : completed
+                      ? "var(--neon-lime)"
+                      : "var(--neon-cyan)",
+                  }}
+                >
+                  {running ? "▶ IN FOCUS" : completed ? "✓ COMPLETE" : "⏸ READY"}
+                </span>
+              </div>
+
+              <div style={{ marginTop: 14, padding: "0 10px" }}>
+                <PixelBar
+                  value={pct}
+                  color={running ? "var(--neon-mag)" : completed ? "var(--neon-lime)" : "var(--neon-cyan)"}
+                  height={12}
+                />
               </div>
             </div>
-          </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => setRunning((r) => !r)}
-              disabled={secondsLeft === 0}
-              className="flex-1 bg-[var(--brand-blue)] hover:opacity-90 disabled:opacity-40 text-white font-semibold rounded-xl py-2.5 text-sm flex items-center justify-center gap-2"
-            >
-              {running ? <><Pause className="w-4 h-4" /> Pause</> : <><Play className="w-4 h-4" /> Start</>}
-            </button>
-            <button
-              onClick={() => setDur(duration)}
-              className="bg-white border border-[var(--border)] hover:bg-[var(--bg-deep)] text-[var(--text-body)] font-semibold rounded-xl py-2.5 px-4 text-sm flex items-center gap-2"
-            >
-              <RotateCcw className="w-4 h-4" /> Reset
-            </button>
-          </div>
-
-          {completed && (
-            <div className="mt-3 bg-[var(--brand-blue-soft)] border border-[var(--brand-blue)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-body)]">
-              {completed}
+            {/* Controls */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                onClick={() => setRunning((r) => !r)}
+                disabled={secondsLeft === 0}
+                className={`chunky-btn ${running ? "yel" : "lime"}`}
+                style={{
+                  flex: 1,
+                  minWidth: 180,
+                  cursor: secondsLeft === 0 ? "not-allowed" : "pointer",
+                  opacity: secondsLeft === 0 ? 0.45 : 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                {running ? (
+                  <>
+                    <Pause className="w-4 h-4" /> PAUSE
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" /> START
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setDur(duration)}
+                className="pill"
+                style={{
+                  cursor: "pointer",
+                  color: "var(--neon-yel)",
+                  borderColor: "var(--neon-yel)",
+                  background: "transparent",
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <RotateCcw className="w-4 h-4" /> RESET
+              </button>
             </div>
-          )}
-        </section>
+
+            {completed && (
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: 14,
+                  borderRadius: 12,
+                  border: "2px solid var(--neon-lime)",
+                  background: "rgba(166,255,59,0.1)",
+                  color: "var(--neon-lime)",
+                  fontSize: 14,
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  boxShadow: "0 0 18px rgba(166,255,59,0.4)",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🎉</span>
+                <span>{completed}</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </ArcadeShell>
   );
 }

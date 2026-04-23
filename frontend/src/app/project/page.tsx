@@ -1,17 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  CheckCircle2,
-  Circle,
-  Hammer,
-  Rocket,
-  Sparkles,
-  Target,
-} from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { ArcadeShell, PixelBar } from "@/components/arcade";
 
 interface Subject {
   id: string;
@@ -73,7 +65,10 @@ export default function ProjectModePage() {
     (async () => {
       const headers = await auth();
       if (!headers) return;
-      const res = await fetch("/api/proxy/api/curriculum", { headers });
+      // The Quest Builder dropdown was empty because this was hitting
+      // /api/curriculum (no root handler → 404). The real endpoint for
+      // "list this student's subjects" is /api/onboarding/subjects.
+      const res = await fetch("/api/proxy/api/onboarding/subjects", { headers });
       if (res.ok) {
         const data = await res.json();
         const list: Subject[] = (data.subjects || []).map((s: any) => ({
@@ -130,194 +125,419 @@ export default function ProjectModePage() {
   const pct = totalTasks ? Math.round((doneCount / totalTasks) * 100) : 0;
 
   if (authLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center">Loading…</div>;
+    return (
+      <ArcadeShell active="Dashboard" pixels={10}>
+        <div style={{ display: "grid", placeItems: "center", minHeight: "60vh", textAlign: "center" }}>
+          <div>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                margin: "0 auto 16px",
+                borderRadius: 12,
+                background: "linear-gradient(135deg, var(--neon-mag), var(--neon-vio))",
+                border: "3px solid #170826",
+                boxShadow: "0 0 24px rgba(255,62,165,0.6)",
+              }}
+              className="anim-bop"
+            />
+            <span className="label" style={{ color: "var(--neon-mag)" }}>LOADING QUEST…</span>
+          </div>
+        </div>
+      </ArcadeShell>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)] py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-3xl font-extrabold text-[var(--text-primary)] flex items-center gap-2">
-            <Hammer className="w-7 h-7 text-[var(--brand-blue)]" strokeWidth={2} />
-            Project mode
-          </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Apply what you&rsquo;ve learned to build something real.
-          </p>
-        </header>
+    <ArcadeShell active="Dashboard" pixels={14}>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <span className="label" style={{ color: "var(--neon-mag)" }}>⚒ MULTI-DAY QUEST</span>
+        <h1 className="h-display" style={{ fontSize: 40, margin: "8px 0 4px" }}>
+          Quest <span style={{ color: "var(--neon-mag)" }}>Builder</span>
+        </h1>
+        <p style={{ color: "var(--ink-dim)" }}>
+          Apply what you&rsquo;ve learned to build something real.
+        </p>
+      </div>
 
-        {!project && (
-          <section className="bg-white border border-[var(--border)] rounded-2xl p-6 shadow-card space-y-4">
-            <div>
-              <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                Subject
-              </label>
-              <select
-                value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-                className="mt-1 w-full bg-[var(--bg-deep)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-blue)]"
-              >
-                <option value="">Any subject</option>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
+      {/* Generation form (no project yet) */}
+      {!project && !busy && (
+        <div className="panel mag" style={{ padding: 28, position: "relative", overflow: "hidden" }}>
+          <div className="scanline" />
 
-            <div>
-              <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                Theme or interest (optional)
-              </label>
-              <input
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                placeholder="e.g. space, music, sports, environment"
-                className="mt-1 w-full bg-[var(--bg-deep)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[var(--brand-blue)]"
-              />
-            </div>
-
-            <button
-              onClick={generate}
-              disabled={busy}
-              className="w-full bg-[var(--brand-blue)] hover:opacity-90 disabled:opacity-50 text-white font-semibold rounded-xl py-3 text-sm flex items-center justify-center gap-2"
+          <div style={{ marginBottom: 16, position: "relative" }}>
+            <span className="label" style={{ color: "var(--neon-cyan)" }}>
+              ◆ CHOOSE A SUBJECT
+            </span>
+            <select
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+              style={{
+                marginTop: 8,
+                width: "100%",
+                padding: "12px 14px",
+                background: "rgba(0,0,0,0.5)",
+                border: "2px solid var(--line)",
+                borderRadius: 12,
+                color: "var(--ink)",
+                fontFamily: "var(--f-body)",
+                fontSize: 14,
+                outline: "none",
+              }}
             >
-              {busy ? (
-                <><Sparkles className="w-4 h-4 animate-pulse" /> Designing your project…</>
-              ) : (
-                <><Sparkles className="w-4 h-4" /> Generate project</>
-              )}
-            </button>
+              <option value="">Any subject</option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {err && (
-              <div className="bg-[var(--red-bg)] border border-[var(--red)] text-[var(--red)] text-sm rounded-xl px-4 py-2">
-                {err}
+          <div style={{ marginBottom: 20, position: "relative" }}>
+            <span className="label" style={{ color: "var(--neon-yel)" }}>
+              ✦ THEME OR INTEREST (OPTIONAL)
+            </span>
+            <input
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              placeholder="e.g. space, music, sports, environment"
+              style={{
+                marginTop: 8,
+                width: "100%",
+                padding: "12px 14px",
+                background: "rgba(0,0,0,0.5)",
+                border: "2px solid var(--line)",
+                borderRadius: 12,
+                color: "var(--ink)",
+                fontFamily: "var(--f-body)",
+                fontSize: 14,
+                outline: "none",
+              }}
+            />
+          </div>
+
+          <button
+            onClick={generate}
+            disabled={busy}
+            className="chunky-btn"
+            style={{
+              width: "100%",
+              cursor: busy ? "not-allowed" : "pointer",
+              opacity: busy ? 0.6 : 1,
+              position: "relative",
+            }}
+          >
+            ✦ GENERATE QUEST
+          </button>
+
+          {err && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 10,
+                border: "2px solid var(--neon-mag)",
+                background: "rgba(255,62,165,0.1)",
+                color: "var(--neon-mag)",
+                fontSize: 13,
+                position: "relative",
+              }}
+            >
+              {err}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Generation loading (Byte drafting) */}
+      {busy && !project && (
+        <div
+          className="panel mag"
+          style={{ padding: 40, textAlign: "center", position: "relative", overflow: "hidden" }}
+        >
+          <div className="scanline" />
+          <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 8 }} className="anim-wobble">🤖</div>
+          <span className="label" style={{ color: "var(--neon-mag)" }}>WORKING…</span>
+          <h2 className="h-display" style={{ fontSize: 26, margin: "8px 0 6px" }}>
+            Byte is drafting your quest
+          </h2>
+          <p style={{ color: "var(--ink-dim)", fontSize: 13, maxWidth: 400, margin: "0 auto 18px" }}>
+            Designing milestones, tasks, and a stretch goal just for you.
+          </p>
+          <div style={{ maxWidth: 280, margin: "0 auto" }}>
+            <PixelBar value={70} color="var(--neon-mag)" />
+          </div>
+        </div>
+      )}
+
+      {/* Active project */}
+      {project && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Overview */}
+          <div className="panel cyan" style={{ padding: 24, position: "relative", overflow: "hidden" }}>
+            <div className="scanline" />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 14,
+                marginBottom: 10,
+                position: "relative",
+              }}
+            >
+              <h2 className="h-display" style={{ fontSize: 28, lineHeight: 1.2 }}>
+                {project.title}
+              </h2>
+              <span
+                className="pill"
+                style={{
+                  color: "var(--neon-yel)",
+                  borderColor: "var(--neon-yel)",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+              >
+                {project.estimated_days} days
+              </span>
+            </div>
+            <p
+              style={{
+                color: "var(--ink-dim)",
+                fontSize: 14,
+                lineHeight: 1.6,
+                marginBottom: 16,
+                position: "relative",
+              }}
+            >
+              {project.pitch}
+            </p>
+
+            {project.skills_used?.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18, position: "relative" }}>
+                {project.skills_used.map((s) => (
+                  <span
+                    key={s}
+                    className="pill"
+                    style={{ color: "var(--neon-lime)", borderColor: "var(--neon-lime)", fontSize: 10 }}
+                  >
+                    {s}
+                  </span>
+                ))}
               </div>
             )}
-          </section>
-        )}
 
-        {project && (
-          <div className="space-y-5">
-            <section className="bg-white border border-[var(--border)] rounded-2xl p-6 shadow-card">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <h2 className="text-2xl font-extrabold text-[var(--text-primary)]">
-                  {project.title}
-                </h2>
-                <span className="bg-[var(--brand-blue-soft)] text-[var(--brand-blue)] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0">
-                  {project.estimated_days} days
+            {/* Progress */}
+            <div style={{ position: "relative" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span className="label" style={{ color: "var(--neon-cyan)" }}>Progress</span>
+                <span className="label">{doneCount} / {totalTasks} tasks · {pct}%</span>
+              </div>
+              <PixelBar value={pct} color="var(--neon-cyan)" />
+            </div>
+          </div>
+
+          {/* Milestones */}
+          {project.milestones.map((m, mi) => {
+            const milestoneDoneAll = m.tasks.every((_, ti) => done[`${mi}-${ti}`]);
+            return (
+              <div
+                key={mi}
+                className={`panel ${milestoneDoneAll ? "lime" : ""}`}
+                style={{
+                  padding: 22,
+                  position: "relative",
+                  overflow: "hidden",
+                  borderColor: milestoneDoneAll ? "var(--neon-lime)" : undefined,
+                }}
+              >
+                <div className="scanline" />
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    marginBottom: 14,
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 12,
+                      background: milestoneDoneAll
+                        ? "linear-gradient(135deg, var(--neon-lime), var(--neon-cyan))"
+                        : "linear-gradient(135deg, var(--neon-mag), var(--neon-vio))",
+                      border: "2px solid #170826",
+                      boxShadow: milestoneDoneAll
+                        ? "0 3px 0 #170826, 0 0 14px rgba(164,255,94,0.5)"
+                        : "0 3px 0 #170826, 0 0 14px rgba(255,62,165,0.5)",
+                      display: "grid",
+                      placeItems: "center",
+                      fontFamily: "var(--f-display)",
+                      fontWeight: 900,
+                      fontSize: 13,
+                      color: "#170826",
+                      flexShrink: 0,
+                    }}
+                  >
+                    D{m.day}
+                  </div>
+                  <h3 className="h-display" style={{ fontSize: 18, lineHeight: 1.3 }}>
+                    {m.title}
+                  </h3>
+                </div>
+
+                <ul
+                  style={{
+                    listStyle: "none",
+                    padding: 0,
+                    margin: "0 0 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    position: "relative",
+                  }}
+                >
+                  {m.tasks.map((t, ti) => {
+                    const key = `${mi}-${ti}`;
+                    const isDone = !!done[key];
+                    return (
+                      <li key={ti}>
+                        <button
+                          onClick={() => toggleTask(key)}
+                          style={{
+                            width: "100%",
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 10,
+                            textAlign: "left",
+                            padding: "10px 12px",
+                            background: isDone ? "rgba(164,255,94,0.08)" : "rgba(255,255,255,0.03)",
+                            border: `2px solid ${isDone ? "var(--neon-lime)" : "var(--line)"}`,
+                            borderRadius: 10,
+                            color: isDone ? "var(--neon-lime)" : "var(--ink)",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            fontFamily: "var(--f-body)",
+                            fontSize: 13,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: 6,
+                              border: `2px solid ${isDone ? "var(--neon-lime)" : "var(--ink-mute)"}`,
+                              background: isDone ? "var(--neon-lime)" : "transparent",
+                              color: "#170826",
+                              display: "grid",
+                              placeItems: "center",
+                              fontSize: 11,
+                              fontWeight: 900,
+                              flexShrink: 0,
+                              marginTop: 1,
+                              boxShadow: isDone ? "0 0 10px rgba(164,255,94,0.6)" : "none",
+                            }}
+                          >
+                            {isDone ? "✓" : ""}
+                          </span>
+                          <span
+                            style={{
+                              textDecoration: isDone ? "line-through" : "none",
+                              opacity: isDone ? 0.75 : 1,
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {t}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderLeft: "4px solid var(--neon-yel)",
+                    background: "rgba(255,229,61,0.08)",
+                    borderRadius: "0 10px 10px 0",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <span className="label" style={{ color: "var(--neon-yel)" }}>
+                      🎯 Deliverable
+                    </span>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: "var(--ink-dim)",
+                      lineHeight: 1.5,
+                      margin: 0,
+                    }}
+                  >
+                    {m.deliverable}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+
+          {project.stretch_goal && (
+            <div className="panel yel" style={{ padding: 20, position: "relative", overflow: "hidden" }}>
+              <div className="scanline" />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 8,
+                  position: "relative",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🚀</span>
+                <span className="label" style={{ color: "var(--neon-yel)" }}>
+                  STRETCH GOAL
                 </span>
               </div>
-              <p className="text-[var(--text-body)] leading-relaxed mb-4">{project.pitch}</p>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "var(--ink-dim)",
+                  lineHeight: 1.6,
+                  margin: 0,
+                  position: "relative",
+                }}
+              >
+                {project.stretch_goal}
+              </p>
+            </div>
+          )}
 
-              {project.skills_used?.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {project.skills_used.map((s) => (
-                    <span
-                      key={s}
-                      className="bg-[var(--bg-deep)] text-[var(--text-muted)] text-[11px] font-bold px-2.5 py-1 rounded-full"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Progress */}
-              <div>
-                <div className="flex justify-between text-xs font-bold text-[var(--text-muted)] mb-1.5">
-                  <span>Progress</span>
-                  <span>{doneCount} / {totalTasks} tasks</span>
-                </div>
-                <div className="h-2 bg-[var(--bg-deep)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--brand-blue)] transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            </section>
-
-            {project.milestones.map((m, mi) => {
-              const milestoneDoneAll = m.tasks.every((_, ti) => done[`${mi}-${ti}`]);
-              return (
-                <section
-                  key={mi}
-                  className={cn(
-                    "bg-white border rounded-2xl p-5 shadow-card transition-colors",
-                    milestoneDoneAll ? "border-[var(--brand-blue)]" : "border-[var(--border)]",
-                  )}
-                >
-                  <div className="flex items-center gap-2 mb-3">
-                    <div
-                      className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                        milestoneDoneAll
-                          ? "bg-[var(--brand-blue)] text-white"
-                          : "bg-[var(--brand-blue-soft)] text-[var(--brand-blue)]",
-                      )}
-                    >
-                      D{m.day}
-                    </div>
-                    <h3 className="text-base font-extrabold text-[var(--text-primary)]">
-                      {m.title}
-                    </h3>
-                  </div>
-                  <ul className="space-y-2 mb-3">
-                    {m.tasks.map((t, ti) => {
-                      const key = `${mi}-${ti}`;
-                      const isDone = !!done[key];
-                      return (
-                        <li key={ti}>
-                          <button
-                            onClick={() => toggleTask(key)}
-                            className="w-full flex items-start gap-2 text-left hover:bg-[var(--bg-deep)] rounded-lg px-2 py-1.5 transition-colors"
-                          >
-                            {isDone ? (
-                              <CheckCircle2 className="w-4 h-4 text-[var(--brand-blue)] shrink-0 mt-0.5" />
-                            ) : (
-                              <Circle className="w-4 h-4 text-[var(--text-muted)] shrink-0 mt-0.5" />
-                            )}
-                            <span
-                              className={cn(
-                                "text-sm",
-                                isDone ? "text-[var(--text-muted)] line-through" : "text-[var(--text-body)]",
-                              )}
-                            >
-                              {t}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <div className="bg-[var(--brand-blue-soft)] border-l-4 border-[var(--brand-blue)] rounded-r-lg px-3 py-2">
-                    <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--brand-blue)] mb-0.5 flex items-center gap-1">
-                      <Target className="w-3 h-3" /> Deliverable
-                    </div>
-                    <p className="text-xs text-[var(--text-body)]">{m.deliverable}</p>
-                  </div>
-                </section>
-              );
-            })}
-
-            {project.stretch_goal && (
-              <section className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
-                <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-2">
-                  <Rocket className="w-4 h-4 text-[var(--subject-coding)]" /> Stretch goal
-                </div>
-                <p className="text-sm text-[var(--text-body)]">{project.stretch_goal}</p>
-              </section>
-            )}
-
-            <button
-              onClick={reset}
-              className="w-full bg-white border border-[var(--border)] hover:bg-[var(--bg-deep)] text-[var(--text-body)] font-semibold rounded-xl py-3 text-sm"
-            >
-              Start a new project
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+          <button
+            onClick={reset}
+            className="chunky-btn"
+            style={{ width: "100%", cursor: "pointer" }}
+          >
+            ↻ START A NEW QUEST
+          </button>
+        </div>
+      )}
+    </ArcadeShell>
   );
 }

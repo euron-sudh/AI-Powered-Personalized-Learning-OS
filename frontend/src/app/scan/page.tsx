@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, CheckCircle2, Lightbulb, Sparkles, Upload, X } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
+import { ArcadeShell, Byte } from "@/components/arcade";
 
 interface ScanResult {
   problem: string;
@@ -77,57 +77,127 @@ export default function ScanDoubtPage() {
   }
 
   if (authLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center">Loading…</div>;
+    return (
+      <div
+        className="arcade-root"
+        data-grade="68"
+        style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "var(--ink)" }}
+      >
+        Loading…
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)] py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-3xl font-extrabold text-[var(--text-primary)] flex items-center gap-2">
-            <Camera className="w-7 h-7 text-[var(--brand-blue)]" strokeWidth={2} />
-            Doubt scanner
-          </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Snap a homework problem, get a step-by-step walkthrough.
-          </p>
+    <ArcadeShell active="Learn" pixels={16}>
+      <div style={{ maxWidth: 820, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Header */}
+        <header style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <Byte size={64} mood="happy" />
+          <div>
+            <div className="pill" style={{ marginBottom: 8 }}>
+              <span style={{ color: "var(--neon-cyan)" }}>◈</span> DOUBT SCANNER
+            </div>
+            <h1 className="h-display" style={{ fontSize: 32, margin: 0 }}>
+              Snap it. <span style={{ color: "var(--neon-cyan)" }}>Solve it.</span>
+            </h1>
+            <p className="label" style={{ marginTop: 6 }}>
+              Upload a homework photo — Byte breaks it down step by step.
+            </p>
+          </div>
         </header>
 
+        {/* Upload zone */}
         {!preview && (
-          <label className="block bg-white border-2 border-dashed border-[var(--border)] hover:border-[var(--brand-blue)] rounded-2xl p-10 text-center cursor-pointer transition-colors">
+          <label
+            className="panel anim-float"
+            style={{
+              display: "block",
+              padding: 40,
+              textAlign: "center",
+              cursor: "pointer",
+              border: "2px dashed var(--neon-cyan)",
+              boxShadow: "0 0 24px rgba(39,224,255,0.25), inset 0 0 24px rgba(39,224,255,0.08)",
+            }}
+          >
             <input
               ref={inputRef}
               type="file"
               accept="image/*"
               capture="environment"
-              className="hidden"
+              style={{ display: "none" }}
               onChange={(e) => pickFile(e.target.files?.[0] || null)}
             />
-            <Upload className="w-8 h-8 mx-auto text-[var(--brand-blue)] mb-3" />
-            <p className="text-sm font-semibold text-[var(--text-primary)]">
-              Tap to take a photo or upload
-            </p>
-            <p className="text-xs text-[var(--text-muted)] mt-1">
-              JPG or PNG, up to 8MB
-            </p>
+            <div
+              style={{
+                fontSize: 56,
+                lineHeight: 1,
+                color: "var(--neon-cyan)",
+                textShadow: "0 0 18px var(--neon-cyan)",
+                marginBottom: 14,
+              }}
+            >
+              ⇪
+            </div>
+            <div
+              className="h-display"
+              style={{ fontSize: 22, color: "var(--ink)", marginBottom: 6 }}
+            >
+              Tap to snap or upload
+            </div>
+            <div className="label">JPG or PNG · up to 8MB</div>
           </label>
         )}
 
+        {/* Preview */}
         {preview && (
-          <div className="bg-white border border-[var(--border)] rounded-2xl p-4 shadow-card">
-            <div className="relative">
+          <div className="panel" style={{ padding: 16 }}>
+            <div
+              style={{
+                position: "relative",
+                borderRadius: 12,
+                overflow: "hidden",
+                border: "2px solid var(--line)",
+                background: "#0a0515",
+              }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={preview}
                 alt="Problem"
-                className="rounded-xl w-full max-h-96 object-contain bg-[var(--bg-deep)]"
+                style={{ width: "100%", maxHeight: 420, objectFit: "contain", display: "block" }}
+              />
+              {/* scanline overlay */}
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  pointerEvents: "none",
+                  background:
+                    "repeating-linear-gradient(0deg, rgba(39,224,255,0.06) 0px, rgba(39,224,255,0.06) 1px, transparent 1px, transparent 3px)",
+                }}
               />
               <button
                 onClick={reset}
-                className="absolute top-2 right-2 bg-white/90 hover:bg-white rounded-full p-1.5 shadow-card"
                 aria-label="Remove"
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  border: "2px solid #170826",
+                  background: "var(--neon-mag)",
+                  color: "#170826",
+                  fontWeight: 900,
+                  fontFamily: "var(--f-display)",
+                  cursor: "pointer",
+                  boxShadow: "0 3px 0 0 #170826",
+                }}
               >
-                <X className="w-4 h-4" />
+                ✕
               </button>
             </div>
 
@@ -135,74 +205,118 @@ export default function ScanDoubtPage() {
               <button
                 onClick={scan}
                 disabled={busy}
-                className="w-full mt-4 bg-[var(--brand-blue)] hover:opacity-90 disabled:opacity-50 text-white font-semibold rounded-xl py-3 text-sm flex items-center justify-center gap-2"
+                className="chunky-btn cyan"
+                style={{
+                  width: "100%",
+                  marginTop: 16,
+                  opacity: busy ? 0.6 : 1,
+                  cursor: busy ? "not-allowed" : "pointer",
+                }}
               >
-                {busy ? (
-                  <><Sparkles className="w-4 h-4 animate-pulse" /> Reading the problem…</>
-                ) : (
-                  <><Sparkles className="w-4 h-4" /> Solve it for me</>
-                )}
+                {busy ? "READING PROBLEM…" : "✦ SOLVE IT FOR ME"}
               </button>
             )}
           </div>
         )}
 
+        {/* Error */}
         {err && (
-          <div className="mt-4 bg-[var(--red-bg)] border border-[var(--red)] text-[var(--red)] text-sm rounded-xl px-4 py-3">
+          <div
+            className="panel mag"
+            style={{
+              padding: 14,
+              color: "var(--ink)",
+              fontFamily: "var(--f-body)",
+              fontSize: 14,
+            }}
+          >
+            <span className="label" style={{ color: "var(--neon-mag)", marginRight: 8 }}>
+              ERROR
+            </span>
             {err}
           </div>
         )}
 
+        {/* Result */}
         {result && (
-          <div className="mt-5 space-y-4">
-            <section className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--text-muted)] mb-1">
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Subject + problem */}
+            <section className="panel" style={{ padding: 20 }}>
+              <div className="label" style={{ color: "var(--neon-yel)", marginBottom: 8 }}>
                 {result.subject}
               </div>
-              <p className="text-sm text-[var(--text-body)]">{result.problem}</p>
+              <p style={{ margin: 0, color: "var(--ink)", fontSize: 14, lineHeight: 1.55 }}>
+                {result.problem}
+              </p>
             </section>
 
-            <section className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
-              <div className="text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-3">
-                Walkthrough
+            {/* Walkthrough */}
+            <section className="panel cyan" style={{ padding: 20 }}>
+              <div
+                className="h-display"
+                style={{ fontSize: 16, color: "var(--neon-cyan)", marginBottom: 14 }}
+              >
+                ▶ WALKTHROUGH
               </div>
-              <ol className="space-y-3">
+              <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
                 {result.steps.map((s, i) => (
-                  <li key={i} className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full bg-[var(--brand-blue-soft)] text-[var(--brand-blue)] text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  <li key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    <div
+                      style={{
+                        flex: "0 0 32px",
+                        width: 32,
+                        height: 32,
+                        borderRadius: 10,
+                        background: "var(--neon-cyan)",
+                        color: "#170826",
+                        display: "grid",
+                        placeItems: "center",
+                        fontFamily: "var(--f-display)",
+                        fontWeight: 900,
+                        fontSize: 14,
+                        border: "2px solid #170826",
+                        boxShadow: "0 3px 0 0 #170826",
+                      }}
+                    >
                       {i + 1}
                     </div>
-                    <p className="text-sm text-[var(--text-body)] leading-relaxed">{s}</p>
+                    <p style={{ margin: 0, color: "var(--ink)", fontSize: 14, lineHeight: 1.55, paddingTop: 4 }}>
+                      {s}
+                    </p>
                   </li>
                 ))}
               </ol>
             </section>
 
-            <section className="bg-[var(--brand-blue-soft)] border border-[var(--brand-blue)] rounded-2xl p-5 shadow-card">
-              <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-bold text-[var(--brand-blue)] mb-2">
-                <CheckCircle2 className="w-4 h-4" /> Final answer
+            {/* Final answer */}
+            <section className="panel yel anim-glow" style={{ padding: 20 }}>
+              <div className="label" style={{ color: "var(--neon-yel)", marginBottom: 8 }}>
+                ✔ FINAL ANSWER
               </div>
-              <p className="text-lg font-extrabold text-[var(--text-primary)]">
+              <p
+                className="h-display"
+                style={{ margin: 0, fontSize: 24, color: "var(--ink)" }}
+              >
                 {result.final_answer}
               </p>
             </section>
 
-            <section className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
-              <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-2">
-                <Lightbulb className="w-4 h-4 text-[var(--subject-english)]" /> Key concept
+            {/* Concept */}
+            <section className="panel mag" style={{ padding: 20 }}>
+              <div className="label" style={{ color: "var(--neon-mag)", marginBottom: 8 }}>
+                ✦ KEY CONCEPT
               </div>
-              <p className="text-sm text-[var(--text-body)]">{result.concept}</p>
+              <p style={{ margin: 0, color: "var(--ink)", fontSize: 14, lineHeight: 1.55 }}>
+                {result.concept}
+              </p>
             </section>
 
-            <button
-              onClick={reset}
-              className="w-full bg-white border border-[var(--border)] hover:bg-[var(--bg-deep)] text-[var(--text-body)] font-semibold rounded-xl py-3 text-sm"
-            >
-              Scan another problem
+            <button onClick={reset} className="chunky-btn lime" style={{ width: "100%" }}>
+              ↻ SCAN ANOTHER
             </button>
           </div>
         )}
       </div>
-    </div>
+    </ArcadeShell>
   );
 }

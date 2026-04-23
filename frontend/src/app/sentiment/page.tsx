@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { ArcadeShell, PixelBar } from "@/components/arcade";
 
 interface SentimentLog {
   id: string;
@@ -15,13 +15,16 @@ interface SentimentLog {
   action_taken?: string;
 }
 
-const EMOTION_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
-  engaged: { bg: "bg-green-600", text: "text-green-600", icon: "🎯" },
-  confused: { bg: "bg-yellow-600", text: "text-yellow-600", icon: "😕" },
-  bored: { bg: "bg-blue-600", text: "text-blue-600", icon: "😑" },
-  frustrated: { bg: "bg-red-600", text: "text-red-600", icon: "😤" },
-  happy: { bg: "bg-pink-600", text: "text-pink-600", icon: "😊" },
-  drowsy: { bg: "bg-gray-600", text: "text-gray-600", icon: "😴" },
+const EMOTION_COLORS: Record<
+  string,
+  { neon: string; icon: string }
+> = {
+  engaged:   { neon: "var(--neon-lime)", icon: "🎯" },
+  confused:  { neon: "var(--neon-yel)",  icon: "😕" },
+  bored:     { neon: "var(--neon-cyan)", icon: "😑" },
+  frustrated:{ neon: "var(--neon-mag)",  icon: "😤" },
+  happy:     { neon: "var(--neon-ora)",  icon: "😊" },
+  drowsy:    { neon: "var(--neon-vio)",  icon: "😴" },
 };
 
 export default function SentimentPage() {
@@ -66,11 +69,12 @@ export default function SentimentPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[var(--bg-base)]">
-        <div className="text-center">
-          <div className="w-8 h-8 rounded-full border-2 border-blue-900 border-t-blue-500 animate-spin mx-auto mb-3" />
-          <p className="text-white/40 text-sm">Loading sentiment history…</p>
-        </div>
+      <div
+        className="arcade-root"
+        data-grade="68"
+        style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "var(--ink)" }}
+      >
+        Loading…
       </div>
     );
   }
@@ -92,150 +96,338 @@ export default function SentimentPage() {
     return { emotion, count, percentage, avgConfidence, ...colors };
   });
 
-  const sortedByConfidence = [...sentiments].sort((a, b) => b.confidence - a.confidence);
   const timelineData = sentiments
     .slice(-20)
     .map((s) => ({ ...s, time: new Date(s.timestamp).toLocaleTimeString() }));
 
+  const topEmotion = sentiments.length
+    ? emotionStats.reduce((a, b) => (a.count > b.count ? a : b))
+    : null;
+
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-[var(--bg-base)] p-8">
-      <div className="max-w-6xl mx-auto">
+    <ArcadeShell active="Dashboard" pixels={16}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Your Sentiment Journey</h1>
-          <p className="text-[var(--text-muted)]">Track your emotions and engagement during learning sessions</p>
-        </div>
+        <header
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div className="pill" style={{ marginBottom: 10 }}>
+              <span style={{ color: "var(--neon-mag)" }}>◉</span> EMOTION HUD
+            </div>
+            <h1 className="h-display" style={{ fontSize: 32, margin: 0 }}>
+              Your Sentiment <span style={{ color: "var(--neon-mag)" }}>Journey</span>
+            </h1>
+            <p className="label" style={{ marginTop: 6 }}>
+              Track engagement and emotion across your learning sessions.
+            </p>
+          </div>
 
-        {/* Time Range Filter */}
-        <div className="flex gap-3 mb-8">
-          {["Today", "This week", "This month"].map((range) => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={cn(
-                "px-4 py-2 rounded-lg font-medium transition-all",
-                timeRange === range
-                  ? "bg-[var(--accent)] text-white"
-                  : "bg-[var(--bg-surface)] text-[var(--text-muted)] hover:border-[#5b5eff] border border-[var(--border)]"
-              )}
+          {/* Current / top emotion badge */}
+          {topEmotion && (
+            <div
+              className="panel anim-glow"
+              style={{
+                padding: "14px 18px",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                borderColor: topEmotion.neon,
+              }}
             >
-              {range}
-            </button>
-          ))}
-        </div>
-
-        {/* Emotion Stats Grid */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {emotionStats.map(({ emotion, count, percentage, avgConfidence, icon, text, bg }) => (
-            <button
-              key={emotion}
-              onClick={() => setSelectedEmotion(selectedEmotion === emotion ? null : emotion)}
-              className={cn(
-                "p-6 rounded-lg border transition-all cursor-pointer",
-                selectedEmotion === emotion
-                  ? `${bg} text-white border-opacity-50`
-                  : "bg-[var(--bg-surface)] border-[var(--border)] hover:border-[#5b5eff]"
-              )}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-3xl">{icon}</span>
-                <div className="text-left">
-                  <p className="text-sm font-semibold capitalize">{emotion}</p>
-                  <p className={cn("text-2xl font-bold", selectedEmotion === emotion ? "text-white" : text)}>
-                    {count}
-                  </p>
+              <div
+                className="anim-bop"
+                style={{
+                  fontSize: 44,
+                  filter: `drop-shadow(0 0 10px ${topEmotion.neon})`,
+                }}
+              >
+                {topEmotion.icon}
+              </div>
+              <div>
+                <div className="label" style={{ color: topEmotion.neon }}>TOP EMOTION</div>
+                <div
+                  className="h-display"
+                  style={{ fontSize: 20, color: "var(--ink)", textTransform: "capitalize" }}
+                >
+                  {topEmotion.emotion}
                 </div>
               </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className={selectedEmotion === emotion ? "text-white/80" : "text-[var(--text-muted)]"}>
-                    Frequency
-                  </span>
-                  <span className={selectedEmotion === emotion ? "text-white" : "font-bold"}>{percentage}%</span>
-                </div>
-                <div className="w-full h-1.5 bg-[var(--bg-deep)] rounded-full overflow-hidden">
-                  <div
-                    className={cn(bg, "h-full transition-all")}
-                    style={{ width: `${percentage}%` }}
-                  />
-                </div>
-              </div>
-              <p className={cn("text-xs mt-3", selectedEmotion === emotion ? "text-white/70" : "text-[var(--text-muted)]")}>
-                Avg confidence: {avgConfidence}%
-              </p>
-            </button>
-          ))}
+            </div>
+          )}
+        </header>
+
+        {/* Time-range filter */}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {["Today", "This week", "This month"].map((range) => {
+            const active = timeRange === range;
+            return (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={active ? "chunky-btn cyan" : undefined}
+                style={
+                  active
+                    ? { cursor: "pointer" }
+                    : {
+                        padding: "10px 18px",
+                        borderRadius: 12,
+                        border: "2px solid var(--line-soft)",
+                        background: "rgba(255,255,255,0.04)",
+                        color: "var(--ink-dim)",
+                        fontFamily: "var(--f-display)",
+                        fontWeight: 700,
+                        fontSize: 12,
+                        letterSpacing: 0.5,
+                        textTransform: "uppercase",
+                        cursor: "pointer",
+                      }
+                }
+              >
+                {range}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Timeline */}
-        <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-bold text-white mb-6">Recent Sentiments (Last 20)</h2>
-          <div className="space-y-2">
-            {timelineData.length > 0 ? (
-              timelineData.reverse().map((sentiment) => {
-                const emotionData = EMOTION_COLORS[sentiment.emotion];
-                return (
-                  <div
-                    key={sentiment.id}
-                    className="flex items-center gap-4 p-3 bg-[var(--bg-deep)] rounded-lg border border-[var(--border)]"
+        {/* Emotion bar grid */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 14,
+          }}
+        >
+          {emotionStats.map(({ emotion, count, percentage, avgConfidence, icon, neon }) => {
+            const active = selectedEmotion === emotion;
+            return (
+              <button
+                key={emotion}
+                onClick={() => setSelectedEmotion(active ? null : emotion)}
+                className="panel"
+                style={{
+                  padding: 18,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  borderColor: active ? neon : undefined,
+                  boxShadow: active ? `0 0 22px ${neon}` : undefined,
+                  transition: "all 160ms ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                  <span
+                    style={{
+                      fontSize: 32,
+                      filter: `drop-shadow(0 0 8px ${neon})`,
+                    }}
                   >
-                    <span className="text-2xl">{emotionData?.icon || "❓"}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white capitalize">{sentiment.emotion}</p>
-                      <p className="text-xs text-[var(--text-muted)]">{sentiment.time}</p>
+                    {icon}
+                  </span>
+                  <div>
+                    <div className="label" style={{ color: neon, textTransform: "uppercase" }}>
+                      {emotion}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-32 h-1.5 bg-[var(--bg-surface)] rounded-full overflow-hidden">
-                        <div
-                          className={cn(emotionData?.bg || "bg-gray-600", "h-full")}
-                          style={{ width: `${sentiment.confidence * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-sm font-bold text-white w-12 text-right">
-                        {Math.round(sentiment.confidence * 100)}%
-                      </span>
+                    <div
+                      className="h-display"
+                      style={{ fontSize: 26, color: "var(--ink)", lineHeight: 1 }}
+                    >
+                      {count}
                     </div>
                   </div>
-                );
-              })
-            ) : (
-              <p className="text-[var(--text-muted)] text-center py-8">No sentiment data yet. Start a learning session to track emotions!</p>
-            )}
-          </div>
+                  <div style={{ marginLeft: "auto" }} className="pill">
+                    {percentage}%
+                  </div>
+                </div>
+                <PixelBar value={percentage} color={neon} height={10} />
+                <div className="label" style={{ marginTop: 10 }}>
+                  Avg confidence: <span style={{ color: neon }}>{avgConfidence}%</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Insights */}
-        <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-6">
-          <h2 className="text-lg font-bold text-white mb-4">Insights</h2>
-          <div className="space-y-3">
-            {sentiments.length === 0 ? (
-              <p className="text-[var(--text-muted)]">Complete a learning session to see insights about your learning patterns.</p>
-            ) : (
-              <>
-                <div className="flex justify-between items-center p-3 bg-[var(--bg-deep)] rounded-lg">
-                  <p className="text-white">Most common emotion</p>
-                  <p className="text-lg font-bold">
-                    {emotionStats.reduce((a, b) => (a.count > b.count ? a : b)).emotion}
+        {/* Main grid: timeline + sidebar */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr minmax(260px, 340px)",
+            gap: 20,
+            alignItems: "start",
+          }}
+        >
+          {/* Timeline */}
+          <section className="panel cyan" style={{ padding: 20 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 16,
+              }}
+            >
+              <div className="h-display" style={{ fontSize: 16, color: "var(--neon-cyan)" }}>
+                ▶ RECENT SENTIMENTS
+              </div>
+              <div className="pill">LAST 20</div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {timelineData.length > 0 ? (
+                timelineData.reverse().map((sentiment) => {
+                  const emotionData = EMOTION_COLORS[sentiment.emotion];
+                  const neon = emotionData?.neon || "var(--ink-mute)";
+                  return (
+                    <div
+                      key={sentiment.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 14,
+                        padding: "10px 14px",
+                        borderRadius: 10,
+                        background: "rgba(255,255,255,0.03)",
+                        border: "2px solid var(--line-soft)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 22,
+                          filter: `drop-shadow(0 0 6px ${neon})`,
+                        }}
+                      >
+                        {emotionData?.icon || "❓"}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          className="h-display"
+                          style={{ fontSize: 14, color: "var(--ink)", textTransform: "capitalize" }}
+                        >
+                          {sentiment.emotion}
+                        </div>
+                        <div className="label">{sentiment.time}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 180 }}>
+                        <div style={{ flex: 1 }}>
+                          <PixelBar
+                            value={Math.round(sentiment.confidence * 100)}
+                            color={neon}
+                            height={8}
+                          />
+                        </div>
+                        <span
+                          className="h-display"
+                          style={{ fontSize: 13, color: neon, minWidth: 42, textAlign: "right" }}
+                        >
+                          {Math.round(sentiment.confidence * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "30px 10px",
+                    color: "var(--ink-dim)",
+                  }}
+                >
+                  <div style={{ fontSize: 48, marginBottom: 10 }}>🛰</div>
+                  <p className="label">
+                    No sentiment data yet. Start a learning session to track emotions.
                   </p>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-[var(--bg-deep)] rounded-lg">
-                  <p className="text-white">Average confidence</p>
-                  <p className="text-lg font-bold">
+              )}
+            </div>
+          </section>
+
+          {/* Stats sidebar */}
+          <aside className="panel yel" style={{ padding: 20 }}>
+            <div className="h-display" style={{ fontSize: 14, color: "var(--neon-yel)", marginBottom: 14 }}>
+              ◈ FRAME STATS
+            </div>
+
+            {sentiments.length === 0 ? (
+              <p className="label">Complete a learning session to see insights.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,0.03)",
+                    border: "2px solid var(--line-soft)",
+                  }}
+                >
+                  <div className="label" style={{ marginBottom: 4 }}>MOST COMMON</div>
+                  <div
+                    className="h-display"
+                    style={{
+                      fontSize: 18,
+                      color: "var(--ink)",
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    {topEmotion?.icon} {topEmotion?.emotion}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,0.03)",
+                    border: "2px solid var(--line-soft)",
+                  }}
+                >
+                  <div className="label" style={{ marginBottom: 4 }}>AVG CONFIDENCE</div>
+                  <div className="h-display" style={{ fontSize: 22, color: "var(--neon-lime)" }}>
                     {Math.round(
                       (sentiments.reduce((sum, s) => sum + s.confidence, 0) / sentiments.length) * 100
                     )}
                     %
-                  </p>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-[var(--bg-deep)] rounded-lg">
-                  <p className="text-white">Total data points</p>
-                  <p className="text-lg font-bold">{sentiments.length}</p>
+
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,0.03)",
+                    border: "2px solid var(--line-soft)",
+                  }}
+                >
+                  <div className="label" style={{ marginBottom: 4 }}>TOTAL DATA POINTS</div>
+                  <div className="h-display" style={{ fontSize: 22, color: "var(--neon-cyan)" }}>
+                    {sentiments.length}
+                  </div>
                 </div>
-              </>
+
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,0.03)",
+                    border: "2px solid var(--line-soft)",
+                  }}
+                >
+                  <div className="label" style={{ marginBottom: 4 }}>TIME RANGE</div>
+                  <div className="h-display" style={{ fontSize: 16, color: "var(--ink)" }}>
+                    {timeRange}
+                  </div>
+                </div>
+              </div>
             )}
-          </div>
+          </aside>
         </div>
       </div>
-    </div>
+    </ArcadeShell>
   );
 }

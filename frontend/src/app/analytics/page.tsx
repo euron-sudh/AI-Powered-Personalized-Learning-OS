@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { ArcadeShell, PixelBar } from "@/components/arcade";
 
 interface SubjectProgress {
   subject_id: string;
@@ -39,23 +39,13 @@ interface Stats {
 }
 
 const SUBJECT_COLORS: Record<string, string> = {
-  "Mathematics": "#5b5eff",
-  "Physics": "#1d9e75",
-  "Chemistry": "#ef9f27",
-  "Biology": "#1d9e75",
-  "Science": "#1d9e75",
-  "English": "#ef9f27",
-  "History": "#e24b4a",
-};
-
-const SUBJECT_BADGES: Record<string, string> = {
-  "Mathematics": "badge-math",
-  "Physics": "badge-sci",
-  "Chemistry": "badge-eng",
-  "Biology": "badge-sci",
-  "Science": "badge-sci",
-  "English": "badge-eng",
-  "History": "badge-hist",
+  "Mathematics": "#27e0ff",
+  "Physics": "#a6ff3b",
+  "Chemistry": "#ffe53d",
+  "Biology": "#a6ff3b",
+  "Science": "#a6ff3b",
+  "English": "#ff3ea5",
+  "History": "#ff7a2b",
 };
 
 export default function AnalyticsPage() {
@@ -95,7 +85,7 @@ export default function AnalyticsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const [progressRes, profileRes, radarRes] = await Promise.all([
+      const [progressRes, profileRes, radarRes, subjectsRes] = await Promise.all([
         fetch(`/api/proxy/api/progress/${user?.id}`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }),
@@ -103,6 +93,11 @@ export default function AnalyticsPage() {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }),
         fetch(`/api/proxy/api/progress/weakness-radar`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }),
+        // Same endpoint the dashboard uses — its chapter counts come straight
+        // from the Chapter table, so they stay in sync.
+        fetch(`/api/proxy/api/onboarding/subjects`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }),
       ]);
@@ -113,7 +108,46 @@ export default function AnalyticsPage() {
 
       if (progressRes.ok) {
         const data = await progressRes.json();
-        const subjectList: SubjectProgress[] = data.subjects || [];
+        let subjectList: SubjectProgress[] = data.subjects || [];
+
+        // Merge authoritative chapter counts from /onboarding/subjects so
+        // the numbers match what the dashboard displays. Match by name since
+        // the two endpoints expose the same subject ids under different keys.
+        if (subjectsRes.ok) {
+          try {
+            const sd = await subjectsRes.json();
+            const fresh: Array<{
+              id: string;
+              name: string;
+              chapter_count?: number;
+              chapters_completed?: number;
+              total_chapters?: number;
+              progress_percent?: number;
+            }> = sd.subjects || [];
+            const byId = new Map(fresh.map((f) => [f.id, f]));
+            subjectList = subjectList.map((s) => {
+              const f = byId.get(s.subject_id);
+              if (!f) return s;
+              const total = f.total_chapters ?? f.chapter_count ?? s.total_chapters;
+              const completed = f.chapters_completed ?? s.chapters_completed;
+              const pct =
+                typeof f.progress_percent === "number"
+                  ? f.progress_percent
+                  : total > 0
+                    ? Math.round((completed / total) * 100)
+                    : s.progress_percent;
+              return {
+                ...s,
+                total_chapters: total,
+                chapters_completed: completed,
+                progress_percent: pct,
+              };
+            });
+          } catch {
+            /* keep progressRes data as-is if merge fails */
+          }
+        }
+
         setSubjects(subjectList);
 
         const recs = await Promise.all(
@@ -136,7 +170,7 @@ export default function AnalyticsPage() {
                 chapter_id: next.id,
                 title: next.title,
                 sub: `${s.subject_name} · Lesson ${next.order_index + 1}`,
-                dot: SUBJECT_COLORS[s.subject_name] || "#5b5eff",
+                dot: SUBJECT_COLORS[s.subject_name] || "#27e0ff",
               };
             } catch {
               return null;
@@ -174,11 +208,17 @@ export default function AnalyticsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-54px)] items-center justify-center bg-[var(--bg-base)]">
-        <div className="text-center">
-          <div className="w-8 h-8 rounded-full border-2 border-[#3d3faa] border-t-[#5b5eff] animate-spin mx-auto mb-3" />
-          <p className="text-[var(--text-muted)] text-sm">Loading progress…</p>
-        </div>
+      <div
+        className="arcade-root"
+        data-grade="68"
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          color: "var(--ink)",
+        }}
+      >
+        Loading…
       </div>
     );
   }
@@ -190,292 +230,447 @@ export default function AnalyticsPage() {
   weekEnd.setDate(weekStart.getDate() + 6);
   const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${today.getFullYear()}`;
 
+  const viewOptions = ["Overview", "By subject", "Tutor sessions", "Quiz history"];
+  const rangeOptions = ["This week", "This month", "All time"];
+
   return (
-    <div className="min-h-[calc(100vh-54px)] bg-[var(--bg-base)] flex">
-      {/* Sidebar */}
-      <div className="w-[200px] bg-[var(--bg-deep)] border-r border-[var(--border)] flex flex-col shrink-0 p-5">
-        {/* View Filters */}
-        <div className="mb-6">
-          <p className="text-[10px] text-[var(--text-faint)] font-[500] uppercase tracking-wider mb-3">
-            View
-          </p>
-          <div className="space-y-1">
-            {["Overview", "By subject", "Tutor sessions", "Quiz history"].map((view) => (
-              <div
-                key={view}
-                onClick={() => setViewFilter(view)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 text-[12px] cursor-pointer rounded transition-all",
-                  viewFilter === view
-                    ? "bg-[#111520] text-[var(--accent)]"
-                    : "text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[#111520]"
-                )}
-              >
-                {view}
-              </div>
-            ))}
+    <ArcadeShell active="Dashboard" pixels={14}>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <span className="label" style={{ color: "var(--neon-cyan)" }}>Progress HUD</span>
+            <h1 className="h-display" style={{ fontSize: 40, margin: "4px 0 6px" }}>
+              Your <span style={{ color: "var(--neon-yel)" }}>stats</span>
+            </h1>
+            <div style={{ color: "var(--ink-dim)", fontSize: 13 }}>
+              Grade <span style={{ color: "var(--neon-mag)", fontWeight: 700 }}>{userGrade}</span> · {weekLabel}
+            </div>
           </div>
-        </div>
-
-        {/* Time Range */}
-        <div>
-          <p className="text-[10px] text-[var(--text-faint)] font-[500] uppercase tracking-wider mb-3">
-            Time Range
-          </p>
-          <div className="space-y-1">
-            {["This week", "This month", "All time"].map((range) => (
-              <div
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 text-[12px] cursor-pointer rounded transition-all",
-                  timeRange === range
-                    ? "bg-[#111520] text-[var(--accent)]"
-                    : "text-[var(--text-muted)] hover:text-[var(--text-body)] hover:bg-[#111520]"
-                )}
-              >
-                {range}
-              </div>
-            ))}
-          </div>
+          <div className="pill" style={{ fontSize: 11 }}>{weekLabel}</div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <div className="shrink-0 px-6 py-6 border-b border-[var(--border)] bg-[var(--bg-base)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-[500] text-white">Your progress</h2>
-              <p className="text-[12px] text-[var(--text-muted)] mt-1">
-                Grade {userGrade} • {weekLabel}
-              </p>
-            </div>
-            <div className="text-[11px] text-[var(--text-muted)]">
-              {weekLabel}
-            </div>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="px-6 py-6">
-          {/* Stats Cards — 4 column grid */}
-          <div className="grid grid-cols-4 gap-2.5 mb-5">
-            {/* Lessons completed */}
-            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-              <div className="w-8 h-8 rounded-2xl bg-[var(--accent-soft)] flex items-center justify-center mb-2.5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#a8aaee" strokeWidth="1.5" className="w-4 h-4">
-                  <path d="M4 19L8 5l4 8 4-6 4 12"/>
-                </svg>
-              </div>
-              <div className="text-2xl font-[500] text-white leading-none mb-1">{stats.lessonsCompleted}</div>
-              <div className="text-[11px] text-[var(--text-muted)] mb-1">Lessons completed</div>
-              <div className="text-[11px] text-[#1d9e75]">↑ 3 this week</div>
-            </div>
-
-            {/* Quiz accuracy */}
-            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-              <div className="w-8 h-8 rounded-2xl bg-[#0f2a1f] flex items-center justify-center mb-2.5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#1d9e75" strokeWidth="1.5" className="w-4 h-4">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              </div>
-              <div className="text-2xl font-[500] text-white leading-none mb-1">{stats.accuracy}%</div>
-              <div className="text-[11px] text-[var(--text-muted)] mb-1">Quiz accuracy</div>
-              <div className="text-[11px] text-[#1d9e75]">↑ 6% vs last week</div>
-            </div>
-
-            {/* AI tutor sessions */}
-            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-              <div className="w-8 h-8 rounded-2xl bg-[var(--accent-soft)] flex items-center justify-center mb-2.5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#5b5eff" strokeWidth="1.5" className="w-4 h-4">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-              </div>
-              <div className="text-2xl font-[500] text-white leading-none mb-1">{stats.sessions}</div>
-              <div className="text-[11px] text-[var(--text-muted)] mb-1">AI tutor sessions</div>
-              <div className="text-[11px] text-[var(--text-muted)]">6.4 hrs total</div>
-            </div>
-
-            {/* Day streak */}
-            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-              <div className="w-8 h-8 rounded-2xl bg-[#1f1a0f] flex items-center justify-center mb-2.5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#ef9f27" strokeWidth="1.5" className="w-4 h-4">
-                  <path d="M12 2l2 7h7l-5.5 4 2 7L12 16l-5.5 4 2-7L3 9h7z"/>
-                </svg>
-              </div>
-              <div className="text-2xl font-[500] text-white leading-none mb-1">{stats.streak}</div>
-              <div className="text-[11px] text-[var(--text-muted)] mb-1">Day streak</div>
-              <div className="flex gap-1 flex-wrap mt-2">
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "w-5 h-5 rounded text-[9px] flex items-center justify-center font-[500]",
-                      i === 6
-                        ? "bg-[var(--accent)] text-white"
-                        : i < 6
-                        ? "bg-[#3d3faa] text-[var(--accent)]"
-                        : "bg-[var(--bg-raised)] text-[var(--text-faint)]"
-                    )}
+      {/* Filter bar: View + Time Range as arcade pills */}
+      <div className="panel" style={{ padding: 14, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span className="label" style={{ color: "var(--neon-cyan)" }}>View</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {viewOptions.map((view) => {
+                const isActive = viewFilter === view;
+                return (
+                  <button
+                    key={view}
+                    onClick={() => setViewFilter(view)}
+                    className="chunky-btn"
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: 11,
+                      background: isActive
+                        ? "var(--neon-cyan)"
+                        : "transparent",
+                      color: isActive ? "#170826" : "var(--ink-dim)",
+                      border: "2px solid " + (isActive ? "#170826" : "var(--line-soft)"),
+                      boxShadow: isActive ? "0 3px 0 0 #170826, 0 0 14px rgba(39,224,255,0.45)" : "none",
+                      textTransform: "uppercase",
+                      letterSpacing: 0.6,
+                      fontFamily: "var(--f-display)",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      borderRadius: 10,
+                    }}
                   >
-                    {day}
-                  </div>
-                ))}
-              </div>
+                    {view}
+                  </button>
+                );
+              })}
             </div>
           </div>
-
-          {/* Two-col: Subject Progress + Weekly Accuracy */}
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            {/* Subject progress */}
-            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-              <div className="text-[11px] text-[var(--text-muted)] font-[500] uppercase tracking-wider mb-3">
-                Subject progress
-              </div>
-              <div className="space-y-2.5">
-                {subjects.length > 0 ? (
-                  subjects.map((subject) => (
-                    <div key={subject.subject_id} className="flex items-center gap-2.5">
-                      <span className="text-[12px] text-[var(--text-body)] w-24 flex-shrink-0">{subject.subject_name}</span>
-                      <div className="flex-1 h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${subject.progress_percent}%`,
-                            background: SUBJECT_COLORS[subject.subject_name] || "#5b5eff",
-                          }}
-                        />
-                      </div>
-                      <span className="text-[11px] text-[var(--text-muted)] w-8 text-right">{subject.progress_percent}%</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-2xl ${SUBJECT_BADGES[subject.subject_name] || 'badge-math'} bg-[var(--accent-soft)] text-[var(--accent)]`}>
-                        {subject.chapters_completed}/{subject.total_chapters}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-[12px] text-[var(--text-muted)]">No subjects yet.</p>
-                )}
-              </div>
-            </div>
-
-            {/* Weekly accuracy bar chart */}
-            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-              <div className="text-[11px] text-[var(--text-muted)] font-[500] uppercase tracking-wider mb-3">
-                Weekly quiz accuracy
-              </div>
-              <div className="flex items-end gap-2 h-20 justify-between px-0.5">
-                {weekData.map((value, i) => {
-                  const height = value || 4;
-                  let color = "#1e2330";
-                  if (value >= 85) color = "#1d9e75";
-                  else if (value >= 70) color = "#3d3faa";
-                  else if (value > 0) color = "#ef9f27";
-
-                  return (
-                    <div key={i} className="flex flex-col items-center gap-1 flex-1">
-                      <div className="w-full h-14 bg-[var(--bg-raised)] rounded-t-lg flex items-end justify-center">
-                        {value > 0 && (
-                          <div
-                            className="w-full transition-all rounded-t-lg"
-                            style={{
-                              height: `${(value / 100) * 56}px`,
-                              background: color,
-                            }}
-                          />
-                        )}
-                      </div>
-                      <span className="text-[9px] text-[var(--text-faint)]">{value ? value + '%' : '—'}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex justify-between text-[10px] text-[var(--text-faint)] mt-2 px-0.5">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Weakness Radar — Wave 3 */}
-          <WeaknessRadarCard radar={radar} />
-
-          {/* Two-col: Sessions Table + Recommendations */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Recent tutor sessions */}
-            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-              <div className="text-[11px] text-[var(--text-muted)] font-[500] uppercase tracking-wider mb-3">
-                Recent tutor sessions
-              </div>
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr>
-                    <th className="text-left text-[10px] text-[var(--text-muted)] font-[500] uppercase tracking-wider pb-2 font-normal">Subject</th>
-                    <th className="text-left text-[10px] text-[var(--text-muted)] font-[500] uppercase tracking-wider pb-2 font-normal">Topic</th>
-                    <th className="text-left text-[10px] text-[var(--text-muted)] font-[500] uppercase tracking-wider pb-2 font-normal">Duration</th>
-                    <th className="text-left text-[10px] text-[var(--text-muted)] font-[500] uppercase tracking-wider pb-2 font-normal">Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { subject: "Math", topic: "Linear equations", duration: "32 min", score: "92%", scoreColor: "bg-[#0f2a1f] text-[#5dcaa5]" },
-                    { subject: "Science", topic: "Cell division", duration: "28 min", score: "88%", scoreColor: "bg-[#0f2a1f] text-[#5dcaa5]" },
-                    { subject: "English", topic: "Narrative voice", duration: "22 min", score: "79%", scoreColor: "bg-[#1f1a0f] text-[#ef9f27]" },
-                    { subject: "History", topic: "World War I", duration: "35 min", score: "85%", scoreColor: "bg-[#0f2a1f] text-[#5dcaa5]" },
-                    { subject: "Math", topic: "Introduction to algebra", duration: "40 min", score: "96%", scoreColor: "bg-[#0f2a1f] text-[#5dcaa5]" },
-                  ].map((session, i) => (
-                    <tr key={i} className="border-t border-[var(--border)] hover:bg-[var(--bg-raised)]">
-                      <td className="py-2 text-[var(--text-body)]">{session.subject}</td>
-                      <td className="py-2 text-[var(--text-muted)]">{session.topic}</td>
-                      <td className="py-2 text-[var(--text-muted)]">{session.duration}</td>
-                      <td className="py-2">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-[500] ${session.scoreColor}`}>
-                          {session.score}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Recommended next */}
-            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-              <div className="text-[11px] text-[var(--text-muted)] font-[500] uppercase tracking-wider mb-3">
-                Recommended next
-              </div>
-              <div className="space-y-2">
-                {recommendations.length === 0 ? (
-                  <div className="text-[12px] text-[var(--text-muted)] py-2">
-                    No recommendations yet — complete a chapter to unlock the next one.
-                  </div>
-                ) : (
-                  recommendations.map((rec) => (
-                    <div key={`${rec.subject_id}-${rec.chapter_id}`} className="flex items-center gap-2.5 bg-[var(--bg-raised)] rounded-2xl p-2.5">
-                      <div
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ background: rec.dot }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[12px] text-[var(--text-body)] font-[500]">{rec.title}</div>
-                        <div className="text-[11px] text-[var(--text-muted)]">{rec.sub}</div>
-                      </div>
-                      <a
-                        href={`/learn/${rec.subject_id}/${rec.chapter_id}`}
-                        className="text-[11px] text-[var(--accent)] hover:text-[var(--accent)] whitespace-nowrap"
-                      >
-                        Start →
-                      </a>
-                    </div>
-                  ))
-                )}
-              </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span className="label" style={{ color: "var(--neon-mag)" }}>Range</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {rangeOptions.map((range) => {
+                const isActive = timeRange === range;
+                return (
+                  <button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    className="chunky-btn"
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: 11,
+                      background: isActive
+                        ? "var(--neon-mag)"
+                        : "transparent",
+                      color: isActive ? "#170826" : "var(--ink-dim)",
+                      border: "2px solid " + (isActive ? "#170826" : "var(--line-soft)"),
+                      boxShadow: isActive ? "0 3px 0 0 #170826, 0 0 14px rgba(255,62,165,0.45)" : "none",
+                      textTransform: "uppercase",
+                      letterSpacing: 0.6,
+                      fontFamily: "var(--f-display)",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      borderRadius: 10,
+                    }}
+                  >
+                    {range}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Stats Cards — 4 column grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+        {/* Lessons completed */}
+        <div className="panel cyan" style={{ padding: 18 }}>
+          <span className="label" style={{ color: "var(--neon-cyan)" }}>Lessons completed</span>
+          <div className="h-display" style={{ fontSize: 40, color: "var(--neon-cyan)", lineHeight: 1, marginTop: 6 }}>
+            {stats.lessonsCompleted}
+          </div>
+          <div style={{ color: "var(--neon-lime)", fontSize: 11, marginTop: 6, fontWeight: 700 }}>
+            ↑ 3 this week
+          </div>
+        </div>
+
+        {/* Quiz accuracy */}
+        <div className="panel yel" style={{ padding: 18 }}>
+          <span className="label" style={{ color: "var(--neon-yel)" }}>Quiz accuracy</span>
+          <div className="h-display" style={{ fontSize: 40, color: "var(--neon-yel)", lineHeight: 1, marginTop: 6 }}>
+            {stats.accuracy}%
+          </div>
+          <div style={{ color: "var(--neon-lime)", fontSize: 11, marginTop: 6, fontWeight: 700 }}>
+            ↑ 6% vs last week
+          </div>
+        </div>
+
+        {/* AI tutor sessions */}
+        <div className="panel mag" style={{ padding: 18 }}>
+          <span className="label" style={{ color: "var(--neon-mag)" }}>AI tutor sessions</span>
+          <div className="h-display" style={{ fontSize: 40, color: "var(--neon-mag)", lineHeight: 1, marginTop: 6 }}>
+            {stats.sessions}
+          </div>
+          <div style={{ color: "var(--ink-mute)", fontSize: 11, marginTop: 6 }}>
+            6.4 hrs total
+          </div>
+        </div>
+
+        {/* Day streak */}
+        <div className="panel" style={{ padding: 18 }}>
+          <span className="label" style={{ color: "var(--neon-ora)" }}>Day streak</span>
+          <div className="h-display" style={{ fontSize: 40, color: "var(--neon-ora)", lineHeight: 1, marginTop: 6 }}>
+            {stats.streak}
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 8 }}>
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
+              const isToday = i === 6;
+              const isDone = i < 6;
+              return (
+                <div
+                  key={i}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    fontSize: 10,
+                    display: "grid",
+                    placeItems: "center",
+                    fontWeight: 800,
+                    fontFamily: "var(--f-display)",
+                    background: isToday
+                      ? "var(--neon-ora)"
+                      : isDone
+                      ? "rgba(255, 122, 43, 0.18)"
+                      : "rgba(255,255,255,0.05)",
+                    color: isToday
+                      ? "#170826"
+                      : isDone
+                      ? "var(--neon-ora)"
+                      : "var(--ink-mute)",
+                    border: "1.5px solid " + (isToday ? "#170826" : "var(--line-soft)"),
+                    boxShadow: isToday ? "0 0 10px rgba(255,122,43,0.5)" : "none",
+                  }}
+                >
+                  {day}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Two-col: Subject Progress + Weekly Accuracy */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        {/* Subject progress */}
+        <div className="panel cyan" style={{ padding: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <span className="label" style={{ color: "var(--neon-cyan)" }}>Subject progress</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {subjects.length > 0 ? (
+              subjects.map((subject) => {
+                const color = SUBJECT_COLORS[subject.subject_name] || "var(--neon-cyan)";
+                // Backend's progress_percent comes from a stats table that
+                // sometimes lags behind the real chapter-completion count.
+                // Recompute locally whenever the ratio is obviously wrong
+                // (e.g. "1/13" served as 0%).
+                const ratioPct =
+                  subject.total_chapters > 0
+                    ? Math.round((subject.chapters_completed / subject.total_chapters) * 100)
+                    : 0;
+                const displayPct =
+                  subject.progress_percent === 0 && subject.chapters_completed > 0
+                    ? ratioPct
+                    : Math.max(subject.progress_percent, ratioPct);
+                return (
+                  <div key={subject.subject_id}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span
+                        style={{
+                          fontFamily: "var(--f-display)",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: "var(--ink)",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        {subject.subject_name}
+                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span
+                          style={{
+                            fontFamily: "var(--f-display)",
+                            fontSize: 13,
+                            fontWeight: 800,
+                            color,
+                            textShadow: `0 0 8px ${color}`,
+                          }}
+                        >
+                          {displayPct}%
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            background: "rgba(255,255,255,0.06)",
+                            border: "1.5px solid var(--line-soft)",
+                            color: "var(--ink-dim)",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {subject.chapters_completed}/{subject.total_chapters}
+                        </span>
+                      </div>
+                    </div>
+                    <PixelBar value={displayPct} color={color} height={10} />
+                  </div>
+                );
+              })
+            ) : (
+              <p style={{ fontSize: 12, color: "var(--ink-mute)" }}>No subjects yet.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Weekly accuracy bar chart */}
+        <div className="panel mag" style={{ padding: 18 }}>
+          <span className="label" style={{ color: "var(--neon-mag)" }}>Weekly quiz accuracy</span>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 120, justifyContent: "space-between", marginTop: 16, padding: "0 4px" }}>
+            {weekData.map((value, i) => {
+              let color = "rgba(155, 92, 255, 0.18)";
+              if (value >= 85) color = "var(--neon-lime)";
+              else if (value >= 70) color = "var(--neon-cyan)";
+              else if (value > 0) color = "var(--neon-yel)";
+
+              return (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 90,
+                      display: "flex",
+                      alignItems: "flex-end",
+                      justifyContent: "center",
+                      borderBottom: "2px solid var(--line-soft)",
+                    }}
+                  >
+                    {value > 0 && (
+                      <div
+                        style={{
+                          width: "85%",
+                          height: `${(value / 100) * 90}px`,
+                          background: color,
+                          borderRadius: "4px 4px 0 0",
+                          boxShadow: `0 0 12px ${color}, 0 -2px 0 rgba(0,0,0,0.2) inset`,
+                          transition: "height 400ms ease",
+                          border: "1.5px solid #170826",
+                        }}
+                      />
+                    )}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: value > 0 ? color : "var(--ink-mute)",
+                      fontFamily: "var(--f-display)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {value ? value + "%" : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--ink-mute)", marginTop: 6, padding: "0 4px", fontFamily: "var(--f-display)", letterSpacing: 0.6 }}>
+            <span>MON</span>
+            <span>TUE</span>
+            <span>WED</span>
+            <span>THU</span>
+            <span>FRI</span>
+            <span>SAT</span>
+            <span>SUN</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Weakness Radar — Wave 3 */}
+      <WeaknessRadarCard radar={radar} />
+
+      {/* Two-col: Sessions Table + Recommendations */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {/* Recent tutor sessions */}
+        <div className="panel" style={{ padding: 18 }}>
+          <span className="label" style={{ color: "var(--neon-cyan)" }}>Recent tutor sessions</span>
+          <table style={{ width: "100%", fontSize: 12, marginTop: 14, borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                {["Subject", "Topic", "Duration", "Score"].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      textAlign: "left",
+                      fontSize: 10,
+                      color: "var(--ink-mute)",
+                      textTransform: "uppercase",
+                      letterSpacing: 0.8,
+                      paddingBottom: 10,
+                      fontWeight: 700,
+                      fontFamily: "var(--f-display)",
+                      borderBottom: "2px solid var(--line-soft)",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { subject: "Math", topic: "Linear equations", duration: "32 min", score: "92%", scoreBg: "rgba(166,255,59,0.18)", scoreColor: "var(--neon-lime)" },
+                { subject: "Science", topic: "Cell division", duration: "28 min", score: "88%", scoreBg: "rgba(166,255,59,0.18)", scoreColor: "var(--neon-lime)" },
+                { subject: "English", topic: "Narrative voice", duration: "22 min", score: "79%", scoreBg: "rgba(255,229,61,0.18)", scoreColor: "var(--neon-yel)" },
+                { subject: "History", topic: "World War I", duration: "35 min", score: "85%", scoreBg: "rgba(166,255,59,0.18)", scoreColor: "var(--neon-lime)" },
+                { subject: "Math", topic: "Introduction to algebra", duration: "40 min", score: "96%", scoreBg: "rgba(166,255,59,0.18)", scoreColor: "var(--neon-lime)" },
+              ].map((session, i) => (
+                <tr key={i} style={{ borderBottom: "1.5px solid var(--line-soft)" }}>
+                  <td style={{ padding: "10px 0", color: "var(--ink)", fontWeight: 700 }}>{session.subject}</td>
+                  <td style={{ padding: "10px 0", color: "var(--ink-dim)" }}>{session.topic}</td>
+                  <td style={{ padding: "10px 0", color: "var(--ink-mute)" }}>{session.duration}</td>
+                  <td style={{ padding: "10px 0" }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        padding: "3px 10px",
+                        borderRadius: 999,
+                        fontWeight: 800,
+                        fontFamily: "var(--f-display)",
+                        background: session.scoreBg,
+                        color: session.scoreColor,
+                        border: `1.5px solid ${session.scoreColor}`,
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      {session.score}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Recommended next */}
+        <div className="panel yel" style={{ padding: 18 }}>
+          <span className="label" style={{ color: "var(--neon-yel)" }}>Recommended next</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+            {recommendations.length === 0 ? (
+              <div style={{ fontSize: 12, color: "var(--ink-mute)", padding: 8 }}>
+                No recommendations yet — complete a chapter to unlock the next one.
+              </div>
+            ) : (
+              recommendations.map((rec) => (
+                <div
+                  key={`${rec.subject_id}-${rec.chapter_id}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1.5px solid var(--line-soft)",
+                    borderRadius: 12,
+                    padding: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 3,
+                      background: rec.dot,
+                      boxShadow: `0 0 10px ${rec.dot}`,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: "var(--ink)", fontWeight: 700, fontFamily: "var(--f-display)" }}>
+                      {rec.title}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--ink-mute)", marginTop: 2 }}>{rec.sub}</div>
+                  </div>
+                  <a
+                    href={`/learn/${rec.subject_id}/${rec.chapter_id}`}
+                    className="chunky-btn"
+                    style={{
+                      fontSize: 11,
+                      padding: "6px 12px",
+                      background: "var(--neon-yel)",
+                      color: "#170826",
+                      textDecoration: "none",
+                      whiteSpace: "nowrap",
+                      border: "2px solid #170826",
+                      borderRadius: 10,
+                      boxShadow: "0 3px 0 0 #170826, 0 0 12px rgba(255,229,61,0.5)",
+                      fontFamily: "var(--f-display)",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.6,
+                    }}
+                  >
+                    Start →
+                  </a>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </ArcadeShell>
   );
 }
 
@@ -489,9 +684,9 @@ function WeaknessRadarCard({ radar }: { radar: WeaknessRadar | null }) {
   const radarPoints = subjects.filter((s) => s.score != null);
   const showRadar = radarPoints.length >= 3;
 
-  const SIZE = 220;
+  const SIZE = 240;
   const CENTER = SIZE / 2;
-  const RADIUS = 80;
+  const RADIUS = 86;
   const RINGS = [0.25, 0.5, 0.75, 1];
 
   const polarCoord = (i: number, n: number, value01: number) => {
@@ -511,14 +706,12 @@ function WeaknessRadarCard({ radar }: { radar: WeaknessRadar | null }) {
     : "";
 
   return (
-    <div className="grid grid-cols-2 gap-3 mb-3">
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
       {/* Mastery radar */}
-      <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-        <div className="text-[11px] text-[var(--text-muted)] font-[500] uppercase tracking-wider mb-3">
-          Mastery radar
-        </div>
+      <div className="panel" style={{ padding: 18 }}>
+        <span className="label" style={{ color: "var(--neon-vio)" }}>Mastery radar</span>
         {showRadar ? (
-          <div className="flex items-center justify-center">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginTop: 12 }}>
             <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
               {/* Rings */}
               {RINGS.map((r) => (
@@ -528,7 +721,7 @@ function WeaknessRadarCard({ radar }: { radar: WeaknessRadar | null }) {
                   cy={CENTER}
                   r={RADIUS * r}
                   fill="none"
-                  stroke="var(--border)"
+                  stroke="rgba(155, 92, 255, 0.18)"
                   strokeWidth={1}
                 />
               ))}
@@ -543,7 +736,7 @@ function WeaknessRadarCard({ radar }: { radar: WeaknessRadar | null }) {
                       y1={CENTER}
                       x2={x}
                       y2={y}
-                      stroke="var(--border)"
+                      stroke="rgba(155, 92, 255, 0.18)"
                       strokeWidth={1}
                     />
                     <text
@@ -551,8 +744,10 @@ function WeaknessRadarCard({ radar }: { radar: WeaknessRadar | null }) {
                       y={label.y}
                       textAnchor="middle"
                       dominantBaseline="middle"
-                      fontSize={9}
-                      fill="var(--text-muted)"
+                      fontSize={10}
+                      fill="var(--ink-mute)"
+                      fontFamily="var(--f-display)"
+                      fontWeight={700}
                     >
                       {s.subject_name.length > 10
                         ? s.subject_name.slice(0, 9) + "…"
@@ -564,44 +759,59 @@ function WeaknessRadarCard({ radar }: { radar: WeaknessRadar | null }) {
               {/* Mastery polygon */}
               <polygon
                 points={masteryPoly}
-                fill="rgba(91, 94, 255, 0.25)"
-                stroke="#5b5eff"
+                fill="rgba(39, 224, 255, 0.25)"
+                stroke="#27e0ff"
                 strokeWidth={2}
+                style={{ filter: "drop-shadow(0 0 8px rgba(39,224,255,0.55))" }}
               />
               {radarPoints.map((s, i) => {
                 const v = Math.max(0.05, Math.min(1, (s.score ?? 0) / 100));
                 const { x, y } = polarCoord(i, radarPoints.length, v);
                 return (
-                  <circle key={s.subject_id} cx={x} cy={y} r={3} fill="#5b5eff" />
+                  <circle
+                    key={s.subject_id}
+                    cx={x}
+                    cy={y}
+                    r={4}
+                    fill="#27e0ff"
+                    stroke="#170826"
+                    strokeWidth={1.5}
+                  />
                 );
               })}
             </svg>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
             {subjects.map((s) => {
               const score = s.score ?? 0;
               const color =
-                score >= 80 ? "#1d9e75" : score >= 60 ? "#5b5eff" : "#ef9f27";
+                score >= 80 ? "var(--neon-lime)" : score >= 60 ? "var(--neon-cyan)" : "var(--neon-yel)";
               return (
-                <div key={s.subject_id} className="flex items-center gap-2.5">
-                  <span className="text-[12px] text-[var(--text-body)] w-24 truncate">
-                    {s.subject_name}
-                  </span>
-                  <div className="flex-1 h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${score}%`, background: color }}
-                    />
+                <div key={s.subject_id}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span
+                      style={{
+                        fontFamily: "var(--f-display)",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "var(--ink)",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      {s.subject_name}
+                    </span>
+                    <span style={{ fontSize: 11, color, fontWeight: 800, fontFamily: "var(--f-display)" }}>
+                      {score ? `${score}%` : "—"}
+                    </span>
                   </div>
-                  <span className="text-[11px] text-[var(--text-muted)] w-10 text-right">
-                    {score ? `${score}%` : "—"}
-                  </span>
+                  <PixelBar value={score} color={color} height={8} />
                 </div>
               );
             })}
             {subjects.length < 3 && (
-              <p className="text-[10px] text-[var(--text-faint)] mt-2">
+              <p style={{ fontSize: 10, color: "var(--ink-mute)", marginTop: 4 }}>
                 Complete a few more chapters to unlock the radar view.
               </p>
             )}
@@ -610,33 +820,51 @@ function WeaknessRadarCard({ radar }: { radar: WeaknessRadar | null }) {
       </div>
 
       {/* Top weak topics */}
-      <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-3xl p-4">
-        <div className="text-[11px] text-[var(--text-muted)] font-[500] uppercase tracking-wider mb-3">
-          Topics to revisit
-        </div>
+      <div className="panel mag" style={{ padding: 18 }}>
+        <span className="label" style={{ color: "var(--neon-mag)" }}>Topics to revisit</span>
         {radar.top_weaknesses.length === 0 ? (
-          <p className="text-[12px] text-[var(--text-muted)]">
+          <p style={{ fontSize: 12, color: "var(--ink-mute)", marginTop: 12 }}>
             No recurring weak spots yet — keep going!
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14, padding: 0, listStyle: "none" }}>
             {radar.top_weaknesses.map((w) => {
               const intensity = Math.min(1, w.count / 3);
+              const dot = `rgba(255, 122, 43, ${0.4 + intensity * 0.6})`;
               return (
                 <li
                   key={w.topic}
-                  className="flex items-center gap-2.5 bg-[var(--bg-raised)] rounded-2xl px-3 py-2"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1.5px solid var(--line-soft)",
+                    borderRadius: 12,
+                    padding: "10px 14px",
+                  }}
                 >
                   <div
-                    className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{
-                      background: `rgba(239, 159, 39, ${0.4 + intensity * 0.6})`,
+                      width: 10,
+                      height: 10,
+                      borderRadius: 3,
+                      flexShrink: 0,
+                      background: dot,
+                      boxShadow: `0 0 10px ${dot}`,
                     }}
                   />
-                  <span className="text-[12px] text-[var(--text-body)] flex-1 truncate">
+                  <span style={{ fontSize: 12, color: "var(--ink)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>
                     {w.topic}
                   </span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-[500]">
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--neon-ora)",
+                      fontWeight: 800,
+                      fontFamily: "var(--f-display)",
+                    }}
+                  >
                     ×{w.count}
                   </span>
                 </li>

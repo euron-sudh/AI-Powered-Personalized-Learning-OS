@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BookOpen, Briefcase, Headphones } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
 import { useVoiceChat } from "@/hooks/useVoiceChat";
+import { ArcadeShell, PixelBar } from "@/components/arcade";
 
 interface Chapter {
   id: string;
@@ -15,8 +16,8 @@ interface Chapter {
 }
 
 type Visual =
-  | { kind: "youtube"; videoId: string; title: string; concept?: string }
-  | { kind: "diagram"; mermaidCode: string; title: string }
+  | { kind: "video"; videoId: string; title: string; concept?: string; startSeconds?: number; endSeconds?: number }
+  | { kind: "diagram"; mermaidCode: string; title: string; imageUrl?: string; imageAlt?: string }
   | { kind: "image"; url: string; title: string; alt?: string };
 
 interface Message {
@@ -29,6 +30,43 @@ interface EmotionData {
   emotion: string;
   confidence: number;
   color: string;
+}
+
+// Tiny inline markdown renderer for the Byte Chat bubbles. Handles
+// **bold** and splits the tutor's stream into sentence-level paragraphs
+// so the transcript is readable instead of a single wrapping wall.
+function applyBold(text: string, keyBase: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  const re = /\*\*([^*]+)\*\*/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let key = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(<strong key={`${keyBase}-${key++}`}>{m[1]}</strong>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+function renderTutorMarkdown(text: string): React.ReactNode {
+  // Split on sentence-ending punctuation that's followed by whitespace.
+  // Keeps the punctuation with its sentence. Empty chunks are skipped.
+  const sentences = text
+    .split(/(?<=[.!?])\s+(?=[A-Z"'(])/g)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (sentences.length <= 1) return applyBold(text, "s0");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {sentences.map((s, i) => (
+        <p key={i} style={{ margin: 0 }}>
+          {applyBold(s, `s${i}`)}
+        </p>
+      ))}
+    </div>
+  );
 }
 
 function sanitizeMermaid(code: string): string {
@@ -156,6 +194,138 @@ function MermaidDiagram({ code }: { code: string }) {
   );
 }
 
+// Stage diagram with an optional side-by-side example photo. If the image
+// URL 404s (the tutor occasionally hallucinates paths) we hide the image
+// pane gracefully so the diagram still reads.
+function DiagramWithOptionalImage({
+  code,
+  imageUrl,
+  imageAlt,
+}: {
+  code: string;
+  imageUrl?: string;
+  imageAlt?: string;
+}) {
+  const [imgBroken, setImgBroken] = useState(false);
+  const showImage = Boolean(imageUrl) && !imgBroken;
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: showImage ? "1fr 1fr" : "1fr",
+        gap: 12,
+        width: "100%",
+        height: "100%",
+      }}
+    >
+      <div style={{ minWidth: 0, minHeight: 0 }}>
+        <MermaidDiagram code={code} />
+      </div>
+      {showImage && (
+        <div
+          style={{
+            minWidth: 0,
+            minHeight: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f8fafc",
+            borderRadius: 8,
+            border: "1px solid #e2e8f0",
+            padding: 6,
+          }}
+        >
+          <img
+            src={imageUrl}
+            alt={imageAlt || ""}
+            onError={() => setImgBroken(true)}
+            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Look up a real Wikipedia image for a concept query. Tries the REST
+// `summary` endpoint (often has a full-quality `originalimage`) first,
+// then falls back to the Action API's `pageimages` prop. Returns the
+// image URL string, or null if nothing suitable exists. LLMs can't
+// reliably produce real image URLs — this resolver is what makes "show
+// an example picture" actually work instead of rendering a broken <img>.
+const wikiImageCache = new Map<string, Promise<string | null>>();
+async function resolveWikipediaImage(query: string): Promise<string | null> {
+  const q = query.trim();
+  if (!q) return null;
+  const cached = wikiImageCache.get(q);
+  if (cached) return cached;
+  const p = (async (): Promise<string | null> => {
+    try {
+      const sumRes = await fetch(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`,
+        { headers: { Accept: "application/json" } },
+      );
+      if (sumRes.ok) {
+        const data = await sumRes.json();
+        const src: unknown = data?.originalimage?.source ?? data?.thumbnail?.source;
+        if (typeof src === "string" && src.startsWith("https://")) return src;
+        // Page exists but has no lead image. Don't substitute a random
+        // search result (often unrelated like a screenshot) — return null
+        // and let the diagram stand alone. If the page didn't exist (404),
+        // fall through to the search fallback below.
+        return null;
+      }
+      const api = new URL("https://en.wikipedia.org/w/api.php");
+      api.searchParams.set("action", "query");
+      api.searchParams.set("format", "json");
+      api.searchParams.set("origin", "*");
+      api.searchParams.set("generator", "search");
+      api.searchParams.set("gsrsearch", q);
+      api.searchParams.set("gsrlimit", "1");
+      api.searchParams.set("prop", "pageimages");
+      api.searchParams.set("piprop", "original|thumbnail");
+      api.searchParams.set("pithumbsize", "800");
+      const searchRes = await fetch(api.toString());
+      if (searchRes.ok) {
+        const data = await searchRes.json();
+        const pages = (data?.query?.pages ?? {}) as Record<string, { original?: { source?: string }; thumbnail?: { source?: string } }>;
+        for (const key of Object.keys(pages)) {
+          const src = pages[key].original?.source ?? pages[key].thumbnail?.source;
+          if (typeof src === "string" && src.startsWith("https://")) return src;
+        }
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  })();
+  wikiImageCache.set(q, p);
+  return p;
+}
+
+// Build a youtube-nocookie embed URL that stays in-app. `rel=0` kills the
+// related-videos grid at the end, `modestbranding=1` hides the YouTube logo
+// in the control bar, `iv_load_policy=3` drops annotations. Combined with the
+// iframe sandbox (no allow-popups, no allow-top-navigation), clicks on the
+// "Watch on YouTube" overlay don't go anywhere.
+function buildInlineVideoEmbedUrl(
+  videoId: string,
+  opts: { autoplay?: boolean; start?: number; end?: number } = {},
+): string {
+  const p = new URLSearchParams({
+    rel: "0",
+    modestbranding: "1",
+    iv_load_policy: "3",
+    playsinline: "1",
+    controls: "1",
+    cc_load_policy: "1",
+  });
+  if (opts.autoplay) p.set("autoplay", "1");
+  if (opts.start !== undefined) p.set("start", String(opts.start));
+  if (opts.end !== undefined) p.set("end", String(opts.end));
+  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${p.toString()}`;
+}
+
 const EMOTIONS: Record<string, { label: string; color: string; bgColor: string }> = {
   engaged: { label: "Engaged", color: "#16a34a", bgColor: "#dcfce7" },
   confused: { label: "Confused", color: "#d97706", bgColor: "#fef3c7" },
@@ -180,6 +350,10 @@ export default function TutorPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const subjectId = params.subjectId as string;
   const chapterId = params.chapterId as string;
+  const searchParams = useSearchParams();
+  const quizTopic = searchParams.get("topic") ?? undefined;
+  const quizCorrect = searchParams.get("correct") ?? undefined;
+  const quizChosen = searchParams.get("chosen") ?? undefined;
 
   const voiceOptions = useMemo(
     () => ({
@@ -187,21 +361,52 @@ export default function TutorPage() {
       lessonTitle: chapter?.title,
       chapterDescription: chapter?.description,
       subjectName,
+      quizTopic,
+      quizCorrect,
+      quizChosen,
       onToolCall: (toolName: string, args: Record<string, unknown>) => {
         let v: Visual | null = null;
-        if (toolName === "show_youtube_video") {
+        if (toolName === "show_video" || toolName === "show_youtube_video") {
+          // `show_youtube_video` kept as alias for older model turns mid-session.
+          const toNumOrUndef = (x: unknown) => {
+            const n = typeof x === "number" ? x : typeof x === "string" ? Number(x) : NaN;
+            return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined;
+          };
           v = {
-            kind: "youtube",
+            kind: "video",
             videoId: String(args.video_id ?? ""),
             title: String(args.title ?? "Video"),
             concept: args.concept ? String(args.concept) : undefined,
+            startSeconds: toNumOrUndef(args.start_seconds),
+            endSeconds: toNumOrUndef(args.end_seconds),
           };
         } else if (toolName === "show_diagram") {
-          v = {
+          const diagram: Visual = {
             kind: "diagram",
             mermaidCode: String(args.mermaid_code ?? ""),
             title: String(args.title ?? "Diagram"),
+            imageUrl: args.image_url ? String(args.image_url) : undefined,
+            imageAlt: args.image_alt ? String(args.image_alt) : undefined,
           };
+          v = diagram;
+          const imageQuery = args.image_query ? String(args.image_query) : undefined;
+          // Async Wikipedia resolution — patch the Visual in place once we
+          // have a real URL. Compares by reference so later visuals aren't
+          // overwritten if the student already moved on.
+          if (!diagram.imageUrl && imageQuery) {
+            void resolveWikipediaImage(imageQuery).then((url) => {
+              if (!url) return;
+              const patched: Visual = {
+                ...diagram,
+                imageUrl: url,
+                imageAlt: diagram.imageAlt || imageQuery,
+              };
+              setCurrentVisual((cur) => (cur === diagram ? patched : cur));
+              setMessages((prev) =>
+                prev.map((m) => (m.visual === diagram ? { ...m, visual: patched } : m)),
+              );
+            });
+          }
         } else if (toolName === "show_image") {
           v = {
             kind: "image",
@@ -216,7 +421,7 @@ export default function TutorPage() {
         }
       },
     }),
-    [chapterId, chapter?.title, chapter?.description, subjectName]
+    [chapterId, chapter?.title, chapter?.description, subjectName, quizTopic, quizCorrect, quizChosen]
   );
 
   const {
@@ -298,7 +503,23 @@ export default function TutorPage() {
         const data = await res.json();
         if (data.subject_name) setSubjectName(data.subject_name);
         const ch = data.chapters?.find((c: any) => c.id === chapterId);
-        if (ch) setChapter(ch);
+        if (ch) {
+          setChapter(ch);
+          // Remember this lesson so the dashboard's "Continue Learning" can
+          // drop the student right back here next time.
+          try {
+            localStorage.setItem(
+              "learnos:last-lesson",
+              JSON.stringify({
+                subjectId,
+                chapterId,
+                chapterTitle: ch.title,
+                subjectName: data.subject_name ?? "",
+                at: Date.now(),
+              })
+            );
+          } catch { /* storage may be disabled */ }
+        }
       }
     } catch (err) {
       console.error("Failed to load chapter:", err);
@@ -395,310 +616,699 @@ export default function TutorPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-54px)] items-center justify-center bg-[var(--bg-base)]">
-        <div className="text-center">
-          <div className="w-8 h-8 rounded-full border-2 border-[#3d3faa] border-t-[#5b5eff] animate-spin mx-auto mb-3" />
-          <p className="text-[var(--text-muted)] text-sm">Loading lesson…</p>
+      <ArcadeShell active="Learn" pixels={8}>
+        <div style={{ display: "grid", placeItems: "center", minHeight: "60vh" }}>
+          <div style={{ textAlign: "center" }}>
+            <div
+              className="anim-glow"
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: "50%",
+                border: "3px solid var(--line)",
+                borderTopColor: "var(--neon-cyan)",
+                margin: "0 auto 16px",
+                animation: "spin 1s linear infinite",
+              }}
+            />
+            <p className="label" style={{ color: "var(--neon-cyan)" }}>Loading lesson…</p>
+          </div>
         </div>
-      </div>
+      </ArcadeShell>
     );
   }
 
+  const sessionMin = Math.floor((Date.now() - sessionStarted.getTime()) / 60000);
+  const sessionSec = String(
+    Math.floor(((Date.now() - sessionStarted.getTime()) % 60000) / 1000)
+  ).padStart(2, "0");
+
+  const titleWords = (chapter?.title ?? "Lesson").split(" ");
+  const titleAccent = titleWords.length > 1 ? titleWords.pop() : null;
+  const titleHead = titleWords.join(" ");
+
   return (
-    <div className="h-[calc(100vh-64px)] bg-[var(--bg-page)] flex overflow-hidden">
-      {/* Video Panel (Left) */}
-      <div className="flex-1 border-r border-[var(--border)] flex flex-col">
-        <div className="flex-1 flex items-center justify-center p-8 relative">
-          <div className="w-full max-w-2xl relative">
-            <div className="aspect-video bg-gradient-to-br from-[var(--brand-blue-soft)] via-white to-[var(--subject-coding-bg)] rounded-3xl border border-[var(--border)] flex items-center justify-center relative overflow-hidden shadow-elevated">
+    <ArcadeShell active="Learn" pixels={8}>
+      {/* Breadcrumb */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          fontSize: 12,
+          color: "var(--ink-mute)",
+          marginBottom: 14,
+        }}
+      >
+        <span className="label">{subjectName || "Subject"}</span>
+        <span>›</span>
+        <Link href={`/learn/${subjectId}`} className="label" style={{ textDecoration: "none" }}>
+          Chapters
+        </Link>
+        <span>›</span>
+        <span className="label" style={{ color: "var(--neon-cyan)" }}>
+          {chapter?.title ?? "Lesson"}
+        </span>
+      </div>
+
+      {/* Two-column layout */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20 }}>
+        {/* Main panel */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Hero / tutor visual panel */}
+          <div className="panel" style={{ padding: 24, position: "relative", overflow: "hidden" }}>
+            <div className="scanline" />
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "start",
+                marginBottom: 18,
+                gap: 16,
+              }}
+            >
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <span
+                  className="pill"
+                  style={{ color: "var(--neon-cyan)", borderColor: "var(--neon-cyan)" }}
+                >
+                  Live Lesson
+                </span>
+                <h1 className="h-display" style={{ fontSize: 32, margin: "10px 0 6px" }}>
+                  {titleHead}
+                  {titleAccent && (
+                    <>
+                      {" "}
+                      <span style={{ color: "var(--neon-yel)" }}>{titleAccent}</span>
+                    </>
+                  )}
+                </h1>
+                <p style={{ color: "var(--ink-dim)", maxWidth: 640 }}>
+                  {chapter?.description ?? "Let's dive in with Byte, your AI tutor."}
+                </p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+                <div
+                  className="pill"
+                  style={{ color: "var(--neon-lime)", borderColor: "var(--neon-lime)" }}
+                >
+                  ⏱ {sessionMin}:{sessionSec}
+                </div>
+                <div
+                  className="pill"
+                  style={{
+                    color: isConnected ? "var(--neon-lime)" : "var(--neon-ora)",
+                    borderColor: isConnected ? "var(--neon-lime)" : "var(--neon-ora)",
+                  }}
+                >
+                  {isConnected
+                    ? isAISpeaking
+                      ? "● Speaking"
+                      : isListening
+                      ? "● Listening"
+                      : isProcessingTranscript
+                      ? "● Thinking"
+                      : "● Connected"
+                    : "○ Connecting"}
+                </div>
+              </div>
+            </div>
+
+            {/* Tutor / visual stage */}
+            <div
+              style={{
+                height: 380,
+                borderRadius: 16,
+                background: "radial-gradient(circle at center, #201343, #0b0716)",
+                border: "2px solid var(--line)",
+                position: "relative",
+                overflow: "hidden",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
               {currentVisual ? (
-                <div className="absolute inset-0 flex flex-col bg-white">
-                  <div className="flex justify-between items-center px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-deep)]">
-                    <p className="text-sm font-bold text-[var(--text-primary)] truncate">
-                      {currentVisual.kind === "youtube" ? "📺 " : "📊 "}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    background: "#0b0716",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "10px 14px",
+                      borderBottom: "2px solid var(--line)",
+                      background: "rgba(0,0,0,0.4)",
+                    }}
+                  >
+                    <p
+                      className="label"
+                      style={{
+                        color: "var(--neon-cyan)",
+                        fontSize: 11,
+                        margin: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {currentVisual.kind === "video" ? "📺 " : currentVisual.kind === "image" ? "🖼 " : "📊 "}
                       {currentVisual.title}
                     </p>
                     <button
                       onClick={() => setCurrentVisual(null)}
-                      className="text-xs text-[var(--text-muted)] hover:text-[var(--red)] px-2 py-1 rounded"
+                      className="pill"
+                      style={{ cursor: "pointer", color: "var(--neon-mag)", borderColor: "var(--neon-mag)" }}
                       title="Hide visual"
                     >
                       ✕
                     </button>
                   </div>
-                  <div className="flex-1 overflow-auto p-3 flex items-center justify-center">
-                    {currentVisual.kind === "youtube" ? (
+                  <div
+                    style={{
+                      flex: 1,
+                      overflow: "auto",
+                      padding: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "#fff",
+                    }}
+                  >
+                    {currentVisual.kind === "video" ? (
                       <iframe
-                        className="w-full h-full rounded-lg"
-                        src={`https://www.youtube.com/embed/${currentVisual.videoId}?autoplay=1`}
+                        style={{ width: "100%", height: "100%", borderRadius: 8, border: 0 }}
+                        src={buildInlineVideoEmbedUrl(currentVisual.videoId, {
+                          autoplay: true,
+                          start: currentVisual.startSeconds,
+                          end: currentVisual.endSeconds,
+                        })}
                         title={currentVisual.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
+                        referrerPolicy="no-referrer"
+                        sandbox="allow-scripts allow-same-origin allow-presentation"
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                      />
+                    ) : currentVisual.kind === "diagram" ? (
+                      <DiagramWithOptionalImage
+                        code={currentVisual.mermaidCode}
+                        imageUrl={currentVisual.imageUrl}
+                        imageAlt={currentVisual.imageAlt || currentVisual.title}
                       />
                     ) : (
-                      <MermaidDiagram code={currentVisual.mermaidCode} />
+                      <img
+                        src={currentVisual.url}
+                        alt={currentVisual.alt || currentVisual.title}
+                        style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                      />
                     )}
                   </div>
                 </div>
               ) : (
-                <div className="text-center">
-                  <div className="relative w-36 h-36 mx-auto mb-4">
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ position: "relative", width: 160, height: 160, margin: "0 auto 16px" }}>
                     <div
-                      className={`w-36 h-36 rounded-full bg-gradient-to-br from-[var(--brand-blue)] to-[var(--subject-coding)] flex items-center justify-center shadow-elevated ${
-                        isAISpeaking ? "animate-pulse" : ""
-                      }`}
+                      className={isAISpeaking ? "anim-bop" : "anim-float"}
+                      style={{
+                        width: 160,
+                        height: 160,
+                        borderRadius: "50%",
+                        background:
+                          "linear-gradient(135deg, var(--neon-mag), var(--neon-vio))",
+                        display: "grid",
+                        placeItems: "center",
+                        boxShadow: "0 0 48px rgba(255,62,165,0.45)",
+                        border: "3px solid #170826",
+                      }}
                     >
-                      <span className="text-6xl">🧠</span>
+                      <span style={{ fontSize: 72 }}>🧠</span>
                     </div>
                     {isAISpeaking && (
                       <div
-                        className="absolute inset-0 rounded-full border-4 border-[var(--brand-blue)] animate-ping"
-                        style={{ animationDelay: "0.5s" }}
+                        className="anim-glow"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "50%",
+                          border: "3px solid var(--neon-cyan)",
+                          animation: "ping 1.2s ease-out infinite",
+                        }}
                       />
                     )}
                   </div>
-                  <p className="text-[var(--text-primary)] font-extrabold text-xl">AI Tutor</p>
-                  <p className="text-sm text-[var(--text-muted)] mt-1 font-medium">{chapter?.title}</p>
-                  <p className="text-xs mt-3 font-bold inline-block px-3 py-1 rounded-full" style={{ color: isConnected ? "var(--green)" : "var(--amber)", background: isConnected ? "var(--green-bg)" : "var(--amber-bg)" }}>
-                    {isConnected
-                      ? isAISpeaking
-                        ? "● Speaking…"
-                        : isListening
-                        ? "● Listening…"
-                        : isProcessingTranscript
-                        ? "● Thinking…"
-                        : "● Connected"
-                      : "○ Connecting…"}
-                  </p>
+                  <div className="h-display" style={{ fontSize: 22, color: "var(--ink)" }}>
+                    AI Tutor
+                  </div>
+                  <div className="label" style={{ marginTop: 6, color: "var(--ink-mute)" }}>
+                    {chapter?.title}
+                  </div>
                   {voiceError && (
-                    <p className="text-xs mt-2 text-[var(--red)] max-w-xs">{voiceError}</p>
+                    <div
+                      className="pill"
+                      style={{
+                        marginTop: 12,
+                        color: "var(--neon-mag)",
+                        borderColor: "var(--neon-mag)",
+                        maxWidth: 320,
+                      }}
+                    >
+                      {voiceError}
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* Emotion Detection Bar (Top Right) */}
+              {/* Emotion bar (top right) */}
               {currentEmotion && (
-                <div className="absolute top-4 right-4 bg-white/95 backdrop-blur border border-[var(--border)] rounded-2xl px-3 py-2 shadow-card">
-                  <div className="text-[10px] font-bold text-[var(--text-primary)] mb-2">
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 14,
+                    right: 14,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    background: "rgba(0,0,0,0.55)",
+                    border: "2px solid var(--line)",
+                    minWidth: 140,
+                  }}
+                >
+                  <div className="label" style={{ color: "var(--neon-cyan)", fontSize: 10 }}>
                     {EMOTIONS[currentEmotion.emotion].label}
                   </div>
-                  <div className="w-24 h-1.5 bg-[var(--bg-deep)] rounded-full overflow-hidden">
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 6,
+                      background: "rgba(255,255,255,0.08)",
+                      borderRadius: 3,
+                      overflow: "hidden",
+                      marginTop: 6,
+                    }}
+                  >
                     <div
-                      className="h-full rounded-full transition-all"
                       style={{
                         width: `${currentEmotion.confidence * 100}%`,
+                        height: "100%",
                         background: currentEmotion.color,
+                        boxShadow: `0 0 8px ${currentEmotion.color}`,
+                        transition: "width 400ms ease",
                       }}
                     />
                   </div>
-                  <div className="text-[9px] text-[var(--text-muted)] mt-1 font-medium">
+                  <div style={{ fontSize: 10, color: "var(--ink-mute)", marginTop: 4 }}>
                     {Math.round(currentEmotion.confidence * 100)}% confident
                   </div>
                 </div>
               )}
 
+              {/* Video feed placeholder (bottom right) */}
               {isVideoOn && (
-                <div className="absolute bottom-4 right-4 w-24 h-20 bg-white border-2 border-[var(--border)] rounded-2xl flex items-center justify-center shadow-card">
-                  <span className="text-2xl">📹</span>
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 14,
+                    right: 14,
+                    width: 92,
+                    height: 72,
+                    background: "rgba(0,0,0,0.65)",
+                    border: "2px solid var(--line)",
+                    borderRadius: 10,
+                    display: "grid",
+                    placeItems: "center",
+                    fontSize: 24,
+                  }}
+                >
+                  📹
                 </div>
               )}
+            </div>
 
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur border border-[var(--border)] rounded-full px-3 py-1 shadow-card">
-                <p className="text-[11px] text-[var(--brand-blue)] font-bold">
-                  {Math.floor((Date.now() - sessionStarted.getTime()) / 60000)}:
-                  {String(Math.floor(((Date.now() - sessionStarted.getTime()) % 60000) / 1000)).padStart(2, "0")}
-                </p>
+            {/* Controls row */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: 20,
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                onClick={() => {
+                  disconnect();
+                  router.back();
+                }}
+                className="pill"
+                style={{ cursor: "pointer" }}
+              >
+                ← Back
+              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => toggleListening()}
+                  disabled={!isConnected}
+                  title={isListening ? "Mute mic" : "Unmute mic"}
+                  className="pill"
+                  style={{
+                    cursor: isConnected ? "pointer" : "not-allowed",
+                    opacity: isConnected ? 1 : 0.5,
+                    color: isListening ? "var(--neon-lime)" : "var(--ink-dim)",
+                    borderColor: isListening ? "var(--neon-lime)" : "var(--line)",
+                  }}
+                >
+                  🎤 {isListening ? "On" : "Off"}
+                </button>
+                <button
+                  onClick={() => setIsVideoOn(!isVideoOn)}
+                  className="pill"
+                  style={{
+                    cursor: "pointer",
+                    color: isVideoOn ? "var(--neon-cyan)" : "var(--ink-dim)",
+                    borderColor: isVideoOn ? "var(--neon-cyan)" : "var(--line)",
+                  }}
+                >
+                  📹 {isVideoOn ? "On" : "Off"}
+                </button>
+                <button
+                  onClick={() => (isConnected ? disconnect() : connect(true))}
+                  title={isConnected ? "Disconnect tutor" : "Reconnect tutor"}
+                  className="chunky-btn cyan"
+                  style={{ fontSize: 12, padding: "10px 16px" }}
+                >
+                  {isConnected ? "Disconnect" : "Reconnect"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Sentiment feed panel */}
+          {currentEmotion && (
+            <div className="panel" style={{ padding: 18 }}>
+              <div className="label" style={{ color: "var(--neon-mag)" }}>Student Sentiment</div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: 8,
+                  marginTop: 12,
+                }}
+              >
+                {Object.entries(EMOTIONS).map(([key, { label, color }]) => {
+                  const active = currentEmotion.emotion === key;
+                  return (
+                    <div
+                      key={key}
+                      style={{
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        textAlign: "center",
+                        background: active ? `${color}18` : "rgba(255,255,255,0.04)",
+                        border: "2px solid " + (active ? color : "var(--line)"),
+                        transition: "all 200ms ease",
+                      }}
+                    >
+                      <div
+                        className="h-display"
+                        style={{
+                          fontSize: 13,
+                          color: active ? color : "var(--ink-mute)",
+                          textShadow: active ? `0 0 10px ${color}` : "none",
+                        }}
+                      >
+                        {label}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Chapter header card */}
+          <div className="panel cyan" style={{ padding: 16 }}>
+            <div className="label" style={{ color: "var(--neon-cyan)" }}>Lesson</div>
+            <div className="h-display" style={{ fontSize: 18, margin: "4px 0 10px" }}>
+              {chapter?.title}
+            </div>
+            <PixelBar value={isConnected ? 100 : 40} color="var(--neon-cyan)" />
+            <div className="label" style={{ fontSize: 10, marginTop: 8, color: "var(--ink-mute)" }}>
+              {isConnected ? "Active session" : "Reconnecting…"}
+            </div>
+          </div>
+
+          {/* Quick links */}
+          <div className="panel" style={{ padding: 14 }}>
+            <div className="label">Explore</div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr",
+                gap: 6,
+                marginTop: 10,
+              }}
+            >
+              <Link
+                href={`/story/${chapterId}`}
+                title="Read this chapter as a story"
+                className="pill"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  textDecoration: "none",
+                  fontSize: 11,
+                  padding: "8px 4px",
+                }}
+              >
+                <BookOpen style={{ width: 12, height: 12 }} /> Story
+              </Link>
+              <Link
+                href={`/podcast/${chapterId}`}
+                title="Listen as a podcast"
+                className="pill"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  textDecoration: "none",
+                  fontSize: 11,
+                  padding: "8px 4px",
+                }}
+              >
+                <Headphones style={{ width: 12, height: 12 }} /> Listen
+              </Link>
+              <Link
+                href={`/career/${chapterId}`}
+                title="Where this shows up in real careers"
+                className="pill"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  textDecoration: "none",
+                  fontSize: 11,
+                  padding: "8px 4px",
+                }}
+              >
+                <Briefcase style={{ width: 12, height: 12 }} /> Careers
+              </Link>
+            </div>
+          </div>
+
+          {/* Chat panel */}
+          <div
+            className="panel"
+            style={{ padding: 14, display: "flex", flexDirection: "column", minHeight: 460 }}
+          >
+            <div className="label" style={{ color: "var(--neon-yel)" }}>Byte Chat</div>
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                marginTop: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                maxHeight: 420,
+                paddingRight: 4,
+              }}
+            >
+              {messages.length === 0 && (
+                <div style={{ textAlign: "center", padding: "24px 8px" }}>
+                  <div style={{ fontSize: 28 }}>💬</div>
+                  <p className="label" style={{ color: "var(--ink-mute)", marginTop: 6 }}>
+                    {isConnected ? "Speak or type to start the lesson" : "Connecting to tutor…"}
+                  </p>
+                </div>
+              )}
+              {messages.map((msg, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    justifyContent: msg.role === "student" ? "flex-end" : "flex-start",
+                  }}
+                >
+                  {msg.visual ? (
+                    <div
+                      style={{
+                        width: "100%",
+                        background: "rgba(0,0,0,0.35)",
+                        border: "2px solid var(--line)",
+                        borderRadius: 12,
+                        padding: 8,
+                      }}
+                    >
+                      <div
+                        className="label"
+                        style={{ color: "var(--neon-cyan)", fontSize: 10, padding: "4px 6px" }}
+                      >
+                        {msg.visual.kind === "video" ? "📺 " : msg.visual.kind === "image" ? "🖼 " : "📊 "}
+                        {msg.visual.title}
+                      </div>
+                      {msg.visual.kind === "video" && (
+                        <div
+                          style={{
+                            aspectRatio: "16 / 9",
+                            width: "100%",
+                            borderRadius: 8,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <iframe
+                            style={{ width: "100%", height: "100%", border: 0 }}
+                            src={buildInlineVideoEmbedUrl(msg.visual.videoId, {
+                              start: msg.visual.startSeconds,
+                              end: msg.visual.endSeconds,
+                            })}
+                            title={msg.visual.title}
+                            referrerPolicy="no-referrer"
+                            sandbox="allow-scripts allow-same-origin allow-presentation"
+                            allow="encrypted-media; picture-in-picture"
+                          />
+                        </div>
+                      )}
+                      {msg.visual.kind === "diagram" && (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: 220,
+                            background: "#fff",
+                            borderRadius: 8,
+                            padding: 6,
+                          }}
+                        >
+                          <MermaidDiagram code={msg.visual.mermaidCode} />
+                        </div>
+                      )}
+                      {msg.visual.kind === "image" && (
+                        <img
+                          src={msg.visual.url}
+                          alt={msg.visual.alt || msg.visual.title}
+                          style={{ width: "100%", borderRadius: 8 }}
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        maxWidth: "85%",
+                        padding: "8px 12px",
+                        borderRadius: 12,
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        whiteSpace: "pre-wrap",
+                        background:
+                          msg.role === "student"
+                            ? "linear-gradient(135deg, var(--neon-cyan), var(--neon-vio))"
+                            : "rgba(255,255,255,0.05)",
+                        border:
+                          msg.role === "student"
+                            ? "2px solid #170826"
+                            : "1.5px solid var(--line-soft)",
+                        color: msg.role === "student" ? "#170826" : "var(--ink)",
+                        fontWeight: msg.role === "student" ? 700 : 500,
+                      }}
+                    >
+                      {msg.content
+                        ? msg.role === "tutor"
+                          ? renderTutorMarkdown(msg.content)
+                          : msg.content
+                        : msg.role === "tutor"
+                        ? "…"
+                        : ""}
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div
+              style={{
+                marginTop: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                borderTop: "2px solid var(--line)",
+                paddingTop: 10,
+              }}
+            >
+              {messages.some((m) => m.role === "student") && (
+                <button
+                  onClick={explainDifferently}
+                  className="chunky-btn yel"
+                  style={{ fontSize: 11, padding: "8px 12px" }}
+                  title="Re-explain the last topic with a fresh approach"
+                >
+                  💡 Explain differently
+                </button>
+              )}
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") sendMessage();
+                  }}
+                  placeholder="Ask a question..."
+                  style={{
+                    flex: 1,
+                    background: "rgba(0,0,0,0.35)",
+                    border: "2px solid var(--line)",
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                    fontSize: 12,
+                    color: "var(--ink)",
+                    outline: "none",
+                    fontFamily: "var(--f-body)",
+                  }}
+                />
+                <button
+                  onClick={sendMessage}
+                  className="chunky-btn cyan"
+                  style={{ fontSize: 14, padding: "8px 14px" }}
+                >
+                  ▶
+                </button>
               </div>
             </div>
           </div>
         </div>
-
-        {currentEmotion && (
-          <div className="border-t border-[var(--border)] bg-white p-4">
-            <div className="text-xs text-[var(--text-muted)] mb-2 font-bold uppercase tracking-wide">Student Sentiment</div>
-            <div className="grid grid-cols-4 gap-2">
-              {Object.entries(EMOTIONS).map(([key, { label, color, bgColor }]) => (
-                <div
-                  key={key}
-                  className="px-2 py-2 rounded-xl text-center transition-all"
-                  style={{
-                    background: currentEmotion.emotion === key ? bgColor : "var(--bg-deep)",
-                    border: currentEmotion.emotion === key ? `2px solid ${color}` : "2px solid transparent",
-                  }}
-                >
-                  <div className="text-[11px] font-bold" style={{ color: currentEmotion.emotion === key ? color : "var(--text-muted)" }}>
-                    {label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Controls */}
-        <div className="border-t border-[var(--border)] p-4 flex justify-center gap-4 bg-white">
-          <button
-            onClick={() => toggleListening()}
-            disabled={!isConnected}
-            title={isListening ? "Mute mic" : "Unmute mic"}
-            className={`p-3 rounded-full transition-all disabled:opacity-40 shadow-card ${
-              isListening
-                ? "bg-[var(--accent)] text-white"
-                : "bg-[var(--bg-deep)] text-[var(--text-muted)] hover:bg-[var(--border)]"
-            }`}
-          >
-            🎤
-          </button>
-          <button
-            onClick={() => setIsVideoOn(!isVideoOn)}
-            className={`p-3 rounded-full transition-all shadow-card ${
-              isVideoOn
-                ? "bg-[var(--brand-blue)] text-white"
-                : "bg-[var(--bg-deep)] text-[var(--text-muted)] hover:bg-[var(--border)]"
-            }`}
-          >
-            📹
-          </button>
-          <button
-            onClick={() => (isConnected ? disconnect() : connect(true))}
-            title={isConnected ? "Disconnect tutor" : "Reconnect tutor"}
-            className="p-3 rounded-full bg-[var(--bg-deep)] text-[var(--text-muted)] hover:bg-[var(--border)] transition-all shadow-card"
-          >
-            {isConnected ? "🔇" : "🔊"}
-          </button>
-          <button
-            onClick={() => {
-              disconnect();
-              router.back();
-            }}
-            className="p-3 rounded-full bg-[var(--red)] text-white hover:opacity-90 transition-all shadow-card"
-          >
-            ✕
-          </button>
-        </div>
       </div>
-
-      {/* Chat Panel (Right) */}
-      <div className="w-80 border-l border-[var(--border)] flex flex-col bg-white">
-        <div className="border-b border-[var(--border)] p-4 bg-[var(--bg-deep)]">
-          <h3 className="text-sm font-bold text-[var(--text-primary)]">{chapter?.title}</h3>
-          <p className="text-[11px] text-[var(--text-muted)] mt-1 font-medium">
-            {isConnected ? "● Active session" : "Reconnecting…"}
-          </p>
-          <div className="mt-3 flex gap-1.5">
-            <Link
-              href={`/story/${chapterId}`}
-              title="Read this chapter as a story"
-              className="flex-1 flex items-center justify-center gap-1 bg-white border border-[var(--border)] hover:border-[var(--brand-blue)] hover:text-[var(--brand-blue)] rounded-lg px-2 py-1.5 text-[10px] font-bold text-[var(--text-muted)] transition-colors"
-            >
-              <BookOpen className="w-3 h-3" /> Story
-            </Link>
-            <Link
-              href={`/podcast/${chapterId}`}
-              title="Listen as a podcast"
-              className="flex-1 flex items-center justify-center gap-1 bg-white border border-[var(--border)] hover:border-[var(--brand-blue)] hover:text-[var(--brand-blue)] rounded-lg px-2 py-1.5 text-[10px] font-bold text-[var(--text-muted)] transition-colors"
-            >
-              <Headphones className="w-3 h-3" /> Listen
-            </Link>
-            <Link
-              href={`/career/${chapterId}`}
-              title="Where this shows up in real careers"
-              className="flex-1 flex items-center justify-center gap-1 bg-white border border-[var(--border)] hover:border-[var(--brand-blue)] hover:text-[var(--brand-blue)] rounded-lg px-2 py-1.5 text-[10px] font-bold text-[var(--text-muted)] transition-colors"
-            >
-              <Briefcase className="w-3 h-3" /> Careers
-            </Link>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {messages.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-[12px] text-[var(--text-muted)]">
-                {isConnected ? "Speak or type to start the lesson" : "Connecting to tutor…"}
-              </p>
-            </div>
-          )}
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === "student" ? "justify-end" : "justify-start"}`}
-            >
-              {msg.visual ? (
-                <div className="w-full bg-white border border-[var(--border)] rounded-2xl p-2 shadow-card">
-                  <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wide px-2 py-1">
-                    {msg.visual.kind === "youtube" ? "📺 " : msg.visual.kind === "image" ? "🖼 " : "📊 "}
-                    {msg.visual.title}
-                  </div>
-                  {msg.visual.kind === "youtube" && (
-                    <div className="aspect-video w-full rounded-lg overflow-hidden">
-                      <iframe
-                        className="w-full h-full"
-                        src={`https://www.youtube.com/embed/${msg.visual.videoId}`}
-                        title={msg.visual.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                  )}
-                  {msg.visual.kind === "diagram" && (
-                    <div className="w-full h-56 bg-[var(--bg-deep)] rounded-lg p-2">
-                      <MermaidDiagram code={msg.visual.mermaidCode} />
-                    </div>
-                  )}
-                  {msg.visual.kind === "image" && (
-                    <img
-                      src={msg.visual.url}
-                      alt={msg.visual.alt || msg.visual.title}
-                      className="w-full rounded-lg"
-                    />
-                  )}
-                </div>
-              ) : (
-                <div
-                  className={`max-w-xs rounded-2xl px-4 py-2 text-[12px] leading-relaxed whitespace-pre-wrap shadow-card ${
-                    msg.role === "student"
-                      ? "bg-[var(--brand-blue)] text-white"
-                      : "bg-[var(--bg-deep)] text-[var(--text-body)] border border-[var(--border)]"
-                  }`}
-                >
-                  {msg.content || (msg.role === "tutor" ? "…" : "")}
-                </div>
-              )}
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <div className="border-t border-[var(--border)] p-4 bg-white space-y-2">
-          {messages.some((m) => m.role === "student") && (
-            <button
-              onClick={explainDifferently}
-              className="w-full px-3 py-2 bg-[var(--brand-blue-soft)] text-[var(--brand-blue)] rounded-full font-bold text-xs hover:bg-[var(--brand-blue)] hover:text-white transition-all"
-              title="Re-explain the last topic with a fresh approach"
-            >
-              💡 Explain it differently
-            </button>
-          )}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") sendMessage();
-              }}
-              placeholder="Ask a question..."
-              className="flex-1 bg-[var(--bg-deep)] border border-[var(--border)] rounded-full px-4 py-2 text-[13px] text-[var(--text-body)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--brand-blue)] focus:bg-white transition-colors"
-            />
-            <button
-              onClick={sendMessage}
-              className="px-4 py-2 bg-[var(--accent)] text-white rounded-full font-bold text-sm hover:opacity-90 transition-all shadow-card"
-            >
-              →
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </ArcadeShell>
   );
 }

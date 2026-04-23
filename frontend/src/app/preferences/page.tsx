@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiGet, apiPost, invalidateCache } from "@/lib/api";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { ArcadeShell } from "@/components/arcade";
 
 const GRADE_OPTIONS = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 const SUBJECT_OPTIONS = [
@@ -28,6 +29,18 @@ interface Profile {
   interests: string[];
   background: string | null;
 }
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: 12,
+  border: "2px solid var(--line)",
+  background: "rgba(0,0,0,0.35)",
+  color: "var(--ink)",
+  fontFamily: "var(--f-body)",
+  fontSize: 14,
+  outline: "none",
+};
 
 export default function PreferencesPage() {
   const router = useRouter();
@@ -93,48 +106,89 @@ export default function PreferencesPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full" />
+      <div
+        className="arcade-root"
+        data-grade="68"
+        style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "var(--ink)" }}
+      >
+        Loading…
       </div>
     );
   }
 
   return (
-    <main className="min-h-[calc(100vh-64px)] bg-gray-50 py-8 px-4">
-      <div className="max-w-xl mx-auto space-y-6">
+    <ArcadeShell active="Dashboard" pixels={12}>
+      <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
 
-        {/* Header */}
         <div>
-          <Link href="/profile" className="text-sm text-gray-500 hover:text-gray-700">← Back to Profile</Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-2">Edit Preferences</h1>
-          <p className="text-gray-500 text-sm">Update your grade, board, and subjects.</p>
+          <Link
+            href="/profile"
+            style={{
+              color: "var(--neon-cyan)",
+              fontSize: 12,
+              fontFamily: "var(--f-display)",
+              fontWeight: 700,
+              letterSpacing: 1,
+              textTransform: "uppercase",
+              textDecoration: "none",
+            }}
+          >
+            ← Back to Profile
+          </Link>
+          <h1 className="h-display" style={{ fontSize: 32, margin: "8px 0 0", letterSpacing: 1 }}>
+            Edit <span style={{ color: "var(--neon-mag)" }}>Preferences</span>
+          </h1>
+          <p style={{ color: "var(--ink-mute)", fontSize: 13, marginTop: 4 }}>
+            Update your grade, board, and subjects.
+          </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{error}</div>
+          <div
+            className="panel"
+            style={{
+              padding: "14px 18px",
+              borderColor: "var(--neon-mag)",
+              color: "var(--neon-mag)",
+              fontSize: 13,
+              fontFamily: "var(--f-body)",
+            }}
+          >
+            ⚠ {error}
+          </div>
         )}
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-3 text-sm">Saved! Redirecting…</div>
+          <div
+            className="panel"
+            style={{
+              padding: "14px 18px",
+              borderColor: "var(--neon-lime)",
+              color: "var(--neon-lime)",
+              fontSize: 13,
+              fontFamily: "var(--f-body)",
+            }}
+          >
+            ✓ Saved! Redirecting…
+          </div>
         )}
 
-        {/* Name & Grade */}
-        <div className="bg-white rounded-xl border p-6 space-y-4">
-          <h2 className="font-semibold text-gray-900">Basic Info</h2>
+        <div className="panel cyan" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="h-display" style={{ fontSize: 16, color: "var(--neon-cyan)" }}>BASIC INFO</div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label className="label" style={{ display: "block", marginBottom: 8 }}>Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={inputStyle}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Grade / Year</label>
+            <label className="label" style={{ display: "block", marginBottom: 8 }}>Grade / Year</label>
             <select
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={inputStyle}
             >
               <option value="">Select grade</option>
               {GRADE_OPTIONS.map((g) => (
@@ -144,68 +198,103 @@ export default function PreferencesPage() {
           </div>
         </div>
 
-        {/* Board */}
-        <div className="bg-white rounded-xl border p-6 space-y-3">
-          <h2 className="font-semibold text-gray-900">Curriculum Board</h2>
-          <div className="grid grid-cols-1 gap-2">
-            {BOARD_OPTIONS.map((b) => (
-              <button
-                key={b.id}
-                onClick={() => setBoard(b.id)}
-                className={`text-left px-4 py-3 rounded-lg border transition text-sm ${
-                  board === b.id
-                    ? "border-blue-500 bg-blue-50 text-blue-900"
-                    : "border-gray-200 hover:border-gray-300 text-gray-700"
-                }`}
-              >
-                <span className="font-medium">{b.label}</span>
-                <span className="text-gray-400 ml-2">— {b.desc}</span>
-              </button>
-            ))}
+        <div className="panel mag" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="h-display" style={{ fontSize: 16, color: "var(--neon-mag)" }}>CURRICULUM BOARD</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+            {BOARD_OPTIONS.map((b) => {
+              const active = board === b.id;
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => setBoard(b.id)}
+                  style={{
+                    textAlign: "left",
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    border: `2px solid ${active ? "var(--neon-mag)" : "var(--line)"}`,
+                    background: active ? "rgba(255,62,165,0.12)" : "rgba(0,0,0,0.35)",
+                    color: active ? "var(--neon-mag)" : "var(--ink-dim)",
+                    cursor: "pointer",
+                    fontFamily: "var(--f-body)",
+                    fontSize: 13,
+                    boxShadow: active ? "0 0 14px rgba(255,62,165,0.35)" : "none",
+                    transition: "all 150ms ease",
+                  }}
+                >
+                  <span style={{ fontFamily: "var(--f-display)", fontWeight: 800, letterSpacing: 0.5 }}>{b.label}</span>
+                  <span style={{ color: "var(--ink-mute)", marginLeft: 8 }}>— {b.desc}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Subjects */}
-        <div className="bg-white rounded-xl border p-6 space-y-3">
-          <h2 className="font-semibold text-gray-900">Subjects</h2>
-          <div className="flex flex-wrap gap-2">
-            {SUBJECT_OPTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => toggleSubject(s)}
-                className={`px-3 py-1.5 rounded-full text-sm border transition ${
-                  interests.includes(s)
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "border-gray-300 text-gray-600 hover:border-gray-400"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+        <div className="panel yel" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="h-display" style={{ fontSize: 16, color: "var(--neon-yel)" }}>SUBJECTS</div>
+          <div style={{ color: "var(--ink-mute)", fontSize: 12 }}>
+            Pick all that apply. These unlock your adaptive curriculum.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {SUBJECT_OPTIONS.map((s) => {
+              const active = interests.includes(s);
+              return (
+                <button
+                  key={s}
+                  onClick={() => toggleSubject(s)}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 999,
+                    border: `2px solid ${active ? "var(--neon-yel)" : "var(--line)"}`,
+                    background: active ? "var(--neon-yel)" : "rgba(0,0,0,0.35)",
+                    color: active ? "#170826" : "var(--ink-dim)",
+                    cursor: "pointer",
+                    fontFamily: "var(--f-display)",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                    boxShadow: active ? "0 3px 0 0 #170826, 0 0 14px rgba(255,229,61,0.35)" : "none",
+                    transition: "all 150ms ease",
+                  }}
+                >
+                  {s}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Background */}
-        <div className="bg-white rounded-xl border p-6 space-y-3">
-          <h2 className="font-semibold text-gray-900">Background <span className="text-gray-400 font-normal text-sm">(optional)</span></h2>
+        <div className="panel" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="h-display" style={{ fontSize: 16, color: "var(--neon-lime)" }}>
+            BACKGROUND{" "}
+            <span style={{ color: "var(--ink-mute)", fontSize: 11, fontWeight: 500 }}>(optional)</span>
+          </div>
           <textarea
             value={background}
             onChange={(e) => setBackground(e.target.value)}
-            rows={3}
+            rows={4}
             placeholder="e.g. I love science and want to study engineering..."
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            style={{ ...inputStyle, resize: "none", fontFamily: "var(--f-body)" }}
           />
         </div>
 
-        {/* Save */}
-        <button
-          onClick={handleSave}
-          disabled={saving || success}
-          className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-60"
-        >
-          {saving ? "Saving…" : "Save Preferences"}
-        </button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <Link href="/profile" className="pill" style={{ textDecoration: "none" }}>
+            Cancel
+          </Link>
+          <button
+            onClick={handleSave}
+            disabled={saving || success}
+            className="chunky-btn cyan"
+            style={{
+              opacity: saving || success ? 0.6 : 1,
+              cursor: saving || success ? "not-allowed" : "pointer",
+            }}
+          >
+            {saving ? "Saving…" : "Save Preferences"}
+          </button>
+        </div>
       </div>
-    </main>
+    </ArcadeShell>
   );
 }

@@ -2,17 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  BookOpenCheck,
-  Flame,
-  GraduationCap,
-  Mail,
-  Sparkles,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
+import { ArcadeShell, PixelBar } from "@/components/arcade";
 
 interface Digest {
   student_name: string;
@@ -71,97 +63,277 @@ export default function ParentDigestPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-deep)] text-sm text-[var(--text-muted)]">
-        Building this week&rsquo;s digest…
+      <div
+        className="arcade-root"
+        data-grade="68"
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          color: "var(--ink)",
+        }}
+      >
+        Loading…
       </div>
     );
   }
   if (!digest) return null;
 
+  const masteryValue =
+    digest.weekly_avg_score != null ? digest.weekly_avg_score : 0;
+
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)] py-8 px-4">
-      <div className="max-w-3xl mx-auto space-y-5">
-        <header>
-          <h1 className="text-3xl font-extrabold text-[var(--text-primary)] flex items-center gap-2">
-            <Mail className="w-7 h-7 text-[var(--brand-blue)]" strokeWidth={2} />
-            Parent digest
+    <ArcadeShell active="Dashboard">
+      <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Header */}
+        <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <span className="label" style={{ fontSize: 11, color: "var(--neon-cyan)" }}>
+            Parent view
+          </span>
+          <h1 className="h-display" style={{ fontSize: 36, lineHeight: 1.05, margin: 0 }}>
+            {digest.student_name}
+            <span style={{ color: "var(--neon-yel)" }}> — Grade {digest.grade}</span>
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Week ending {digest.week_ending} — {digest.student_name}, Grade {digest.grade}
+          <p style={{ color: "var(--ink-dim)", fontSize: 13, margin: 0 }}>
+            Week ending {digest.week_ending}
           </p>
         </header>
 
-        {/* AI note */}
-        <section className="bg-white border border-[var(--border)] rounded-2xl p-6 shadow-card">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-3">
-            <Sparkles className="w-4 h-4 text-[var(--brand-blue)]" />
-            This week, in a paragraph
+        {/* Stat tiles */}
+        <section
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, minmax(0,1fr))",
+            gap: 14,
+          }}
+        >
+          <StatTile
+            label="XP"
+            value={digest.xp.toLocaleString()}
+            color="var(--neon-yel)"
+            icon="✦"
+          />
+          <StatTile
+            label="Streak"
+            value={`${digest.streak_days}d`}
+            color="var(--neon-ora)"
+            icon="⚡"
+            sub={`best ${digest.longest_streak}d`}
+          />
+          <StatTile
+            label="Quiz avg"
+            value={
+              digest.weekly_avg_score != null
+                ? `${digest.weekly_avg_score}%`
+                : "—"
+            }
+            color="var(--neon-lime)"
+            icon="◎"
+            sub={`${digest.weekly_quizzes} this week`}
+          />
+          <StatTile
+            label="Level"
+            value={`L${digest.level}`}
+            color="var(--neon-cyan)"
+            icon="★"
+            sub={`${digest.chapters_completed_recent.length} chapters`}
+          />
+        </section>
+
+        {/* Mastery pixel bar */}
+        <section className="panel" style={{ padding: 18 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 10,
+            }}
+          >
+            <span className="label" style={{ fontSize: 11 }}>
+              Weekly mastery
+            </span>
+            <span
+              className="h-display"
+              style={{ fontSize: 14, color: "var(--neon-lime)" }}
+            >
+              {digest.weekly_avg_score != null
+                ? `${digest.weekly_avg_score}%`
+                : "no quizzes"}
+            </span>
           </div>
-          <p className="text-[var(--text-body)] leading-relaxed whitespace-pre-wrap">
+          <PixelBar value={masteryValue} color="var(--neon-lime)" height={14} />
+        </section>
+
+        {/* Digest card — yellow panel */}
+        <section className="panel yel" style={{ padding: 22, position: "relative" }}>
+          <div className="scanline" />
+          <div
+            className="label"
+            style={{
+              fontSize: 11,
+              color: "#170826",
+              marginBottom: 10,
+              letterSpacing: 0.8,
+            }}
+          >
+            ✦ This week, in a paragraph
+          </div>
+          <p
+            style={{
+              color: "#170826",
+              fontFamily: "var(--f-body)",
+              fontSize: 14,
+              lineHeight: 1.6,
+              margin: 0,
+              whiteSpace: "pre-wrap",
+              fontWeight: 500,
+            }}
+          >
             {digest.parent_note}
           </p>
         </section>
 
-        {/* Stat strip */}
-        <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat icon={<BookOpenCheck className="w-4 h-4" />} label="Chapters" value={digest.chapters_completed_recent.length} accent="text-[var(--brand-blue)]" />
-          <Stat icon={<TrendingUp className="w-4 h-4" />} label="Quiz avg" value={digest.weekly_avg_score != null ? `${digest.weekly_avg_score}%` : "—"} accent="text-[var(--subject-science)]" />
-          <Stat icon={<GraduationCap className="w-4 h-4" />} label="Level" value={digest.level} accent="text-[var(--subject-coding)]" />
-          <Stat icon={<Flame className="w-4 h-4" />} label="Streak" value={`${digest.streak_days}d`} accent="text-[var(--subject-english)]" />
-        </section>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {/* Strengths */}
-          <section className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-3">
-              <TrendingUp className="w-4 h-4 text-[var(--subject-science)]" />
-              Strengths
+        {/* Strengths + Focus areas */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, minmax(0,1fr))",
+            gap: 14,
+          }}
+        >
+          <section className="panel" style={{ padding: 18 }}>
+            <div
+              className="label"
+              style={{
+                fontSize: 11,
+                color: "var(--neon-lime)",
+                marginBottom: 12,
+              }}
+            >
+              ▲ Strengths
             </div>
             {digest.top_strengths.length === 0 ? (
-              <p className="text-xs text-[var(--text-muted)]">Nothing notable yet.</p>
+              <p style={{ fontSize: 12, color: "var(--ink-mute)", margin: 0 }}>
+                Nothing notable yet.
+              </p>
             ) : (
-              <ul className="space-y-1.5">
+              <ul
+                style={{
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
                 {digest.top_strengths.map((s) => (
-                  <li key={s} className="text-sm text-[var(--text-body)]">• {s}</li>
+                  <li
+                    key={s}
+                    style={{ fontSize: 13, color: "var(--ink)", fontFamily: "var(--f-body)" }}
+                  >
+                    <span style={{ color: "var(--neon-lime)" }}>◆ </span>
+                    {s}
+                  </li>
                 ))}
               </ul>
             )}
           </section>
 
-          {/* Focus */}
-          <section className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-3">
-              <TrendingDown className="w-4 h-4 text-[var(--subject-english)]" />
-              Focus areas
+          <section className="panel" style={{ padding: 18 }}>
+            <div
+              className="label"
+              style={{
+                fontSize: 11,
+                color: "var(--neon-mag)",
+                marginBottom: 12,
+              }}
+            >
+              ▼ Focus areas
             </div>
             {digest.top_focus_areas.length === 0 ? (
-              <p className="text-xs text-[var(--text-muted)]">No recurring weak spots.</p>
+              <p style={{ fontSize: 12, color: "var(--ink-mute)", margin: 0 }}>
+                No recurring weak spots.
+              </p>
             ) : (
-              <ul className="space-y-1.5">
+              <ul
+                style={{
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
                 {digest.top_focus_areas.map((s) => (
-                  <li key={s} className="text-sm text-[var(--text-body)]">• {s}</li>
+                  <li
+                    key={s}
+                    style={{ fontSize: 13, color: "var(--ink)", fontFamily: "var(--f-body)" }}
+                  >
+                    <span style={{ color: "var(--neon-mag)" }}>◆ </span>
+                    {s}
+                  </li>
                 ))}
               </ul>
             )}
           </section>
         </div>
 
-        {/* Recent chapters */}
-        <section className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
-          <div className="text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-3">
-            Recently completed
+        {/* Recent activity */}
+        <section className="panel" style={{ padding: 18 }}>
+          <div
+            className="label"
+            style={{
+              fontSize: 11,
+              color: "var(--neon-cyan)",
+              marginBottom: 12,
+            }}
+          >
+            ◉ Recently completed
           </div>
           {digest.chapters_completed_recent.length === 0 ? (
-            <p className="text-xs text-[var(--text-muted)]">No chapters completed in this window.</p>
+            <p style={{ fontSize: 12, color: "var(--ink-mute)", margin: 0 }}>
+              No chapters completed in this window.
+            </p>
           ) : (
-            <ul className="space-y-2">
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
               {digest.chapters_completed_recent.map((c) => (
                 <li
                   key={c.title}
-                  className="flex items-center justify-between bg-[var(--bg-deep)] rounded-xl px-3 py-2"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    background: "rgba(0,0,0,0.3)",
+                    border: "2px solid var(--line-soft)",
+                  }}
                 >
-                  <span className="text-sm text-[var(--text-body)]">{c.title}</span>
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--text-muted)]">
+                  <span
+                    style={{
+                      fontSize: 13,
+                      color: "var(--ink)",
+                      fontFamily: "var(--f-body)",
+                    }}
+                  >
+                    {c.title}
+                  </span>
+                  <span
+                    className="pill"
+                    style={{ fontSize: 10, padding: "4px 10px" }}
+                  >
                     {c.subject}
                   </span>
                 </li>
@@ -170,43 +342,122 @@ export default function ParentDigestPage() {
           )}
         </section>
 
-        <div className="flex gap-3">
+        {/* Flashcards mini-card */}
+        <section className="panel cyan" style={{ padding: 18 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <div className="label" style={{ fontSize: 11, marginBottom: 6 }}>
+                ◈ Flashcards
+              </div>
+              <div
+                className="h-display"
+                style={{ fontSize: 22, color: "var(--neon-cyan)" }}
+              >
+                {digest.flashcards.reviewed_this_week}
+                <span
+                  style={{
+                    color: "var(--ink-dim)",
+                    fontSize: 14,
+                    fontWeight: 500,
+                  }}
+                >
+                  {" "}
+                  / {digest.flashcards.total} reviewed
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 12 }}>
           <button
             onClick={copyEmailDraft}
-            className="flex-1 bg-[var(--brand-blue)] hover:opacity-90 text-white font-semibold rounded-xl py-3 text-sm flex items-center justify-center gap-2"
+            className="chunky-btn cyan"
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
           >
-            <Mail className="w-4 h-4" /> Open email draft
+            ✉ Open email draft
           </button>
           <Link
             href="/dashboard"
-            className="flex-1 bg-white border border-[var(--border)] hover:bg-[var(--bg-deep)] text-[var(--text-body)] font-semibold rounded-xl py-3 text-sm text-center"
+            className="chunky-btn"
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              textDecoration: "none",
+              textAlign: "center",
+            }}
           >
-            Back to dashboard
+            ◀ Back to dashboard
           </Link>
         </div>
       </div>
-    </div>
+    </ArcadeShell>
   );
 }
 
-function Stat({
-  icon,
+function StatTile({
   label,
   value,
-  accent,
+  color,
+  icon,
+  sub,
 }: {
-  icon: JSX.Element;
   label: string;
   value: string | number;
-  accent: string;
+  color: string;
+  icon: string;
+  sub?: string;
 }) {
   return (
-    <div className="bg-white border border-[var(--border)] rounded-2xl p-4 shadow-card">
-      <div className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider ${accent}`}>
-        {icon}
-        {label}
+    <div
+      className="panel"
+      style={{
+        padding: 16,
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span
+          style={{
+            color,
+            fontSize: 16,
+            textShadow: `0 0 10px ${color}`,
+          }}
+        >
+          {icon}
+        </span>
+        <span className="label" style={{ fontSize: 10 }}>
+          {label}
+        </span>
       </div>
-      <div className="text-2xl font-extrabold text-[var(--text-primary)] mt-1.5">{value}</div>
+      <div
+        className="h-display"
+        style={{ fontSize: 24, color, lineHeight: 1 }}
+      >
+        {value}
+      </div>
+      {sub && (
+        <div style={{ fontSize: 10, color: "var(--ink-mute)" }}>{sub}</div>
+      )}
     </div>
   );
 }

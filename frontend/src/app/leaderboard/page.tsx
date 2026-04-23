@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Crown, Flame, Medal, Trophy } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
+import { ArcadeShell, Byte } from "@/components/arcade";
 
 interface Entry {
   rank: number;
@@ -24,11 +23,20 @@ interface LeaderboardData {
   me: Entry | null;
 }
 
-const RANK_ICON: Record<number, JSX.Element> = {
-  1: <Crown className="w-5 h-5 text-[#f5c542]" strokeWidth={2.2} />,
-  2: <Trophy className="w-5 h-5 text-[#b9bbbf]" strokeWidth={2.2} />,
-  3: <Medal className="w-5 h-5 text-[#c97a3d]" strokeWidth={2.2} />,
-};
+const AVATAR_COLORS = [
+  "var(--neon-yel)",
+  "var(--neon-cyan)",
+  "var(--neon-mag)",
+  "var(--neon-lime)",
+  "var(--neon-vio)",
+  "var(--neon-ora)",
+];
+
+function avatarFor(name: string, index: number) {
+  const initial = (name[0] ?? "?").toUpperCase();
+  const color = AVATAR_COLORS[index % AVATAR_COLORS.length];
+  return { initial, color };
+}
 
 export default function LeaderboardPage() {
   const { user, loading: authLoading } = useSupabaseAuth();
@@ -56,110 +64,332 @@ export default function LeaderboardPage() {
   }, [user, authLoading, scope, load]);
 
   if (authLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading…</div>;
+    return (
+      <div
+        className="arcade-root"
+        data-grade="68"
+        data-motion="on"
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          color: "var(--ink)",
+          fontFamily: "var(--f-display)",
+        }}
+      >
+        Loading…
+      </div>
+    );
   }
 
+  const topThree = data?.entries.slice(0, 3) ?? [];
+  const rest = data?.entries ?? [];
+  // For the podium we want #1 in center
+  const podiumOrder = [topThree[1], topThree[0], topThree[2]].filter(Boolean);
+
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)] py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-extrabold text-[var(--text-primary)] flex items-center gap-2">
-              <Trophy className="w-7 h-7 text-[var(--brand-blue)]" strokeWidth={2} />
-              Leaderboard
-            </h1>
-            <p className="text-sm text-[var(--text-muted)] mt-1">
-              Friendly competition — names are partly anonymized.
-            </p>
-          </div>
-
-          <div className="flex bg-white border border-[var(--border)] rounded-full p-1 shadow-card">
-            {(["weekly", "all_time"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setScope(s)}
-                className={cn(
-                  "px-4 py-1.5 text-xs font-bold rounded-full transition",
-                  scope === s
-                    ? "bg-[var(--brand-blue)] text-white"
-                    : "text-[var(--text-muted)] hover:text-[var(--text-body)]",
-                )}
-              >
-                {s === "weekly" ? "This week" : "All time"}
-              </button>
-            ))}
-          </div>
+    <ArcadeShell active="Arena" pixels={16}>
+      <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <span className="label" style={{ color: "var(--neon-yel)" }}>⚡ {scope === "weekly" ? "WEEKLY ARENA" : "ALL-TIME ARENA"}</span>
+          <h1 className="h-display" style={{ fontSize: 44, margin: "8px 0 4px" }}>
+            High <span style={{ color: "var(--neon-yel)" }}>scores</span>
+          </h1>
+          <p style={{ color: "var(--ink-dim)" }}>
+            Friendly competition — names are partly anonymized.
+          </p>
         </div>
-
-        {loading || !data ? (
-          <div className="bg-white border border-[var(--border)] rounded-2xl p-10 text-center text-sm text-[var(--text-muted)] shadow-card">
-            Loading leaderboard…
-          </div>
-        ) : data.entries.length === 0 ? (
-          <div className="bg-white border border-[var(--border)] rounded-2xl p-10 text-center shadow-card">
-            <p className="text-[var(--text-body)] mb-3">No entries yet — be the first!</p>
-            <Link href="/practice" className="text-[var(--brand-blue)] font-semibold text-sm">
-              Start a practice quiz →
-            </Link>
-          </div>
-        ) : (
-          <div className="bg-white border border-[var(--border)] rounded-2xl shadow-card overflow-hidden">
-            <ul>
-              {data.entries.map((e) => (
-                <li
-                  key={e.rank}
-                  className={cn(
-                    "flex items-center gap-4 px-5 py-3.5 border-b border-[var(--border)] last:border-0",
-                    e.is_me && "bg-[var(--brand-blue-soft)]",
-                  )}
-                >
-                  <div className="w-8 text-center font-extrabold text-[var(--text-muted)]">
-                    {RANK_ICON[e.rank] ?? `#${e.rank}`}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-[var(--text-primary)] truncate">
-                      {e.display_name} {e.is_me && <span className="text-[10px] text-[var(--brand-blue)]">(you)</span>}
-                    </div>
-                    <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-3 mt-0.5">
-                      <span>Lv {e.level}</span>
-                      <span className="flex items-center gap-1">
-                        <Flame className="w-3 h-3" /> {e.streak_days}d
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-base font-extrabold text-[var(--text-primary)]">
-                      {e.score.toLocaleString()}
-                    </div>
-                    <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-bold">
-                      {e.score_label}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {data?.me && !data.entries.some((e) => e.is_me) && (
-          <div className="mt-4 bg-[var(--brand-blue-soft)] border border-[var(--brand-blue)] rounded-2xl px-5 py-3.5 flex items-center gap-4 shadow-card">
-            <div className="w-8 text-center font-extrabold text-[var(--brand-blue)]">
-              #{data.me.rank}
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-bold text-[var(--text-primary)]">
-                {data.me.display_name} (you)
-              </div>
-              <div className="text-[11px] text-[var(--text-muted)]">
-                Lv {data.me.level} · {data.me.streak_days}-day streak
-              </div>
-            </div>
-            <div className="text-base font-extrabold text-[var(--brand-blue)]">
-              {data.me.score.toLocaleString()} {data.me.score_label}
-            </div>
-          </div>
-        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          {(["weekly", "all_time"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setScope(s)}
+              className="pill"
+              style={{
+                cursor: "pointer",
+                color: scope === s ? "#170826" : "var(--ink-dim)",
+                background: scope === s ? "var(--neon-cyan)" : "rgba(255,255,255,0.04)",
+                borderColor: scope === s ? "#170826" : "var(--line)",
+                boxShadow: scope === s ? "0 3px 0 0 #170826" : "none",
+              }}
+            >
+              {s === "weekly" ? "This week" : "All time"}
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
+
+      {loading || !data ? (
+        <div className="panel" style={{ padding: 40, textAlign: "center", color: "var(--ink-mute)" }}>
+          Loading leaderboard…
+        </div>
+      ) : data.entries.length === 0 ? (
+        <div className="panel" style={{ padding: 40, textAlign: "center" }}>
+          <div style={{ color: "var(--ink-dim)", marginBottom: 12 }}>No entries yet — be the first!</div>
+          <Link
+            href="/practice"
+            className="chunky-btn cyan"
+            style={{ textDecoration: "none", justifyContent: "center", display: "inline-flex" }}
+          >
+            ▶ Start a practice quiz
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* Podium */}
+          {podiumOrder.length > 0 && (
+            <div
+              className="panel yel"
+              style={{
+                padding: "30px 24px 0",
+                position: "relative",
+                overflow: "hidden",
+                marginBottom: 20,
+              }}
+            >
+              <div className="scanline" />
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 120,
+                  background:
+                    "radial-gradient(ellipse at center top, rgba(255,229,61,0.3), transparent 70%)",
+                }}
+              />
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: 20,
+                  alignItems: "end",
+                  position: "relative",
+                }}
+              >
+                {podiumOrder.map((entry, i) => {
+                  if (!entry) return <div key={i} />;
+                  const h = i === 1 ? 210 : i === 0 ? 160 : 130;
+                  const place = i === 1 ? 1 : i === 0 ? 2 : 3;
+                  const av = avatarFor(entry.display_name, place - 1);
+                  return (
+                    <div key={entry.rank} style={{ textAlign: "center" }}>
+                      <div
+                        className={i === 1 ? "anim-float" : ""}
+                        style={{
+                          width: i === 1 ? 110 : 88,
+                          height: i === 1 ? 110 : 88,
+                          margin: "0 auto 12px",
+                          borderRadius: 24,
+                          background: `linear-gradient(135deg, ${av.color}, #5c2fb8)`,
+                          border: "4px solid #170826",
+                          boxShadow: `0 8px 0 #170826, 0 0 30px ${av.color}`,
+                          display: "grid",
+                          placeItems: "center",
+                          fontFamily: "var(--f-display)",
+                          fontWeight: 900,
+                          fontSize: i === 1 ? 46 : 36,
+                          color: "#170826",
+                          position: "relative",
+                        }}
+                      >
+                        {av.initial}
+                        {i === 1 && (
+                          <div style={{ position: "absolute", top: -32, fontSize: 40 }}>👑</div>
+                        )}
+                      </div>
+                      <div className="h-display" style={{ fontSize: 15 }}>
+                        {entry.display_name}
+                        {entry.is_me && (
+                          <span style={{ color: "var(--neon-lime)", fontSize: 11, marginLeft: 6 }}>
+                            (you)
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        className="h-display"
+                        style={{
+                          fontSize: 22,
+                          color: av.color,
+                          marginTop: 2,
+                          textShadow: `0 0 10px ${av.color}`,
+                        }}
+                      >
+                        {entry.score.toLocaleString()}{" "}
+                        <span style={{ fontSize: 11, color: "var(--ink-mute)" }}>
+                          {entry.score_label}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 14,
+                          height: h,
+                          borderRadius: "16px 16px 0 0",
+                          background:
+                            place === 1
+                              ? "linear-gradient(180deg, var(--neon-yel), #b88a00)"
+                              : place === 2
+                                ? "linear-gradient(180deg, #d5d7e0, #7d8095)"
+                                : "linear-gradient(180deg, #d9832e, #5a3410)",
+                          border: "3px solid #170826",
+                          borderBottom: "none",
+                          position: "relative",
+                          boxShadow:
+                            "inset 0 4px 0 rgba(255,255,255,0.3), inset 0 -8px 0 rgba(0,0,0,0.2)",
+                        }}
+                      >
+                        <div
+                          className="pixel"
+                          style={{
+                            position: "absolute",
+                            top: 20,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            fontSize: 40,
+                            color: "#170826",
+                          }}
+                        >
+                          {place}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Table */}
+          <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "60px 1fr 80px 120px 100px",
+                padding: "12px 20px",
+                borderBottom: "2px solid var(--line-soft)",
+                background: "rgba(0,0,0,0.3)",
+              }}
+            >
+              {["Rank", "Player", "Level", "Score", "Streak"].map((h) => (
+                <div key={h} className="label">{h}</div>
+              ))}
+            </div>
+            {rest.map((e, idx) => {
+              const av = avatarFor(e.display_name, idx);
+              return (
+                <div
+                  key={e.rank}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "60px 1fr 80px 120px 100px",
+                    padding: "14px 20px",
+                    alignItems: "center",
+                    borderBottom: "1px solid var(--line-soft)",
+                    background: e.is_me ? "rgba(166,255,59,0.06)" : "transparent",
+                    borderLeft: e.is_me ? "4px solid var(--neon-lime)" : "4px solid transparent",
+                  }}
+                >
+                  <div
+                    className="h-display"
+                    style={{
+                      fontSize: 22,
+                      color: e.rank <= 3 ? "var(--neon-yel)" : "var(--ink-dim)",
+                    }}
+                  >
+                    #{e.rank}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 10,
+                        background: `linear-gradient(135deg, ${av.color}, #5c2fb8)`,
+                        border: "2px solid #170826",
+                        fontWeight: 900,
+                        display: "grid",
+                        placeItems: "center",
+                        color: "#170826",
+                        fontFamily: "var(--f-display)",
+                      }}
+                    >
+                      {av.initial}
+                    </div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        color: e.is_me ? "var(--neon-lime)" : "var(--ink)",
+                      }}
+                    >
+                      {e.display_name}
+                      {e.is_me && (
+                        <span
+                          style={{
+                            color: "var(--neon-lime)",
+                            fontSize: 10,
+                            marginLeft: 6,
+                            fontFamily: "var(--f-display)",
+                            fontWeight: 800,
+                          }}
+                        >
+                          (YOU)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="h-display" style={{ fontSize: 14 }}>Lv {e.level}</div>
+                  <div
+                    className="h-display"
+                    style={{ fontSize: 14, color: "var(--neon-cyan)" }}
+                  >
+                    {e.score.toLocaleString()}{" "}
+                    <span style={{ fontSize: 10, color: "var(--ink-mute)" }}>{e.score_label}</span>
+                  </div>
+                  <div style={{ color: "var(--neon-ora)", fontWeight: 700, fontSize: 13 }}>
+                    🔥 {e.streak_days}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {data.me && !data.entries.some((e) => e.is_me) && (
+            <div
+              className="panel cyan"
+              style={{
+                padding: 20,
+                marginTop: 18,
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 48 }}>
+                  <Byte size={48} />
+                </div>
+                <div>
+                  <div className="h-display" style={{ fontSize: 16 }}>
+                    You&apos;re at #{data.me.rank}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-mute)" }}>
+                    Lv {data.me.level} · {data.me.streak_days}-day streak
+                  </div>
+                </div>
+              </div>
+              <div
+                className="h-display"
+                style={{ fontSize: 22, color: "var(--neon-cyan)" }}
+              >
+                {data.me.score.toLocaleString()}{" "}
+                <span style={{ fontSize: 12, color: "var(--ink-mute)" }}>{data.me.score_label}</span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </ArcadeShell>
   );
 }

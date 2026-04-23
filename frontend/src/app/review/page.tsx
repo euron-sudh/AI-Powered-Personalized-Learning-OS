@@ -4,8 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
-import { Layers3, PartyPopper, CheckCircle2, Lightbulb } from "lucide-react";
+import { ArcadeShell, PixelBar } from "@/components/arcade";
 
 interface Flashcard {
   id: string;
@@ -43,13 +42,13 @@ const QUALITY_BUTTONS: Array<{
   q: 1 | 2 | 3 | 4;
   label: string;
   hint: string;
-  bg: string;
-  hover: string;
+  variant: "mag" | "yel" | "cyan" | "lime";
+  glow: string;
 }> = [
-  { q: 1, label: "Again", hint: "<1m", bg: "bg-[var(--red)]", hover: "hover:opacity-90" },
-  { q: 2, label: "Hard", hint: "soon", bg: "bg-[var(--subject-english)]", hover: "hover:opacity-90" },
-  { q: 3, label: "Good", hint: "later", bg: "bg-[var(--subject-science)]", hover: "hover:opacity-90" },
-  { q: 4, label: "Easy", hint: "much later", bg: "bg-[var(--brand-blue)]", hover: "hover:opacity-90" },
+  { q: 1, label: "Again", hint: "<1m", variant: "mag", glow: "var(--neon-mag)" },
+  { q: 2, label: "Hard", hint: "soon", variant: "yel", glow: "var(--neon-yel)" },
+  { q: 3, label: "Good", hint: "later", variant: "cyan", glow: "var(--neon-cyan)" },
+  { q: 4, label: "Easy", hint: "much later", variant: "lime", glow: "var(--neon-lime)" },
 ];
 
 export default function ReviewPage() {
@@ -183,179 +182,330 @@ export default function ReviewPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-deep)]">
-        <div className="text-[var(--text-muted)] text-sm">Loading your deck…</div>
-      </div>
+      <ArcadeShell active="Practice" pixels={10}>
+        <div style={{ display: "grid", placeItems: "center", minHeight: "60vh", textAlign: "center" }}>
+          <div>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                margin: "0 auto 16px",
+                borderRadius: 12,
+                background: "linear-gradient(135deg, var(--neon-cyan), var(--neon-mag))",
+                border: "3px solid #170826",
+                boxShadow: "0 0 24px rgba(39,224,255,0.6)",
+              }}
+              className="anim-bop"
+            />
+            <span className="label" style={{ color: "var(--neon-cyan)" }}>SHUFFLING DECK…</span>
+          </div>
+        </div>
+      </ArcadeShell>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-deep)]">
-        <div className="bg-white border border-[var(--border)] rounded-2xl p-8 shadow-card text-center max-w-sm">
-          <p className="text-[var(--text-body)] mb-4">Sign in to review your flashcards.</p>
-          <Link href="/login" className="text-[var(--brand-blue)] font-semibold">Sign in</Link>
+      <ArcadeShell active="Practice" pixels={10}>
+        <div style={{ display: "grid", placeItems: "center", minHeight: "60vh" }}>
+          <div className="panel cyan" style={{ padding: 28, maxWidth: 360, textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 10 }} className="anim-bop">🗝</div>
+            <h2 className="h-display" style={{ fontSize: 22, marginBottom: 8 }}>
+              Sign in to drill
+            </h2>
+            <p style={{ color: "var(--ink-dim)", fontSize: 13, marginBottom: 16 }}>
+              Your flashcard deck is locked behind the login gate.
+            </p>
+            <Link href="/login" className="chunky-btn cyan" style={{ textDecoration: "none", display: "inline-block" }}>
+              ▶ ENTER
+            </Link>
+          </div>
         </div>
-      </div>
+      </ArcadeShell>
     );
   }
 
+  const totalThisSession = cards.length;
+  const pct = totalThisSession > 0 ? Math.round((reviewedCount / totalThisSession) * 100) : 0;
+
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)] py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-extrabold text-[var(--text-primary)] flex items-center gap-2">
-              <Layers3 className="w-7 h-7 text-[var(--brand-blue)]" strokeWidth={2} />
-              Review
-            </h1>
-            <p className="text-sm text-[var(--text-muted)] mt-1">
-              Spaced repetition keeps what you&rsquo;ve learned from fading.
-            </p>
-          </div>
-          {summary && (
-            <div className="hidden sm:flex gap-3">
-              <Stat label="Due" value={summary.due_today} accent="text-[var(--red)]" />
-              <Stat label="New" value={summary.new} accent="text-[var(--brand-blue)]" />
-              <Stat label="Mature" value={summary.mature} accent="text-[var(--subject-science)]" />
-              <Stat label="Total" value={summary.total} accent="text-[var(--text-primary)]" />
+    <ArcadeShell active="Practice" pixels={12}>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <span className="label" style={{ color: "var(--neon-yel)" }}>✦ DAILY DRILLS</span>
+        <h1 className="h-display" style={{ fontSize: 40, margin: "8px 0 4px" }}>
+          Memory <span style={{ color: "var(--neon-cyan)" }}>Arena</span>
+        </h1>
+        <p style={{ color: "var(--ink-dim)" }}>
+          Spaced repetition keeps what you&rsquo;ve learned from fading.
+        </p>
+      </div>
+
+      {/* Deck summary stats */}
+      {summary && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 12,
+            marginBottom: 20,
+          }}
+        >
+          <div className="panel mag" style={{ padding: 14, textAlign: "center" }}>
+            <div className="label">Due</div>
+            <div className="h-display" style={{ fontSize: 26, color: "var(--neon-mag)", marginTop: 6 }}>
+              {summary.due_today}
             </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="bg-white border border-[var(--border)] rounded-xl p-3 mb-4 text-sm text-[var(--text-body)]">
-            {error}
           </div>
-        )}
+          <div className="panel cyan" style={{ padding: 14, textAlign: "center" }}>
+            <div className="label">New</div>
+            <div className="h-display" style={{ fontSize: 26, color: "var(--neon-cyan)", marginTop: 6 }}>
+              {summary.new}
+            </div>
+          </div>
+          <div className="panel" style={{ padding: 14, textAlign: "center" }}>
+            <div className="label">Mature</div>
+            <div className="h-display" style={{ fontSize: 26, color: "var(--neon-lime)", marginTop: 6 }}>
+              {summary.mature}
+            </div>
+          </div>
+          <div className="panel yel" style={{ padding: 14, textAlign: "center" }}>
+            <div className="label">Total</div>
+            <div className="h-display" style={{ fontSize: 26, color: "var(--neon-yel)", marginTop: 6 }}>
+              {summary.total}
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Empty state */}
-        {cards.length === 0 && !finished && (
-          <div className="bg-white border border-[var(--border)] rounded-2xl p-10 shadow-card text-center">
-            <PartyPopper className="w-14 h-14 mx-auto mb-3 text-[var(--subject-english)]" strokeWidth={1.5} />
-            <h2 className="text-xl font-extrabold text-[var(--text-primary)] mb-2">
-              Nothing due right now
-            </h2>
-            <p className="text-sm text-[var(--text-muted)] mb-6">
-              Cards build up automatically as you complete chapters. Want to backfill cards for chapters you&rsquo;ve already finished?
-            </p>
+      {/* Error banner */}
+      {error && (
+        <div
+          className="panel"
+          style={{
+            padding: 12,
+            marginBottom: 16,
+            borderColor: "var(--neon-mag)",
+            color: "var(--ink)",
+            fontSize: 13,
+          }}
+        >
+          <span className="label" style={{ color: "var(--neon-mag)", marginRight: 8 }}>!</span>
+          {error}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {cards.length === 0 && !finished && (
+        <div className="panel cyan" style={{ padding: 32, textAlign: "center", position: "relative", overflow: "hidden" }}>
+          <div className="scanline" />
+          <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 8 }} className="anim-float">🎉</div>
+          <span className="label" style={{ color: "var(--neon-lime)" }}>ALL CLEAR</span>
+          <h2 className="h-display" style={{ fontSize: 28, margin: "8px 0" }}>
+            Nothing due right now
+          </h2>
+          <p style={{ color: "var(--ink-dim)", fontSize: 14, maxWidth: 440, margin: "0 auto 20px" }}>
+            Cards build up as you complete chapters. Want to backfill cards for chapters you&rsquo;ve already finished?
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
             <button
               onClick={generateMissing}
               disabled={generating}
-              className="bg-[var(--brand-blue)] hover:opacity-90 disabled:opacity-60 text-white font-semibold rounded-xl px-5 py-2.5 text-sm"
+              className="chunky-btn cyan"
+              style={{ cursor: generating ? "not-allowed" : "pointer", opacity: generating ? 0.6 : 1 }}
             >
-              {generating ? "Queuing…" : "Build cards for completed chapters"}
+              {generating ? "◴ QUEUING…" : "✦ BUILD MISSING CARDS"}
             </button>
-            <div className="mt-6">
-              <Link href="/learn" className="text-[var(--brand-blue)] text-sm font-semibold">
-                Or open a lesson →
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Finished state */}
-        {finished && (
-          <div className="bg-white border border-[var(--border)] rounded-2xl p-10 shadow-card text-center">
-            <CheckCircle2 className="w-14 h-14 mx-auto mb-3 text-[var(--subject-science)]" strokeWidth={1.5} />
-            <h2 className="text-xl font-extrabold text-[var(--text-primary)] mb-2">
-              Session complete
-            </h2>
-            <p className="text-sm text-[var(--text-muted)] mb-1">
-              Reviewed {reviewedCount} card{reviewedCount === 1 ? "" : "s"}.
-            </p>
-            <p className="text-sm font-semibold text-[var(--brand-blue)] mb-6">
-              +{xpEarned} XP
-            </p>
-            <button
-              onClick={fetchDue}
-              className="bg-[var(--brand-blue)] hover:opacity-90 text-white font-semibold rounded-xl px-5 py-2.5 text-sm"
+            <Link
+              href="/learn"
+              className="chunky-btn"
+              style={{ textDecoration: "none", display: "inline-block" }}
             >
-              Check for more
-            </button>
+              ▶ OPEN A LESSON
+            </Link>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Card */}
-        {currentCard && !finished && (
-          <>
-            <div className="flex items-center justify-between mb-3 text-xs text-[var(--text-muted)] font-semibold">
-              <span>
-                Card {index + 1} of {cards.length}
+      {/* Finished state */}
+      {finished && (
+        <div className="panel yel" style={{ padding: 32, textAlign: "center", position: "relative", overflow: "hidden" }}>
+          <div className="scanline" />
+          <div style={{ fontSize: 72, lineHeight: 1, marginBottom: 8 }} className="anim-bop">🏆</div>
+          <span className="label" style={{ color: "var(--neon-yel)" }}>SESSION COMPLETE</span>
+          <h2 className="h-display" style={{ fontSize: 30, margin: "8px 0 6px" }}>
+            Drills cleared!
+          </h2>
+          <p style={{ color: "var(--ink-dim)", fontSize: 14, marginBottom: 4 }}>
+            Reviewed {reviewedCount} card{reviewedCount === 1 ? "" : "s"}.
+          </p>
+          <div
+            className="h-display"
+            style={{ fontSize: 22, color: "var(--neon-lime)", marginBottom: 20 }}
+          >
+            +{xpEarned} XP
+          </div>
+          <button
+            onClick={fetchDue}
+            className="chunky-btn yel"
+            style={{ cursor: "pointer" }}
+          >
+            ↻ CHECK FOR MORE
+          </button>
+        </div>
+      )}
+
+      {/* Card */}
+      {currentCard && !finished && (
+        <>
+          {/* Progress bar */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span className="label" style={{ color: "var(--neon-cyan)" }}>
+                Card {index + 1} / {cards.length}
               </span>
-              <span>+{xpEarned} XP this session</span>
+              <span className="label" style={{ color: "var(--neon-yel)" }}>
+                +{xpEarned} XP · session
+              </span>
             </div>
-            <div className="bg-white border border-[var(--border)] rounded-2xl shadow-card p-8 sm:p-10 min-h-[320px] flex flex-col">
-              <div className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-bold mb-3">
-                Question
+            <PixelBar value={pct} color="var(--neon-cyan)" />
+          </div>
+
+          <div
+            className="panel cyan"
+            style={{
+              padding: 32,
+              minHeight: 340,
+              display: "flex",
+              flexDirection: "column",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <div className="scanline" />
+
+            <span className="label" style={{ color: "var(--neon-mag)" }}>
+              ◆ QUESTION
+            </span>
+            <div
+              className="h-display"
+              style={{
+                fontSize: 28,
+                lineHeight: 1.3,
+                marginTop: 12,
+                color: "var(--ink)",
+              }}
+            >
+              {currentCard.front}
+            </div>
+
+            {currentCard.hint && !revealed && (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "rgba(255,229,61,0.08)",
+                  border: "2px solid var(--neon-yel)",
+                  color: "var(--neon-yel)",
+                  fontSize: 13,
+                  fontStyle: "italic",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 8,
+                }}
+              >
+                <span style={{ fontSize: 16, lineHeight: 1 }}>💡</span>
+                <span>Hint: {currentCard.hint}</span>
               </div>
-              <div className="text-2xl font-bold text-[var(--text-primary)] leading-snug">
-                {currentCard.front}
-              </div>
-              {currentCard.hint && !revealed && (
-                <div className="mt-4 text-sm text-[var(--text-muted)] italic flex items-start gap-1.5">
-                  <Lightbulb className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={2} />
-                  <span>Hint: {currentCard.hint}</span>
+            )}
+
+            {revealed && (
+              <>
+                <div
+                  style={{
+                    margin: "20px 0",
+                    height: 2,
+                    background: "linear-gradient(90deg, transparent, var(--neon-lime), transparent)",
+                  }}
+                />
+                <span className="label" style={{ color: "var(--neon-lime)" }}>
+                  ✓ ANSWER
+                </span>
+                <div
+                  style={{
+                    fontSize: 16,
+                    lineHeight: 1.6,
+                    marginTop: 10,
+                    color: "var(--ink-dim)",
+                    whiteSpace: "pre-wrap",
+                    fontFamily: "var(--f-body)",
+                  }}
+                >
+                  {currentCard.back}
+                </div>
+              </>
+            )}
+
+            <div style={{ marginTop: "auto", paddingTop: 28, position: "relative" }}>
+              {!revealed ? (
+                <button
+                  onClick={() => setRevealed(true)}
+                  className="chunky-btn cyan"
+                  style={{ width: "100%", cursor: "pointer" }}
+                >
+                  ▶ FLIP CARD (Space)
+                </button>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                  {QUALITY_BUTTONS.map((b) => (
+                    <button
+                      key={b.q}
+                      onClick={() => rateCard(b.q)}
+                      disabled={reviewing}
+                      className={`chunky-btn ${b.variant}`}
+                      style={{
+                        cursor: reviewing ? "not-allowed" : "pointer",
+                        opacity: reviewing ? 0.5 : 1,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 2,
+                        padding: "12px 6px",
+                      }}
+                    >
+                      <span>{b.label}</span>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontFamily: "var(--f-pixel)",
+                          opacity: 0.75,
+                          fontWeight: 400,
+                        }}
+                      >
+                        {b.q} · {b.hint}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               )}
-
-              {revealed && (
-                <>
-                  <div className="my-6 border-t border-[var(--border)]" />
-                  <div className="text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-bold mb-3">
-                    Answer
-                  </div>
-                  <div className="text-lg text-[var(--text-body)] leading-relaxed whitespace-pre-wrap">
-                    {currentCard.back}
-                  </div>
-                </>
-              )}
-
-              <div className="mt-auto pt-8">
-                {!revealed ? (
-                  <button
-                    onClick={() => setRevealed(true)}
-                    className="w-full bg-[var(--brand-blue)] hover:opacity-90 text-white font-semibold rounded-xl py-3 text-sm"
-                  >
-                    Show answer (Space)
-                  </button>
-                ) : (
-                  <div className="grid grid-cols-4 gap-2">
-                    {QUALITY_BUTTONS.map((b) => (
-                      <button
-                        key={b.q}
-                        onClick={() => rateCard(b.q)}
-                        disabled={reviewing}
-                        className={cn(
-                          "rounded-xl py-3 px-2 text-white font-semibold text-sm transition-opacity disabled:opacity-50 flex flex-col items-center",
-                          b.bg,
-                          b.hover,
-                        )}
-                      >
-                        <span>{b.label}</span>
-                        <span className="text-[10px] opacity-80 font-normal">{b.q} · {b.hint}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
+          </div>
 
-            <p className="text-center text-xs text-[var(--text-muted)] mt-3">
-              Tip: Space to reveal, then 1–4 to rate.
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value, accent }: { label: string; value: number; accent: string }) {
-  return (
-    <div className="bg-white border border-[var(--border)] rounded-xl px-3 py-2 text-center min-w-[64px]">
-      <div className={cn("text-lg font-extrabold", accent)}>{value}</div>
-      <div className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">{label}</div>
-    </div>
+          <p
+            style={{
+              textAlign: "center",
+              marginTop: 14,
+              fontSize: 11,
+              fontFamily: "var(--f-pixel)",
+              color: "var(--ink-mute)",
+              letterSpacing: 0.5,
+            }}
+          >
+            TIP: SPACE TO FLIP · 1–4 TO GRADE
+          </p>
+        </>
+      )}
+    </ArcadeShell>
   );
 }

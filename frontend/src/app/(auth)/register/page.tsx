@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { Byte, FloatingPixels } from "@/components/arcade";
 
 function GoogleIcon() {
   return (
@@ -15,6 +16,18 @@ function GoogleIcon() {
     </svg>
   );
 }
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: 12,
+  border: "2px solid var(--line)",
+  background: "rgba(0,0,0,0.35)",
+  color: "var(--ink)",
+  fontFamily: "var(--f-body)",
+  fontSize: 14,
+  outline: "none",
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -63,13 +76,11 @@ export default function RegisterPage() {
       setLoading(false);
       return;
     }
-    // If Supabase requires email confirmation, session is null until confirmed
     if (!data.session) {
       setEmailSent(true);
       setLoading(false);
       return;
     }
-    // Session available immediately (email confirmation disabled) — go to onboarding
     router.push("/onboarding");
   }
 
@@ -81,125 +92,274 @@ export default function RegisterPage() {
     setResendMsg(error ? "Failed to resend. Please try again." : "Confirmation email resent! Check your inbox.");
   }
 
+  function Frame({ children }: { children: React.ReactNode }) {
+    return (
+      <div
+        className="arcade-root"
+        data-grade="68"
+        data-motion="on"
+        data-mascot="on"
+        style={{ minHeight: "100vh" }}
+      >
+        <main
+          className="screen"
+          style={{
+            minHeight: "100vh",
+            position: "relative",
+            display: "grid",
+            placeItems: "center",
+            borderRadius: 0,
+            border: "none",
+          }}
+        >
+          <div className="gridbg" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
+          <FloatingPixels count={20} />
+          <div
+            style={{
+              position: "relative",
+              zIndex: 2,
+              width: "100%",
+              maxWidth: 460,
+              padding: 32,
+            }}
+          >
+            {children}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (emailSent) {
     return (
-      <main className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-8 text-center">
-            <div className="text-4xl mb-4">📬</div>
-            <h1 className="text-2xl font-bold text-white mb-2">Check your email</h1>
-            <p className="text-white/50 text-sm mb-2">
-              We sent a confirmation link to
-            </p>
-            <p className="text-white font-medium text-sm mb-4">{email}</p>
-            <p className="text-white/40 text-xs mb-6">
-              Click the link in the email to activate your account, then come back to sign in. Check your spam folder if you don&apos;t see it.
-            </p>
+      <Frame>
+        <div className="panel cyan" style={{ padding: 32, textAlign: "center", position: "relative", overflow: "hidden" }}>
+          <div className="scanline" />
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📬</div>
+          <h1 className="h-display" style={{ fontSize: 26, marginBottom: 8 }}>Check your email</h1>
+          <p style={{ color: "var(--ink-dim)", fontSize: 13, marginBottom: 4 }}>
+            We sent a confirmation link to
+          </p>
+          <p
+            style={{
+              color: "var(--neon-cyan)",
+              fontFamily: "var(--f-display)",
+              fontWeight: 800,
+              fontSize: 14,
+              marginBottom: 14,
+            }}
+          >
+            {email}
+          </p>
+          <p style={{ color: "var(--ink-mute)", fontSize: 12, marginBottom: 22 }}>
+            Click the link in the email to activate your account, then come back to sign in. Check your spam folder if you don&apos;t see it.
+          </p>
 
-            {resendMsg && (
-              <p className={`text-xs mb-4 ${resendMsg.includes("resent") ? "text-green-400" : "text-red-400"}`}>
-                {resendMsg}
-              </p>
-            )}
+          {resendMsg && (
+            <p
+              style={{
+                fontSize: 12,
+                marginBottom: 14,
+                color: resendMsg.includes("resent") ? "var(--neon-lime)" : "var(--neon-mag)",
+                fontWeight: 700,
+              }}
+            >
+              {resendMsg}
+            </p>
+          )}
 
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={handleResend}
-                disabled={resending}
-                className="w-full border border-white/20 text-white/70 hover:text-white hover:border-white/40 py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-50"
-              >
-                {resending ? "Resending…" : "Resend confirmation email"}
-              </button>
-              <Link
-                href="/login"
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl text-sm font-medium transition text-center"
-              >
-                Go to sign in
-              </Link>
-            </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button
+              onClick={handleResend}
+              disabled={resending}
+              className="pill"
+              style={{
+                width: "100%",
+                justifyContent: "center",
+                padding: "12px",
+                cursor: "pointer",
+                opacity: resending ? 0.6 : 1,
+              }}
+            >
+              {resending ? "Resending…" : "Resend confirmation email"}
+            </button>
+            <Link
+              href="/login"
+              className="chunky-btn cyan"
+              style={{ justifyContent: "center", textDecoration: "none" }}
+            >
+              Go to sign in
+            </Link>
           </div>
         </div>
-      </main>
+      </Frame>
     );
   }
 
   return (
-    <main className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-[22px] font-extrabold mb-8 tracking-tight text-center">
-          <span className="text-[var(--text-primary)]">Learn</span>
-          <span className="text-[var(--brand-blue)]">OS</span>
-        </div>
-        <div className="bg-[#0d1424] border border-white/[0.07] rounded-2xl p-8">
-          <h1 className="text-2xl font-bold text-center text-white mb-2">Create your account</h1>
-          <p className="text-center text-white/40 text-sm mb-6">Join LearnOS — it&apos;s free</p>
-
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
-              {error}
-            </div>
-          )}
-
-          {/* Google sign-up */}
-          <button
-            onClick={handleGoogleSignUp}
-            disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 font-medium text-sm py-2.5 rounded-xl transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed mb-4"
+    <Frame>
+      <div style={{ textAlign: "center", marginBottom: 22 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 16,
+              background: "linear-gradient(135deg, var(--neon-mag), var(--neon-vio))",
+              border: "3px solid #170826",
+              display: "grid",
+              placeItems: "center",
+              boxShadow: "0 6px 0 #170826, 0 0 24px rgba(255,62,165,0.5)",
+              fontFamily: "var(--f-pixel)",
+              fontSize: 22,
+              color: "#fff",
+            }}
           >
-            <GoogleIcon />
-            {googleLoading ? "Redirecting…" : "Continue with Google"}
-          </button>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-px bg-white/[0.08]" />
-            <span className="text-xs text-white/30 font-medium">or register with email</span>
-            <div className="flex-1 h-px bg-white/[0.08]" />
+            L
           </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-white/60 mb-1">Email address</label>
-              <input
-                id="email" type="email" required value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl bg-white/[0.06] border border-white/[0.1] px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition"
-                placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-white/60 mb-1">Password</label>
-              <input
-                id="password" type="password" required value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl bg-white/[0.06] border border-white/[0.1] px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition"
-                placeholder="At least 8 characters"
-              />
-            </div>
-            <div>
-              <label htmlFor="confirm" className="block text-sm font-medium text-white/60 mb-1">Confirm password</label>
-              <input
-                id="confirm" type="password" required value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                className="w-full rounded-xl bg-white/[0.06] border border-white/[0.1] px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition"
-                placeholder="••••••••"
-              />
-            </div>
-            <button
-              type="submit" disabled={loading}
-              className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-blue-900/30"
-            >
-              {loading ? "Creating account…" : "Create Account"}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-white/40">
-            Already have an account?{" "}
-            <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium">Sign in</Link>
-          </p>
+          <div className="h-display" style={{ fontSize: 28 }}>
+            Learn<span style={{ color: "var(--neon-cyan)" }}>OS</span>
+          </div>
         </div>
       </div>
-    </main>
+
+      <div
+        className="panel cyan"
+        style={{ padding: 28, position: "relative", overflow: "hidden" }}
+      >
+        <div className="scanline" />
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ display: "inline-block", marginBottom: 10 }}>
+            <Byte size={64} />
+          </div>
+          <h1 className="h-display" style={{ fontSize: 22 }}>Create your player</h1>
+          <div style={{ fontSize: 12, color: "var(--ink-mute)" }}>
+            Join LearnOS — it&apos;s free
+          </div>
+        </div>
+
+        {error && (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "rgba(255, 62, 165, 0.12)",
+              border: "2px solid var(--neon-mag)",
+              color: "var(--neon-mag)",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={handleGoogleSignUp}
+          disabled={googleLoading || loading}
+          className="pill"
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            padding: "12px",
+            cursor: "pointer",
+            marginBottom: 14,
+            opacity: googleLoading || loading ? 0.6 : 1,
+          }}
+        >
+          <GoogleIcon />
+          <span style={{ marginLeft: 8 }}>
+            {googleLoading ? "Redirecting…" : "Continue with Google"}
+          </span>
+        </button>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            color: "var(--ink-mute)",
+            fontSize: 11,
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ flex: 1, height: 2, background: "var(--line-soft)" }} />
+          <span className="label" style={{ fontSize: 10 }}>or register with email</span>
+          <div style={{ flex: 1, height: 2, background: "var(--line-soft)" }} />
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <label>
+            <div className="label" style={{ marginBottom: 6 }}>Email</div>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@school.edu"
+              style={inputStyle}
+            />
+          </label>
+          <label>
+            <div className="label" style={{ marginBottom: 6 }}>Password</div>
+            <input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              style={inputStyle}
+            />
+          </label>
+          <label>
+            <div className="label" style={{ marginBottom: 6 }}>Confirm password</div>
+            <input
+              id="confirm"
+              type="password"
+              required
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="••••••••"
+              style={inputStyle}
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={loading}
+            className="chunky-btn"
+            style={{
+              width: "100%",
+              justifyContent: "center",
+              marginTop: 8,
+              opacity: loading ? 0.6 : 1,
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            {loading ? "Creating account…" : "▶ Create Account"}
+          </button>
+        </form>
+
+        <p
+          style={{
+            textAlign: "center",
+            marginTop: 18,
+            fontSize: 12,
+            color: "var(--ink-mute)",
+          }}
+        >
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            style={{ color: "var(--neon-cyan)", fontWeight: 700, fontFamily: "var(--f-display)" }}
+          >
+            Sign in
+          </Link>
+        </p>
+      </div>
+    </Frame>
   );
 }

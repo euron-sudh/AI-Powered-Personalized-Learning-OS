@@ -5,15 +5,15 @@ import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
 import { apiPost } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { ArcadeShell, Byte, FloatingPixels } from "@/components/arcade";
 
 const SUBJECTS = [
-  { name: "Mathematics", lessons: 24, color: "var(--subject-math)", bg: "var(--subject-math-bg)", icon: "➕" },
-  { name: "Science", lessons: 20, color: "var(--subject-science)", bg: "var(--subject-science-bg)", icon: "🧪" },
-  { name: "English", lessons: 18, color: "var(--subject-english)", bg: "var(--subject-english-bg)", icon: "📖" },
-  { name: "History", lessons: 16, color: "var(--subject-history)", bg: "var(--subject-history-bg)", icon: "🏛️" },
-  { name: "Computer Science", lessons: 22, color: "var(--subject-coding)", bg: "var(--subject-coding-bg)", icon: "💻" },
-  { name: "Arts & Music", lessons: 14, color: "var(--subject-arts)", bg: "var(--subject-arts-bg)", icon: "🎨" },
+  { name: "Mathematics", lessons: 24, color: "var(--s-math)", icon: "∑" },
+  { name: "Science", lessons: 20, color: "var(--s-sci)", icon: "⚛" },
+  { name: "English", lessons: 18, color: "var(--s-eng)", icon: "A" },
+  { name: "History", lessons: 16, color: "var(--s-his)", icon: "⚜" },
+  { name: "Computer Science", lessons: 22, color: "var(--s-cs)", icon: "</>" },
+  { name: "Arts & Music", lessons: 14, color: "var(--s-art)", icon: "✦" },
 ];
 
 const GRADE_DATA = [
@@ -33,12 +33,75 @@ const GRADE_DATA = [
 ];
 
 const AVATAR_COLORS = [
-  { bg: "#2563eb", fg: "#ffffff" },
-  { bg: "#22c55e", fg: "#ffffff" },
-  { bg: "#f97316", fg: "#ffffff" },
-  { bg: "#a855f7", fg: "#ffffff" },
-  { bg: "#ec4899", fg: "#ffffff" },
+  { bg: "#27e0ff", fg: "#0b0716" },
+  { bg: "#ff3ea5", fg: "#ffffff" },
+  { bg: "#ffe53d", fg: "#170826" },
+  { bg: "#a6ff3b", fg: "#0b0716" },
+  { bg: "#9b5cff", fg: "#ffffff" },
 ];
+
+// Arcade neon input style
+const arcadeInputStyle: React.CSSProperties = {
+  width: "100%",
+  background: "rgba(0,0,0,0.35)",
+  border: "2px solid var(--line)",
+  borderRadius: 12,
+  padding: "12px 14px",
+  fontSize: 14,
+  color: "var(--ink)",
+  fontFamily: "var(--f-body)",
+  outline: "none",
+};
+
+const arcadeLabelStyle: React.CSSProperties = {
+  display: "block",
+  fontFamily: "var(--f-display)",
+  fontSize: 11,
+  fontWeight: 800,
+  letterSpacing: 1,
+  color: "var(--neon-cyan)",
+  textTransform: "uppercase",
+  marginBottom: 6,
+};
+
+function ByteTooltip({ text }: { text: string }) {
+  return (
+    <div className="anim-float" style={{ position: "relative" }}>
+      <Byte size={200} />
+      <div
+        style={{
+          position: "absolute",
+          top: -30,
+          right: -80,
+          background: "var(--neon-yel)",
+          color: "#170826",
+          padding: "10px 14px",
+          borderRadius: 14,
+          border: "3px solid #170826",
+          fontWeight: 800,
+          fontSize: 13,
+          boxShadow: "0 4px 0 #170826",
+          transform: "rotate(4deg)",
+          maxWidth: 220,
+        }}
+      >
+        {text}
+        <div
+          style={{
+            position: "absolute",
+            bottom: -8,
+            left: 20,
+            width: 0,
+            height: 0,
+            borderLeft: "8px solid transparent",
+            borderRight: "8px solid transparent",
+            borderTop: "10px solid #170826",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -52,8 +115,8 @@ export default function OnboardingPage() {
   const [name, setName] = useState("");
   const [authError, setAuthError] = useState("");
 
-  const [avatarBg, setAvatarBg] = useState("#2563eb");
-  const [avatarFg, setAvatarFg] = useState("#ffffff");
+  const [avatarBg, setAvatarBg] = useState("#27e0ff");
+  const [avatarFg, setAvatarFg] = useState("#0b0716");
   const [initials, setInitials] = useState("?");
   const [dob, setDob] = useState("");
   const [school, setSchool] = useState("");
@@ -133,19 +196,17 @@ export default function OnboardingPage() {
 
   const startGeneration = async () => {
     setGenProgress(0);
-    const delays = [0, 900, 1800, 2700, 3600, 4500];
-    let progress = 0;
+    const stepDelay = 600;
     for (let i = 0; i < selectedSubjects.length; i++) {
       await new Promise((resolve) => {
         setTimeout(() => {
-          progress = Math.round(((i + 1) / selectedSubjects.length) * 90);
-          setGenProgress(progress);
+          setGenProgress(Math.round(((i + 1) / selectedSubjects.length) * 90));
           resolve(null);
-        }, delays[i] + 700);
+        }, stepDelay);
       });
     }
-    setTimeout(() => setGenProgress(100), delays[selectedSubjects.length - 1] + 900);
-    setTimeout(() => submitOnboarding(), delays[selectedSubjects.length - 1] + 1200);
+    setGenProgress(100);
+    submitOnboarding();
   };
 
   const submitOnboarding = async () => {
@@ -157,7 +218,7 @@ export default function OnboardingPage() {
         setIsLogin(true);
         return;
       }
-      await apiPost("/onboarding", {
+      await apiPost("/api/onboarding", {
         name,
         grade: selectedGrade || "9",
         board: "CBSE",
@@ -167,6 +228,9 @@ export default function OnboardingPage() {
       goStep(5);
     } catch (err) {
       console.error("Onboarding submission failed:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      alert(`Could not save onboarding: ${msg}\n\nPlease try again.`);
+      setStep(3);
     }
   };
 
@@ -176,475 +240,871 @@ export default function OnboardingPage() {
     );
   };
 
-  const STEPS = [
-    { num: "1", name: "Create account", desc: "Name, email, password" },
-    { num: "2", name: "Your profile", desc: "Photo & details" },
-    { num: "3", name: "Select grade", desc: "K–12" },
-    { num: "4", name: "Choose curriculum", desc: "Subjects & focus" },
-    { num: "5", name: "Generating", desc: "AI builds your plan" },
-    { num: "6", name: "Success", desc: "Ready to learn!" },
-  ];
+  const TOTAL_STEPS = 6;
+  const displayStepIdx = step; // 0..5 for the 6-segment progress bar
 
   return (
-    <div className="min-h-screen flex bg-[var(--bg-page)]">
-      {/* LEFT SIDEBAR */}
-      <aside className="w-[260px] bg-white border-r border-[var(--border)] p-6 flex flex-col flex-shrink-0 shadow-card">
-        <div className="flex items-center gap-2 mb-10">
-          <span className="text-2xl">💡</span>
-          <span className="text-[18px] font-extrabold tracking-tight">
-            <span className="text-[var(--text-primary)]">Learn</span>
-            <span className="text-[var(--brand-blue)]">OS</span>
-          </span>
+    <ArcadeShell active={undefined as any} pixels={20} showTopBar={false}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        {/* Segmented top progress bar */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 30 }}>
+          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                height: 10,
+                borderRadius: 4,
+                background: i <= displayStepIdx ? "var(--neon-cyan)" : "rgba(255,255,255,0.08)",
+                boxShadow: i <= displayStepIdx ? "0 0 10px var(--neon-cyan)" : "none",
+                border: "2px solid " + (i <= displayStepIdx ? "var(--neon-cyan)" : "var(--line-soft)"),
+              }}
+            />
+          ))}
         </div>
 
-        <div className="flex flex-col gap-1">
-          {STEPS.map((s, idx) => {
-            const isDone = idx < step;
-            const isActive = idx === step;
-            return (
-              <div key={idx} className="flex items-start gap-3 py-3">
-                {isDone ? (
-                  <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-card">
-                    ✓
-                  </div>
+        {/* STEP 0 — Create account / Sign in */}
+        {step === 0 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 40,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <span className="label" style={{ color: "var(--neon-yel)" }}>
+                Step 1 of {TOTAL_STEPS}
+              </span>
+              <h1 className="h-display" style={{ fontSize: 44, margin: "10px 0 14px" }}>
+                {isLogin ? (
+                  <>
+                    Welcome <span style={{ color: "var(--neon-cyan)" }}>back</span>!
+                  </>
                 ) : (
-                  <div
-                    className={cn(
-                      "w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0",
-                      isActive
-                        ? "border-[var(--brand-blue)] text-[var(--brand-blue)] bg-[var(--brand-blue-soft)]"
-                        : "border-[var(--border)] text-[var(--text-muted)] bg-white"
-                    )}
-                  >
-                    {s.num}
+                  <>
+                    Create your <span style={{ color: "var(--neon-mag)" }}>hero</span>
+                    <br />
+                    account
+                  </>
+                )}
+              </h1>
+              <p style={{ color: "var(--ink-dim)", fontSize: 15, marginBottom: 20, maxWidth: 460 }}>
+                {isLogin
+                  ? "Sign in to continue your learning quest."
+                  : "Start learning with a personalised AI curriculum."}
+              </p>
+
+              {authError && (
+                <div
+                  role="alert"
+                  style={{
+                    marginBottom: 16,
+                    padding: "12px 14px",
+                    background: "rgba(255, 62, 165, 0.12)",
+                    border: "2px solid var(--neon-mag)",
+                    borderRadius: 12,
+                    color: "var(--neon-mag)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    boxShadow: "0 0 12px rgba(255,62,165,0.35)",
+                  }}
+                >
+                  {authError}
+                </div>
+              )}
+
+              <form
+                onSubmit={handleAuth}
+                style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 460 }}
+              >
+                <div>
+                  <label style={arcadeLabelStyle}>Email address</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    style={arcadeInputStyle}
+                  />
+                </div>
+
+                {!isLogin && (
+                  <div>
+                    <label style={arcadeLabelStyle}>Full name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => updateInitials(e.target.value)}
+                      placeholder="Your full name"
+                      required
+                      style={arcadeInputStyle}
+                    />
                   </div>
                 )}
-                <div className="pt-0.5">
-                  <div
-                    className={cn(
-                      "text-[13px] font-bold",
-                      isDone
-                        ? "text-[var(--accent)]"
-                        : isActive
-                        ? "text-[var(--text-primary)]"
-                        : "text-[var(--text-muted)]"
-                    )}
-                  >
-                    {s.name}
-                  </div>
-                  <div className="text-[11px] text-[var(--text-muted)] mt-0.5">{s.desc}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </aside>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col items-center justify-start p-12 overflow-y-auto">
-        {step === 0 && (
-          <div className="w-full max-w-md">
-            <h1 className="text-3xl font-extrabold text-[var(--text-primary)] mb-2">
-              {isLogin ? "Welcome back 👋" : "Create your account 🚀"}
-            </h1>
-            <p className="text-sm text-[var(--text-muted)] mb-8">
-              {isLogin
-                ? "Sign in to continue your learning journey"
-                : "Start learning with a personalized AI curriculum"}
-            </p>
-
-            {authError && (
-              <div className="mb-4 p-3 bg-[var(--red-bg)] border border-[var(--red)] rounded-2xl text-[var(--red)] text-sm font-medium">
-                {authError}
-              </div>
-            )}
-
-            <form onSubmit={handleAuth} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[var(--text-body)] mb-1.5 block">Email address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="w-full bg-white border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand-blue)] transition-colors"
-                />
-              </div>
-
-              {!isLogin && (
                 <div>
-                  <label className="text-xs font-bold text-[var(--text-body)] mb-1.5 block">Full name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => updateInitials(e.target.value)}
-                    placeholder="Your full name"
-                    required
-                    className="w-full bg-white border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand-blue)] transition-colors"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="text-xs font-bold text-[var(--text-body)] mb-1.5 block">Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
-                  required
-                  className="w-full bg-white border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand-blue)] transition-colors"
-                />
-              </div>
-
-              {!isLogin && (
-                <div>
-                  <label className="text-xs font-bold text-[var(--text-body)] mb-1.5 block">Confirm password</label>
+                  <label style={arcadeLabelStyle}>Password</label>
                   <input
                     type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repeat password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min. 8 characters"
                     required
-                    className="w-full bg-white border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand-blue)] transition-colors"
+                    style={arcadeInputStyle}
                   />
                 </div>
-              )}
 
-              <button
-                type="submit"
-                className="w-full bg-[var(--accent)] text-white py-3.5 rounded-full font-bold text-sm hover:opacity-90 hover:scale-[1.02] transition-all shadow-card"
-              >
-                {isLogin ? "Sign in →" : "Create account →"}
-              </button>
-            </form>
+                {!isLogin && (
+                  <div>
+                    <label style={arcadeLabelStyle}>Confirm password</label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repeat password"
+                      required
+                      style={arcadeInputStyle}
+                    />
+                  </div>
+                )}
 
-            <div className="text-center text-sm text-[var(--text-muted)] mt-6">
-              {isLogin ? "New here? " : "Already have an account? "}
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-[var(--brand-blue)] hover:underline font-bold"
-              >
-                {isLogin ? "Create an account" : "Sign in"}
-              </button>
+                <div style={{ display: "flex", gap: 10, marginTop: 6, alignItems: "center" }}>
+                  <button type="submit" className="chunky-btn cyan" style={{ cursor: "pointer" }}>
+                    {isLogin ? "Sign in ▶" : "Create account ▶"}
+                  </button>
+                  <button
+                    type="button"
+                    className="pill"
+                    onClick={() => setIsLogin(!isLogin)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    {isLogin ? "New here? Sign up" : "Have an account? Sign in"}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 20,
+              }}
+            >
+              <ByteTooltip text={isLogin ? "Welcome back, hero!" : "Let's suit you up!"} />
+              <div className="panel" style={{ padding: 18, maxWidth: 320, textAlign: "center" }}>
+                <div className="label">Meet</div>
+                <div className="h-display" style={{ fontSize: 20, margin: "4px 0" }}>
+                  Byte, your buddy
+                </div>
+                <div style={{ fontSize: 13, color: "var(--ink-dim)" }}>
+                  I&apos;ll quiz you, cheer you on, and never judge a mistake. Ready to roll?
+                </div>
+              </div>
             </div>
           </div>
         )}
 
+        {/* STEP 1 — Profile */}
         {step === 1 && (
-          <div className="w-full max-w-md">
-            <h1 className="text-3xl font-extrabold text-[var(--text-primary)] mb-2">Set up your profile 🎨</h1>
-            <p className="text-sm text-[var(--text-muted)] mb-8">
-              This helps us personalise your learning experience
-            </p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 40,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <span className="label" style={{ color: "var(--neon-yel)" }}>
+                Step 2 of {TOTAL_STEPS}
+              </span>
+              <h1 className="h-display" style={{ fontSize: 44, margin: "10px 0 14px" }}>
+                Set up your <span style={{ color: "var(--neon-mag)" }}>profile</span>
+              </h1>
+              <p style={{ color: "var(--ink-dim)", fontSize: 15, marginBottom: 20, maxWidth: 460 }}>
+                This helps us personalise your learning experience.
+              </p>
 
-            <div className="flex gap-5 mb-6 items-center bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-extrabold shadow-card"
-                style={{ backgroundColor: avatarBg, color: avatarFg }}
+                className="panel cyan"
+                style={{
+                  display: "flex",
+                  gap: 18,
+                  alignItems: "center",
+                  padding: 18,
+                  marginBottom: 16,
+                  maxWidth: 460,
+                }}
               >
-                {initials}
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 16,
+                    display: "grid",
+                    placeItems: "center",
+                    fontFamily: "var(--f-display)",
+                    fontWeight: 900,
+                    fontSize: 22,
+                    backgroundColor: avatarBg,
+                    color: avatarFg,
+                    border: "3px solid #170826",
+                    boxShadow: `0 4px 0 #170826, 0 0 14px ${avatarBg}`,
+                  }}
+                >
+                  {initials}
+                </div>
+                <div>
+                  <div style={{ ...arcadeLabelStyle, marginBottom: 8 }}>Choose an avatar color</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {AVATAR_COLORS.map((color, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setAvatarBg(color.bg);
+                          setAvatarFg(color.fg);
+                        }}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          backgroundColor: color.bg,
+                          border: "2px solid " + (avatarBg === color.bg ? "#ffffff" : "#170826"),
+                          boxShadow: `0 3px 0 #170826, 0 0 10px ${color.bg}`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-xs font-bold text-[var(--text-body)] mb-2">Choose an avatar color</div>
-                <div className="flex gap-2">
-                  {AVATAR_COLORS.map((color, i) => (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        setAvatarBg(color.bg);
-                        setAvatarFg(color.fg);
-                      }}
-                      className="w-7 h-7 rounded-full border-2 transition-transform hover:scale-110"
-                      style={{
-                        backgroundColor: color.bg,
-                        borderColor: avatarBg === color.bg ? "var(--text-primary)" : "transparent",
-                      }}
+
+              <div style={{ maxWidth: 460 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <label style={arcadeLabelStyle}>Date of birth</label>
+                    <input
+                      type="date"
+                      value={dob}
+                      onChange={(e) => setDob(e.target.value)}
+                      style={arcadeInputStyle}
                     />
-                  ))}
+                  </div>
+                  <div>
+                    <label style={arcadeLabelStyle}>Gender (optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Female"
+                      style={arcadeInputStyle}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={arcadeLabelStyle}>School name (optional)</label>
+                  <input
+                    type="text"
+                    value={school}
+                    onChange={(e) => setSchool(e.target.value)}
+                    placeholder="e.g. Lincoln High School"
+                    style={arcadeInputStyle}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 18 }}>
+                  <label style={arcadeLabelStyle}>Parent / guardian email (optional)</label>
+                  <input
+                    type="email"
+                    value={parentEmail}
+                    onChange={(e) => setParentEmail(e.target.value)}
+                    placeholder="parent@example.com"
+                    style={arcadeInputStyle}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    className="chunky-btn cyan"
+                    onClick={() => goStep(2)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Continue ▶
+                  </button>
+                  <button
+                    className="pill"
+                    onClick={() => goStep(2)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Skip for now
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div>
-                <label className="text-xs font-bold text-[var(--text-body)] mb-1.5 block">Date of birth</label>
-                <input
-                  type="date"
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
-                  className="w-full bg-white border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-blue)] transition-colors"
-                />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 20,
+              }}
+            >
+              <ByteTooltip text="Lookin' cool! Pick a colour that's *you*." />
+              <div className="panel" style={{ padding: 18, maxWidth: 320, textAlign: "center" }}>
+                <div className="label">Profile Tip</div>
+                <div className="h-display" style={{ fontSize: 18, margin: "4px 0" }}>
+                  Make it yours
+                </div>
+                <div style={{ fontSize: 13, color: "var(--ink-dim)" }}>
+                  Your avatar shows up in lessons, leaderboards, and high-fives. Everything here is optional.
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-bold text-[var(--text-body)] mb-1.5 block">Gender (optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Female"
-                  className="w-full bg-white border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand-blue)] transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="text-xs font-bold text-[var(--text-body)] mb-1.5 block">School name (optional)</label>
-              <input
-                type="text"
-                value={school}
-                onChange={(e) => setSchool(e.target.value)}
-                placeholder="e.g. Lincoln High School"
-                className="w-full bg-white border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand-blue)] transition-colors"
-              />
-            </div>
-
-            <div className="mb-6">
-              <label className="text-xs font-bold text-[var(--text-body)] mb-1.5 block">
-                Parent / guardian email (optional)
-              </label>
-              <input
-                type="email"
-                value={parentEmail}
-                onChange={(e) => setParentEmail(e.target.value)}
-                placeholder="parent@example.com"
-                className="w-full bg-white border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--brand-blue)] transition-colors"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => goStep(2)}
-                className="flex-1 bg-[var(--accent)] text-white py-3.5 rounded-full font-bold text-sm hover:opacity-90 hover:scale-[1.02] transition-all shadow-card"
-              >
-                Continue →
-              </button>
-              <button
-                onClick={() => goStep(2)}
-                className="flex-1 bg-white border-2 border-[var(--border)] text-[var(--text-body)] py-3.5 rounded-full font-bold text-sm hover:bg-[var(--bg-deep)] transition-all"
-              >
-                Skip for now
-              </button>
             </div>
           </div>
         )}
 
+        {/* STEP 2 — Grade picker */}
         {step === 2 && (
-          <div className="w-full max-w-2xl">
-            <h1 className="text-3xl font-extrabold text-[var(--text-primary)] mb-2">What grade are you in? 🎒</h1>
-            <p className="text-sm text-[var(--text-muted)] mb-8">We'll tailor every lesson to your level</p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.3fr 1fr",
+              gap: 40,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <span className="label" style={{ color: "var(--neon-yel)" }}>
+                Step 3 of {TOTAL_STEPS}
+              </span>
+              <h1 className="h-display" style={{ fontSize: 44, margin: "10px 0 14px" }}>
+                What <span style={{ color: "var(--neon-cyan)" }}>grade</span> are you in?
+              </h1>
+              <p style={{ color: "var(--ink-dim)", fontSize: 15, marginBottom: 24, maxWidth: 500 }}>
+                We&apos;ll tailor every lesson to your level.
+              </p>
 
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 mb-8">
-              {GRADE_DATA.map((grade, i) => {
-                const val = grade.value || "K";
-                const selected = selectedGrade === val;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setSelectedGrade(val)}
-                    className={cn(
-                      "py-4 px-2 rounded-2xl text-center border-2 transition-all hover:-translate-y-0.5",
-                      selected
-                        ? "bg-[var(--brand-blue-soft)] border-[var(--brand-blue)] shadow-card"
-                        : "bg-white border-[var(--border)] hover:border-[var(--brand-blue)]"
-                    )}
-                  >
-                    <div className="text-[10px] text-[var(--text-muted)] font-semibold mb-1">{grade.label}</div>
-                    <div
-                      className={cn(
-                        "text-lg font-extrabold",
-                        selected ? "text-[var(--brand-blue)]" : "text-[var(--text-primary)]"
-                      )}
-                    >
-                      {grade.num}
-                    </div>
-                    <div className="text-[10px] text-[var(--text-muted)] mt-1 font-medium">{grade.age}</div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => goStep(3)}
-              disabled={!selectedGrade}
-              className="w-full bg-[var(--accent)] text-white py-3.5 rounded-full font-bold text-sm hover:opacity-90 hover:scale-[1.01] disabled:opacity-40 disabled:hover:scale-100 transition-all shadow-card"
-            >
-              Choose subjects →
-            </button>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="w-full max-w-2xl">
-            <h1 className="text-3xl font-extrabold text-[var(--text-primary)] mb-2">Choose your curriculum 📚</h1>
-            <p className="text-sm text-[var(--text-muted)] mb-8">
-              Select the subjects you want to study. You can change this later.
-            </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-              {SUBJECTS.map((subj) => {
-                const selected = selectedSubjects.includes(subj.name);
-                return (
-                  <button
-                    key={subj.name}
-                    onClick={() => toggleSubject(subj.name)}
-                    className={cn(
-                      "p-5 rounded-2xl border-2 transition-all text-left hover:-translate-y-1",
-                      selected
-                        ? "shadow-elevated"
-                        : "bg-white border-[var(--border)] shadow-card hover:border-[var(--brand-blue)]"
-                    )}
-                    style={
-                      selected
-                        ? { background: subj.bg, borderColor: subj.color }
-                        : undefined
-                    }
-                  >
-                    <div
-                      className="w-12 h-12 rounded-2xl mb-3 flex items-center justify-center text-2xl text-white shadow-card"
-                      style={{ background: subj.color }}
-                    >
-                      {subj.icon}
-                    </div>
-                    <div
-                      className="text-sm font-extrabold"
-                      style={{ color: selected ? subj.color : "var(--text-primary)" }}
-                    >
-                      {subj.name}
-                    </div>
-                    <div className="text-[11px] text-[var(--text-muted)] font-semibold mt-1">{subj.lessons} lessons</div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => goStep(4)}
-              disabled={selectedSubjects.length === 0}
-              className="w-full bg-[var(--accent)] text-white py-3.5 rounded-full font-bold text-sm hover:opacity-90 hover:scale-[1.01] disabled:opacity-40 disabled:hover:scale-100 transition-all shadow-card"
-            >
-              Generate my curriculum →
-            </button>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="w-full max-w-md text-center pt-6">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-[var(--brand-blue)] to-[var(--subject-coding)] flex items-center justify-center mx-auto mb-6 shadow-elevated">
-              <span className="text-4xl">⚡</span>
-            </div>
-
-            <h1 className="text-2xl font-extrabold text-[var(--text-primary)] mb-2">Building your curriculum...</h1>
-            <p className="text-sm text-[var(--text-muted)] mb-6">Personalising lessons for Grade {selectedGrade || "9"}</p>
-
-            <div className="h-3 bg-[var(--bg-deep)] rounded-full mb-6 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--brand-blue)] rounded-full transition-all duration-500"
-                style={{ width: `${genProgress}%` }}
-              />
-            </div>
-
-            <div className="bg-white border border-[var(--border)] rounded-2xl shadow-card mb-6 overflow-hidden">
-              {selectedSubjects.map((subj, idx) => {
-                const data = SUBJECTS.find((s) => s.name === subj);
-                const done = genProgress > ((idx + 1) / selectedSubjects.length) * 90;
-                return (
-                  <div
-                    key={subj}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-3 text-sm",
-                      idx < selectedSubjects.length - 1 && "border-b border-[var(--border)]"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "w-2.5 h-2.5 rounded-full flex-shrink-0",
-                        done ? "bg-[var(--accent)]" : "bg-[var(--brand-blue)] animate-pulse"
-                      )}
-                    />
-                    <span className="text-[var(--text-body)] font-semibold">{subj}</span>
-                    <span className="ml-auto text-[var(--text-muted)] text-xs font-medium">
-                      {done ? `${data?.lessons || 16} lessons` : "Generating…"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {genProgress >= 100 && (
-              <button
-                onClick={() => goStep(5)}
-                className="w-full bg-[var(--accent)] text-white py-3.5 rounded-full font-bold text-sm hover:opacity-90 hover:scale-[1.01] transition-all shadow-card"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5, 1fr)",
+                  gap: 10,
+                  marginBottom: 24,
+                  maxWidth: 560,
+                }}
               >
-                Start learning →
-              </button>
-            )}
-          </div>
-        )}
+                {GRADE_DATA.map((grade, i) => {
+                  const val = grade.value || "K";
+                  const selected = selectedGrade === val;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedGrade(val)}
+                      style={{
+                        padding: "12px 6px",
+                        borderRadius: 12,
+                        textAlign: "center",
+                        background: selected ? "rgba(39,224,255,0.15)" : "rgba(0,0,0,0.3)",
+                        border: "3px solid " + (selected ? "var(--neon-cyan)" : "var(--line)"),
+                        boxShadow: selected
+                          ? "0 4px 0 #170826, 0 0 16px var(--neon-cyan)"
+                          : "0 4px 0 #170826",
+                        color: "var(--ink)",
+                        cursor: "pointer",
+                        transform: selected ? "translateY(-2px)" : "none",
+                        fontFamily: "var(--f-body)",
+                        transition: "all 120ms ease",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          color: "var(--ink-dim)",
+                          fontFamily: "var(--f-display)",
+                          fontWeight: 700,
+                          letterSpacing: 0.6,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {grade.label}
+                      </div>
+                      <div
+                        className="h-display"
+                        style={{
+                          fontSize: 18,
+                          color: selected ? "var(--neon-cyan)" : "var(--ink)",
+                          textShadow: selected ? "0 0 10px var(--neon-cyan)" : "none",
+                          margin: "2px 0",
+                        }}
+                      >
+                        {grade.num}
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--ink-dim)", fontWeight: 600 }}>{grade.age}</div>
+                    </button>
+                  );
+                })}
+              </div>
 
-        {step === 5 && (
-          <div className="w-full max-w-md text-center pt-6">
-            <div className="w-20 h-20 rounded-3xl bg-[var(--green-bg)] border-2 border-[var(--green)] flex items-center justify-center mx-auto mb-6 shadow-card">
-              <span className="text-4xl">🎉</span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="pill" onClick={() => goStep(1)} style={{ cursor: "pointer" }}>
+                  ← Back
+                </button>
+                <button
+                  className="chunky-btn cyan"
+                  onClick={() => goStep(3)}
+                  disabled={!selectedGrade}
+                  style={{
+                    cursor: selectedGrade ? "pointer" : "not-allowed",
+                    opacity: selectedGrade ? 1 : 0.45,
+                  }}
+                >
+                  Choose subjects ▶
+                </button>
+              </div>
             </div>
 
-            <h1 className="text-3xl font-extrabold text-[var(--text-primary)] mb-2">
-              You're all set, {name.split(" ")[0] || "learner"}!
-            </h1>
-            <p className="text-sm text-[var(--text-muted)] mb-6">
-              Your personalised curriculum is ready across {selectedSubjects.length} subjects
-            </p>
-
-            <div className="flex flex-wrap gap-2 justify-center mb-6">
-              {selectedSubjects.map((subj) => {
-                const data = SUBJECTS.find((s) => s.name === subj);
-                return (
-                  <div
-                    key={subj}
-                    className="px-4 py-2 rounded-full text-xs font-bold border-2"
-                    style={{
-                      backgroundColor: data?.bg ?? "var(--brand-blue-soft)",
-                      color: data?.color ?? "var(--brand-blue)",
-                      borderColor: data?.color ?? "var(--brand-blue)",
-                    }}
-                  >
-                    {subj}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card mb-6 text-left">
-              <div className="text-[11px] text-[var(--text-muted)] font-bold mb-3 tracking-widest uppercase">
-                Your Plan
-              </div>
-              <div className="flex justify-between text-sm py-2 border-b border-[var(--border)]">
-                <span className="text-[var(--text-muted)]">Total lessons</span>
-                <span className="text-[var(--text-primary)] font-extrabold">
-                  {selectedSubjects.reduce((sum, subj) => {
-                    const data = SUBJECTS.find((s) => s.name === subj);
-                    return sum + (data?.lessons || 16);
-                  }, 0)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm py-2 border-b border-[var(--border)]">
-                <span className="text-[var(--text-muted)]">Estimated weeks</span>
-                <span className="text-[var(--text-primary)] font-extrabold">24 weeks</span>
-              </div>
-              <div className="flex justify-between text-sm py-2">
-                <span className="text-[var(--text-muted)]">AI tutor sessions</span>
-                <span className="text-[var(--text-primary)] font-extrabold">Unlimited</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="w-full bg-[var(--accent)] text-white py-3.5 rounded-full font-bold text-sm hover:opacity-90 hover:scale-[1.01] transition-all shadow-card"
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 20,
+              }}
             >
-              Go to my dashboard →
-            </button>
+              <ByteTooltip text="Pick your level — I'll scale with you!" />
+              <div className="panel" style={{ padding: 18, maxWidth: 320, textAlign: "center" }}>
+                <div className="label">Why we ask</div>
+                <div className="h-display" style={{ fontSize: 18, margin: "4px 0" }}>
+                  Right-size lessons
+                </div>
+                <div style={{ fontSize: 13, color: "var(--ink-dim)" }}>
+                  Grade tells us which skills to unlock first. You can always level up or down later.
+                </div>
+              </div>
+            </div>
           </div>
         )}
-      </main>
-    </div>
+
+        {/* STEP 3 — Subjects */}
+        {step === 3 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 40,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <span className="label" style={{ color: "var(--neon-yel)" }}>
+                Step 4 of {TOTAL_STEPS}
+              </span>
+              <h1 className="h-display" style={{ fontSize: 44, margin: "10px 0 14px" }}>
+                Which <span style={{ color: "var(--neon-mag)" }}>worlds</span>
+                <br />
+                spark your brain?
+              </h1>
+              <p style={{ color: "var(--ink-dim)", fontSize: 15, marginBottom: 20, maxWidth: 460 }}>
+                Pick your favourites. Byte will build your first quest path from them. You can change this anytime.
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 12,
+                  maxWidth: 520,
+                  marginBottom: 22,
+                }}
+              >
+                {SUBJECTS.map((subj) => {
+                  const selected = selectedSubjects.includes(subj.name);
+                  return (
+                    <button
+                      key={subj.name}
+                      onClick={() => toggleSubject(subj.name)}
+                      style={{
+                        padding: 16,
+                        borderRadius: 16,
+                        background: selected ? `${subj.color}22` : "rgba(0,0,0,0.3)",
+                        border: "3px solid " + (selected ? subj.color : "var(--line)"),
+                        boxShadow: selected
+                          ? `0 4px 0 #170826, 0 0 18px ${subj.color}`
+                          : "0 4px 0 #170826",
+                        color: "var(--ink)",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 6,
+                        transform: selected ? "translateY(-2px)" : "none",
+                        transition: "all 120ms ease",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 30,
+                          color: subj.color,
+                          textShadow: `0 0 14px ${subj.color}`,
+                          fontFamily: "var(--f-display)",
+                          fontWeight: 900,
+                        }}
+                      >
+                        {subj.icon}
+                      </div>
+                      <div className="h-display" style={{ fontSize: 13, textAlign: "center" }}>
+                        {subj.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "var(--ink-dim)",
+                          fontFamily: "var(--f-display)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {subj.lessons} lessons
+                      </div>
+                      {selected && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: subj.color,
+                            fontFamily: "var(--f-display)",
+                            fontWeight: 900,
+                          }}
+                        >
+                          ✓ PICKED
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="pill" onClick={() => goStep(2)} style={{ cursor: "pointer" }}>
+                  ← Back
+                </button>
+                <button
+                  className="chunky-btn cyan"
+                  onClick={() => goStep(4)}
+                  disabled={selectedSubjects.length === 0}
+                  style={{
+                    cursor: selectedSubjects.length === 0 ? "not-allowed" : "pointer",
+                    opacity: selectedSubjects.length === 0 ? 0.45 : 1,
+                  }}
+                >
+                  Generate curriculum ▶
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 20,
+              }}
+            >
+              <ByteTooltip text="You got this, new hero!" />
+              <div className="panel" style={{ padding: 18, maxWidth: 320, textAlign: "center" }}>
+                <div className="label">Meet</div>
+                <div className="h-display" style={{ fontSize: 20, margin: "4px 0" }}>
+                  Byte, your buddy
+                </div>
+                <div style={{ fontSize: 13, color: "var(--ink-dim)" }}>
+                  I&apos;ll quiz you, cheer you on, and never judge a mistake. Ready to roll?
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4 — Generation */}
+        {step === 4 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 40,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <span className="label" style={{ color: "var(--neon-yel)" }}>
+                Step 5 of {TOTAL_STEPS}
+              </span>
+              <h1 className="h-display" style={{ fontSize: 40, margin: "10px 0 14px" }}>
+                Building your <span style={{ color: "var(--neon-cyan)" }}>curriculum</span>…
+              </h1>
+              <p style={{ color: "var(--ink-dim)", fontSize: 15, marginBottom: 22, maxWidth: 460 }}>
+                Personalising lessons for Grade {selectedGrade || "9"}.
+              </p>
+
+              {/* Big progress bar */}
+              <div
+                style={{
+                  height: 16,
+                  background: "rgba(0,0,0,0.35)",
+                  border: "2px solid var(--line)",
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  marginBottom: 22,
+                  maxWidth: 460,
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${genProgress}%`,
+                    background: "linear-gradient(90deg, var(--neon-cyan), var(--neon-mag))",
+                    boxShadow: "0 0 14px var(--neon-cyan)",
+                    transition: "width 450ms ease",
+                  }}
+                />
+              </div>
+
+              <div
+                className="panel"
+                style={{
+                  padding: 0,
+                  overflow: "hidden",
+                  marginBottom: 22,
+                  maxWidth: 460,
+                }}
+              >
+                {selectedSubjects.map((subj, idx) => {
+                  const data = SUBJECTS.find((s) => s.name === subj);
+                  const done = genProgress > ((idx + 1) / selectedSubjects.length) * 90;
+                  return (
+                    <div
+                      key={subj}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "12px 16px",
+                        borderBottom:
+                          idx < selectedSubjects.length - 1 ? "1px solid var(--line-soft)" : "none",
+                        fontSize: 14,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 3,
+                          flexShrink: 0,
+                          background: done ? "var(--neon-lime)" : (data?.color ?? "var(--neon-cyan)"),
+                          boxShadow: `0 0 8px ${done ? "var(--neon-lime)" : (data?.color ?? "var(--neon-cyan)")}`,
+                          animation: done ? undefined : "pulse 1.2s ease-in-out infinite",
+                        }}
+                      />
+                      <span style={{ color: "var(--ink)", fontWeight: 700 }}>{subj}</span>
+                      <span
+                        style={{
+                          marginLeft: "auto",
+                          color: "var(--ink-dim)",
+                          fontSize: 12,
+                          fontFamily: "var(--f-display)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {done ? `${data?.lessons || 16} lessons` : "Generating…"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {genProgress >= 100 && (
+                <button
+                  className="chunky-btn cyan"
+                  onClick={() => goStep(5)}
+                  style={{ cursor: "pointer" }}
+                >
+                  Start learning ▶
+                </button>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 20,
+              }}
+            >
+              <ByteTooltip text="Crunching pixels… almost there!" />
+              <div className="panel mag" style={{ padding: 18, maxWidth: 320, textAlign: "center" }}>
+                <div className="label">Status</div>
+                <div className="h-display" style={{ fontSize: 24, margin: "4px 0" }}>
+                  {genProgress}%
+                </div>
+                <div style={{ fontSize: 13, color: "var(--ink-dim)" }}>
+                  AI is laying out your quest path across {selectedSubjects.length} worlds.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 5 — Success */}
+        {step === 5 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 40,
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <span className="label" style={{ color: "var(--neon-yel)" }}>
+                Step 6 of {TOTAL_STEPS}
+              </span>
+              <h1 className="h-display" style={{ fontSize: 44, margin: "10px 0 14px" }}>
+                You&apos;re all set,{" "}
+                <span style={{ color: "var(--neon-lime)" }}>
+                  {name.split(" ")[0] || "hero"}
+                </span>
+                !
+              </h1>
+              <p style={{ color: "var(--ink-dim)", fontSize: 15, marginBottom: 20, maxWidth: 460 }}>
+                Your personalised curriculum is ready across {selectedSubjects.length} subjects.
+              </p>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+                {selectedSubjects.map((subj) => {
+                  const data = SUBJECTS.find((s) => s.name === subj);
+                  const color = data?.color ?? "var(--neon-cyan)";
+                  return (
+                    <div
+                      key={subj}
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: 999,
+                        background: `${color}22`,
+                        color,
+                        border: `2px solid ${color}`,
+                        fontFamily: "var(--f-display)",
+                        fontWeight: 800,
+                        fontSize: 12,
+                        letterSpacing: 0.5,
+                        textTransform: "uppercase",
+                        boxShadow: `0 0 10px ${color}`,
+                      }}
+                    >
+                      {subj}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="panel" style={{ padding: 18, marginBottom: 22, maxWidth: 460 }}>
+                <div className="label" style={{ marginBottom: 10 }}>Your plan</div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "8px 0",
+                    borderBottom: "1px solid var(--line-soft)",
+                    fontSize: 14,
+                  }}
+                >
+                  <span style={{ color: "var(--ink-dim)" }}>Total lessons</span>
+                  <span
+                    className="h-display"
+                    style={{ color: "var(--neon-cyan)", textShadow: "0 0 8px var(--neon-cyan)" }}
+                  >
+                    {selectedSubjects.reduce((sum, subj) => {
+                      const data = SUBJECTS.find((s) => s.name === subj);
+                      return sum + (data?.lessons || 16);
+                    }, 0)}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "8px 0",
+                    borderBottom: "1px solid var(--line-soft)",
+                    fontSize: 14,
+                  }}
+                >
+                  <span style={{ color: "var(--ink-dim)" }}>Estimated weeks</span>
+                  <span
+                    className="h-display"
+                    style={{ color: "var(--neon-yel)", textShadow: "0 0 8px var(--neon-yel)" }}
+                  >
+                    24 weeks
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "8px 0",
+                    fontSize: 14,
+                  }}
+                >
+                  <span style={{ color: "var(--ink-dim)" }}>AI tutor sessions</span>
+                  <span
+                    className="h-display"
+                    style={{ color: "var(--neon-lime)", textShadow: "0 0 8px var(--neon-lime)" }}
+                  >
+                    Unlimited
+                  </span>
+                </div>
+              </div>
+
+              <button
+                className="chunky-btn cyan"
+                onClick={() => router.push("/dashboard")}
+                style={{ cursor: "pointer" }}
+              >
+                Go to my dashboard ▶
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 20,
+              }}
+            >
+              <ByteTooltip text="LET'S GOOOO! Quest unlocked." />
+              <div className="panel yel" style={{ padding: 18, maxWidth: 320, textAlign: "center" }}>
+                <div className="label">Ready</div>
+                <div className="h-display" style={{ fontSize: 22, margin: "4px 0" }}>
+                  Press start!
+                </div>
+                <div style={{ fontSize: 13, color: "var(--ink-dim)" }}>
+                  Your dashboard is warmed up and your first quest is waiting for you.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* tiny pulse keyframes used by generating list dots */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.55; transform: scale(0.9); }
+        }
+      `}</style>
+    </ArcadeShell>
   );
 }

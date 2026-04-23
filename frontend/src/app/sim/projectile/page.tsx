@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Pause, Play, RotateCcw, Target } from "lucide-react";
+import { ArcadeShell } from "@/components/arcade";
 
 const G = 9.81;
 const W = 720;
@@ -154,107 +155,313 @@ export default function ProjectileSimPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-deep)] py-8 px-4">
-      <div className="max-w-3xl mx-auto">
+    <ArcadeShell active="Practice" pixels={12}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        {/* Back link + header */}
         <Link
           href="/learn"
-          className="text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-body)] flex items-center gap-1 mb-4"
+          className="pill"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            color: "var(--neon-cyan)",
+            borderColor: "var(--neon-cyan)",
+            background: "transparent",
+            textDecoration: "none",
+            marginBottom: 16,
+          }}
         >
-          <ChevronLeft className="w-3 h-3" /> Back to Learn
+          <ChevronLeft className="w-3 h-3" /> BACK TO LEARN
         </Link>
 
-        <header className="mb-6">
-          <h1 className="text-3xl font-extrabold text-[var(--text-primary)] flex items-center gap-2">
-            <Target className="w-7 h-7 text-[var(--brand-blue)]" strokeWidth={2} />
-            Projectile lab
+        <div style={{ marginBottom: 22 }}>
+          <span className="label" style={{ color: "var(--neon-lime)" }}>
+            <Target className="w-3 h-3" style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
+            PHYSICS LAB
+          </span>
+          <h1 className="h-display" style={{ fontSize: 40, margin: "8px 0 4px" }}>
+            Projectile <span style={{ color: "var(--neon-mag)" }}>Lab</span>
           </h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">
-            Tweak the angle and speed, see what physics predicts.
+          <p style={{ color: "var(--ink-dim)" }}>
+            Dial the launcher. Predict with physics. Fire and verify.
           </p>
-        </header>
+        </div>
 
-        <div className="bg-white border border-[var(--border)] rounded-2xl p-4 shadow-card">
-          <canvas
-            ref={canvasRef}
-            width={W}
-            height={H}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-deep)]"
-          />
+        {/* Main grid: canvas + sidebar */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) 320px",
+            gap: 20,
+            alignItems: "start",
+          }}
+        >
+          {/* Canvas panel */}
+          <div className="panel cyan" style={{ padding: 18, position: "relative", overflow: "hidden" }}>
+            <div className="scanline" />
+            <div style={{ position: "relative" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <span className="label" style={{ color: "var(--neon-cyan)" }}>
+                  ◉ LAUNCH CHAMBER
+                </span>
+                <span
+                  className="label"
+                  style={{
+                    color: running ? "var(--neon-mag)" : landed ? "var(--neon-lime)" : "var(--ink-mute)",
+                  }}
+                >
+                  {running ? "▶ FIRING" : landed ? "✓ LANDED" : "⏸ ARMED"}
+                </span>
+              </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                Angle: {angle}°
-              </label>
-              <input
-                type="range"
-                min={5}
-                max={85}
-                value={angle}
-                onChange={(e) => { setAngle(+e.target.value); reset(); }}
-                disabled={running}
-                className="w-full accent-[var(--brand-blue)]"
+              <canvas
+                ref={canvasRef}
+                width={W}
+                height={H}
+                style={{
+                  width: "100%",
+                  display: "block",
+                  borderRadius: 14,
+                  border: "3px solid #170826",
+                  boxShadow: "0 6px 0 0 #0a0515, 0 0 24px rgba(39,224,255,0.35)",
+                  background: "#eff6ff",
+                }}
               />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                Speed: {speed} m/s
-              </label>
-              <input
-                type="range"
-                min={10}
-                max={80}
-                value={speed}
-                onChange={(e) => { setSpeed(+e.target.value); reset(); }}
-                disabled={running}
-                className="w-full accent-[var(--brand-blue)]"
-              />
+
+              <p
+                style={{
+                  marginTop: 12,
+                  fontSize: 12,
+                  color: "var(--ink-mute)",
+                  fontFamily: "var(--f-body)",
+                }}
+              >
+                Dotted line = predicted parabola · solid blue = live trail · red marker = range.
+              </p>
             </div>
           </div>
 
-          <div className="mt-4 flex gap-2">
-            <button
-              onClick={running ? () => setRunning(false) : launch}
-              className="flex-1 bg-[var(--brand-blue)] hover:opacity-90 text-white font-semibold rounded-xl py-2.5 text-sm flex items-center justify-center gap-2"
-            >
-              {running ? <><Pause className="w-4 h-4" /> Pause</> : <><Play className="w-4 h-4" /> Launch</>}
-            </button>
-            <button
-              onClick={reset}
-              className="bg-white border border-[var(--border)] hover:bg-[var(--bg-deep)] text-[var(--text-body)] font-semibold rounded-xl py-2.5 px-4 text-sm flex items-center gap-2"
-            >
-              <RotateCcw className="w-4 h-4" /> Reset
-            </button>
+          {/* Sidebar: controls + predicted stats */}
+          <div style={{ display: "grid", gap: 16 }}>
+            {/* Controls panel */}
+            <div className="panel mag" style={{ padding: 20, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "relative" }}>
+                <span className="label" style={{ color: "var(--neon-mag)" }}>⚙ CONTROLS</span>
+
+                <div style={{ marginTop: 14 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span className="label" style={{ color: "var(--neon-cyan)" }}>Angle</span>
+                    <span
+                      className="h-display"
+                      style={{ fontSize: 20, color: "var(--neon-cyan)" }}
+                    >
+                      {angle}°
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={5}
+                    max={85}
+                    value={angle}
+                    onChange={(e) => { setAngle(+e.target.value); reset(); }}
+                    disabled={running}
+                    style={{ width: "100%", accentColor: "#27e0ff" }}
+                  />
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span className="label" style={{ color: "var(--neon-yel)" }}>Speed</span>
+                    <span
+                      className="h-display"
+                      style={{ fontSize: 20, color: "var(--neon-yel)" }}
+                    >
+                      {speed} m/s
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={10}
+                    max={80}
+                    value={speed}
+                    onChange={(e) => { setSpeed(+e.target.value); reset(); }}
+                    disabled={running}
+                    style={{ width: "100%", accentColor: "#ffe53d" }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 16,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    background: "rgba(0,0,0,0.4)",
+                    border: "2px solid var(--line)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span className="label">Gravity</span>
+                  <span
+                    className="h-display"
+                    style={{ fontSize: 14, color: "var(--neon-ora)" }}
+                  >
+                    {G} m/s²
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+                  <button
+                    onClick={running ? () => setRunning(false) : launch}
+                    className="chunky-btn"
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      fontSize: 12,
+                    }}
+                  >
+                    {running ? (
+                      <>
+                        <Pause className="w-4 h-4" /> PAUSE
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4" /> FIRE!
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={reset}
+                    className="pill"
+                    style={{
+                      cursor: "pointer",
+                      color: "var(--neon-yel)",
+                      borderColor: "var(--neon-yel)",
+                      background: "transparent",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <RotateCcw className="w-3 h-3" /> RESET
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Predictions */}
+            <div className="panel yel" style={{ padding: 18, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "relative" }}>
+                <span className="label" style={{ color: "var(--neon-yel)" }}>
+                  ✦ PREDICTED (analytical)
+                </span>
+                <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                  <StatTile label="Range" value={`${range.toFixed(1)} m`} color="var(--neon-cyan)" />
+                  <StatTile label="Max height" value={`${maxHeight.toFixed(1)} m`} color="var(--neon-lime)" />
+                  <StatTile label="Flight time" value={`${flightTime.toFixed(2)} s`} color="var(--neon-mag)" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Predictions */}
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          <Stat label="Range" value={`${range.toFixed(1)} m`} />
-          <Stat label="Max height" value={`${maxHeight.toFixed(1)} m`} />
-          <Stat label="Flight time" value={`${flightTime.toFixed(2)} s`} />
-        </div>
-
-        <section className="mt-4 bg-white border border-[var(--border)] rounded-2xl p-5 shadow-card text-sm text-[var(--text-body)]">
-          <div className="text-xs uppercase tracking-wider font-bold text-[var(--text-muted)] mb-2">
-            The physics
-          </div>
-          <p className="leading-relaxed">
-            Horizontal: <span className="font-mono">x(t) = v·cos(θ)·t</span>. Vertical:{" "}
-            <span className="font-mono">y(t) = v·sin(θ)·t − ½gt²</span> with g = 9.81 m/s². Range
-            is maximised at θ = 45°. Try it — bump the angle past 45° and watch range fall.
+        {/* The physics */}
+        <div
+          className="panel"
+          style={{
+            marginTop: 20,
+            padding: 20,
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <span className="label" style={{ color: "var(--neon-vio)" }}>📖 THE PHYSICS</span>
+          <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "var(--ink-dim)" }}>
+            Horizontal:{" "}
+            <span
+              className="pixel"
+              style={{ color: "var(--neon-cyan)", fontSize: 13 }}
+            >
+              x(t) = v·cos(θ)·t
+            </span>
+            . Vertical:{" "}
+            <span
+              className="pixel"
+              style={{ color: "var(--neon-mag)", fontSize: 13 }}
+            >
+              y(t) = v·sin(θ)·t − ½gt²
+            </span>{" "}
+            with g = 9.81 m/s². Range is maximised at{" "}
+            <span className="h-display" style={{ color: "var(--neon-yel)" }}>θ = 45°</span>
+            . Try it — bump the angle past 45° and watch the range fall.
           </p>
-        </section>
+        </div>
       </div>
-    </div>
+    </ArcadeShell>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function StatTile({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
   return (
-    <div className="bg-white border border-[var(--border)] rounded-2xl p-4 shadow-card">
-      <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">{label}</div>
-      <div className="text-xl font-extrabold text-[var(--text-primary)] mt-1">{value}</div>
+    <div
+      style={{
+        padding: "10px 14px",
+        borderRadius: 12,
+        background: "rgba(0,0,0,0.45)",
+        border: `2px solid ${color}`,
+        boxShadow: `0 0 14px ${color}33`,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      <span className="label" style={{ color: "var(--ink-dim)" }}>{label}</span>
+      <span
+        className="h-display"
+        style={{
+          fontSize: 18,
+          color,
+          textShadow: `0 0 10px ${color}`,
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }

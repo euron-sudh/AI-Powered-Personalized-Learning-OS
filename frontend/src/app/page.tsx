@@ -1,415 +1,783 @@
 import Link from "next/link";
-import {
-  BookOpen,
-  GraduationCap,
-  LineChart,
-  Sparkles,
-  Calculator,
-  FlaskConical,
-  Code2,
-  Palette,
-  BadgeCheck,
-  ShieldCheck,
-} from "lucide-react";
+import { Byte, FloatingPixels } from "@/components/arcade";
 
 export default function HomePage() {
   return (
-    <main className="relative overflow-hidden">
-      {/* ═════════ decorative background blobs (page-wide, behind everything) ═════════ */}
-      <Blobs />
+    <div className="arcade-root" data-grade="68" data-motion="on" data-mascot="on" style={{ minHeight: "100vh" }}>
+      <main
+        className="screen"
+        style={{
+          minHeight: "100vh",
+          position: "relative",
+          borderRadius: 0,
+          border: "none",
+          overflow: "hidden",
+        }}
+      >
+        <div className="gridbg" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
+        <FloatingPixels count={26} />
 
-      {/* ═════════ Marketing top nav ═════════ */}
-      <header className="relative z-20">
-        <div className="max-w-[1240px] mx-auto px-6 pt-6 flex items-center gap-6">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#3b82f6] to-[#6366f1] flex items-center justify-center shadow-card">
-              <GraduationCap className="w-6 h-6 text-white" strokeWidth={2.4} />
-            </div>
-            <span className="text-[22px] font-extrabold tracking-tight">
-              <span className="text-[var(--text-primary)]">Learn</span>
-              <span className="text-[var(--brand-blue)]">OS</span>
-            </span>
-          </Link>
-
-          {/* Center links */}
-          <nav className="hidden md:flex items-center gap-7 ml-6 text-[15px] font-semibold text-[var(--text-body)]">
-            <a href="#features" className="hover:text-[var(--brand-blue)] transition">Features</a>
-            <a href="#subjects" className="hover:text-[var(--brand-blue)] transition">Courses</a>
-            <a href="#testimonials" className="hover:text-[var(--brand-blue)] transition">About Us</a>
-            <a href="#pricing" className="hover:text-[var(--brand-blue)] transition">Pricing</a>
-          </nav>
-
-          <div className="flex items-center gap-3 ml-auto">
+        {/* Top nav */}
+        <header style={{ position: "relative", zIndex: 5 }}>
+          <div
+            style={{
+              maxWidth: 1240,
+              margin: "0 auto",
+              padding: "20px 24px 0",
+              display: "flex",
+              alignItems: "center",
+              gap: 24,
+            }}
+          >
             <Link
-              href="/register"
-              className="hidden sm:inline-flex items-center bg-[#14b8a6] hover:bg-[#0d9488] text-white font-bold text-[13px] px-5 py-2.5 rounded-full shadow-card transition"
+              href="/"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                flexShrink: 0,
+                textDecoration: "none",
+              }}
             >
-              Parent/Teacher Portal
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex items-center bg-[var(--brand-blue)] hover:bg-[#1d4ed8] text-white font-bold text-[13px] px-5 py-2.5 rounded-full shadow-card transition"
-            >
-              Log In
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* ═════════ HERO ═════════ */}
-      <section className="relative z-10">
-        <div className="max-w-[1240px] mx-auto px-6 pt-12 md:pt-16 pb-10 grid md:grid-cols-[1.05fr_1fr] gap-10 items-center">
-          <div>
-            <h1 className="font-display text-[40px] sm:text-[52px] md:text-[60px] font-extrabold leading-[1.04] text-[var(--text-primary)] mb-5">
-              Unlock Your Child&rsquo;s<br />
-              Potential with{" "}
-              <span className="text-[var(--brand-blue)]">LearnOS</span>!
-            </h1>
-            <p className="text-[17px] sm:text-[19px] text-[var(--text-body)] max-w-[520px] mb-8 leading-relaxed">
-              Fun, Interactive, &amp; Standard-Aligned Learning for K-12 Students
-            </p>
-
-            <div className="flex items-center gap-5 flex-wrap">
-              <Link
-                href="/register"
-                className="inline-flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-dim)] text-white font-extrabold text-[15px] px-7 py-4 rounded-full shadow-glow hover:scale-[1.03] transition-transform"
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
+                  background: "linear-gradient(135deg, var(--neon-mag), var(--neon-vio))",
+                  border: "2px solid #170826",
+                  display: "grid",
+                  placeItems: "center",
+                  boxShadow: "0 4px 0 #170826, 0 0 20px rgba(255,62,165,0.5)",
+                  fontFamily: "var(--f-pixel)",
+                  fontSize: 16,
+                  color: "#fff",
+                }}
               >
-                Start Learning Today
-              </Link>
-              <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
-                <span className="text-[var(--brand-blue)] text-[22px] font-extrabold italic">6-16</span>
-                <Sparkles className="w-4 h-4 text-[#fbbf24]" />
+                L
               </div>
-            </div>
-          </div>
-
-          {/* Classroom illustration panel */}
-          <ClassroomIllustration />
-        </div>
-
-        {/* Feature cards row */}
-        <div id="features" className="max-w-[1100px] mx-auto px-6 -mt-4 grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <FeatureCard
-            icon={<BookOpen className="w-8 h-8 text-[var(--brand-blue)]" strokeWidth={2.2} />}
-            iconBg="#dbeafe"
-            title="Engaging Courses"
-            desc="Personalized Math, Science, Reading & more"
-          />
-          <FeatureCard
-            icon={<Sparkles className="w-8 h-8 text-[#10b981]" strokeWidth={2.2} />}
-            iconBg="#d1fae5"
-            title="Interactive Learning"
-            desc="Gamified lessons, quizzes, & activities"
-          />
-          <FeatureCard
-            icon={<LineChart className="w-8 h-8 text-[var(--accent)]" strokeWidth={2.2} />}
-            iconBg="#ffedd5"
-            title="Track Progress"
-            desc="Real-time feedback & detailed reports"
-          />
-        </div>
-      </section>
-
-      {/* ═════════ POPULAR SUBJECTS ═════════ */}
-      <section id="subjects" className="relative z-10 mt-20">
-        <div className="max-w-[1100px] mx-auto px-6">
-          <h2 className="text-3xl md:text-[34px] font-extrabold text-[var(--text-primary)] mb-8">Popular Subjects</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5">
-            <SubjectTile color="#60a5fa" bg="#bfdbfe" title="Math" Icon={Calculator} />
-            <SubjectTile color="#fb923c" bg="#fed7aa" title="English" Icon={BookOpen} />
-            <SubjectTile color="#34d399" bg="#bbf7d0" title="Science" Icon={FlaskConical} />
-            <SubjectTile color="#a855f7" bg="#e9d5ff" title="Coding" Icon={Code2} />
-            <SubjectTile color="#facc15" bg="#fef08a" title="Art" Icon={Palette} />
-          </div>
-        </div>
-      </section>
-
-      {/* ═════════ TESTIMONIALS ═════════ */}
-      <section id="testimonials" className="relative z-10 mt-24">
-        <div className="max-w-[1100px] mx-auto px-6 grid md:grid-cols-[1fr_1.1fr] gap-12 items-center">
-          <div className="relative">
-            <div className="absolute -top-6 -left-6 w-24 h-24 rounded-full bg-[#dbeafe] -z-10" />
-            <div className="absolute -bottom-8 -right-4 w-20 h-20 rounded-full bg-[#fef08a] -z-10" />
-            <div className="rounded-[28px] bg-white border-2 border-[var(--border)] shadow-elevated p-6">
-              <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-[#dbeafe] via-[#fef9c3] to-[#fed7aa] flex items-center justify-center relative overflow-hidden">
-                <div className="text-[140px] leading-none">👩‍🏫</div>
-                <div className="absolute top-6 left-6 text-3xl">📚</div>
-                <div className="absolute top-6 right-6 text-3xl">🌟</div>
-                <div className="absolute bottom-6 left-6 text-3xl">✏️</div>
-                <div className="absolute bottom-6 right-6 text-3xl">🎨</div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-3xl md:text-[36px] font-extrabold text-[var(--text-primary)] mb-2">Testimonials</h2>
-            <p className="text-[var(--text-muted)] mb-6">Happy students &amp; parents</p>
-
-            <div className="space-y-4">
-              <TestimonialCard
-                quote="LearnOS completely changed how my daughter approaches homework. The AI tutor feels like a patient friend — she actually asks for more lessons."
-                author="Priya &middot; Parent of Grade 6"
-              />
-              <TestimonialCard
-                quote="I love the voice tutor! It explains things in a way I actually get. Plus the XP and streaks make me want to keep going every day."
-                author="Leo &middot; Grade 8"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═════════ PARTNERS ═════════ */}
-      <section className="relative z-10 mt-20">
-        <div className="max-w-[1100px] mx-auto px-6">
-          <h3 className="text-center text-sm font-bold tracking-wider text-[var(--text-muted)] uppercase mb-6">Partners</h3>
-          <div className="flex flex-wrap justify-center items-center gap-10 opacity-80">
-            <PartnerBadge label="Common Core" icon={<ShieldCheck className="w-5 h-5" />} />
-            <PartnerBadge label="STEM Certified" icon={<BadgeCheck className="w-5 h-5" />} />
-            <PartnerBadge label="COPPA Safe" icon={<ShieldCheck className="w-5 h-5" />} />
-            <PartnerBadge label="ISTE Standards" icon={<BadgeCheck className="w-5 h-5" />} />
-          </div>
-        </div>
-      </section>
-
-      {/* ═════════ GET STARTED CTA ═════════ */}
-      <section id="pricing" className="relative z-10 mt-24">
-        <div className="max-w-[1100px] mx-auto px-6">
-          <div className="relative rounded-[32px] p-10 md:p-14 text-center overflow-hidden bg-gradient-to-r from-[#1e40af] via-[#2563eb] to-[#6366f1] shadow-elevated">
-            <div className="absolute -top-6 -left-6 w-28 h-28 rounded-full bg-[#fbbf24]/40 blur-md" />
-            <div className="absolute -bottom-6 -right-6 w-32 h-32 rounded-full bg-[#f97316]/40 blur-md" />
-            <div className="absolute top-8 right-10 text-4xl opacity-70">⭐</div>
-            <div className="absolute bottom-6 left-10 text-3xl opacity-70">✨</div>
-
-            <h2 className="text-[30px] md:text-[38px] font-extrabold text-white mb-3">Get Started in Minutes</h2>
-            <p className="text-white/90 max-w-xl mx-auto mb-7">
-              Get your child&rsquo;s personalized learning journey started in minutes.
-              No credit card required.
-            </p>
-            <Link
-              href="/register"
-              className="inline-flex items-center bg-[var(--accent)] hover:bg-[var(--accent-dim)] text-white font-extrabold px-8 py-3.5 rounded-full shadow-glow hover:scale-[1.04] transition-transform"
-            >
-              Start Learning Today
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ═════════ FOOTER ═════════ */}
-      <footer className="relative z-10 mt-20 border-t border-[var(--border)] bg-white/70 backdrop-blur">
-        <div className="max-w-[1100px] mx-auto px-6 py-12 grid md:grid-cols-[1.2fr_1fr_1fr_1fr] gap-10">
-          <div>
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#3b82f6] to-[#6366f1] flex items-center justify-center shadow-card">
-                <GraduationCap className="w-5 h-5 text-white" strokeWidth={2.4} />
-              </div>
-              <span className="text-[20px] font-extrabold tracking-tight">
-                <span className="text-[var(--text-primary)]">Learn</span>
-                <span className="text-[var(--brand-blue)]">OS</span>
+              <span className="h-display" style={{ fontSize: 22 }}>
+                Learn<span style={{ color: "var(--neon-cyan)" }}>OS</span>
               </span>
             </Link>
-            <p className="text-sm text-[var(--text-muted)] mt-4 max-w-[280px] leading-relaxed">
-              AI-powered, personalized, standards-aligned learning for every K-12 student.
-            </p>
-          </div>
 
-          <FooterCol
-            title="Company"
-            items={["About", "Careers", "Press", "Media"]}
-          />
-          <FooterCol
-            title="Courses"
-            items={["Math", "Science", "English", "Coding"]}
-          />
-          <FooterCol
-            title="Help"
-            items={["Blog", "Contact Us", "FAQ", "Support"]}
-          />
-        </div>
-        <div className="border-t border-[var(--border)]">
-          <div className="max-w-[1100px] mx-auto px-6 py-5 text-xs text-[var(--text-muted)] flex flex-wrap justify-between gap-3">
-            <div>Copyright 2026 &copy; LearnOS. All rights reserved.</div>
-            <div className="flex items-center gap-4">
-              <a href="#" className="hover:text-[var(--text-primary)] transition">Privacy</a>
-              <a href="#" className="hover:text-[var(--text-primary)] transition">Terms</a>
+            <nav
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 24,
+                marginLeft: 28,
+              }}
+              className="landing-nav-links"
+            >
+              {[
+                { href: "#features", label: "Features" },
+                { href: "#subjects", label: "Courses" },
+                { href: "#testimonials", label: "About" },
+                { href: "#pricing", label: "Pricing" },
+              ].map((l) => (
+                <a
+                  key={l.label}
+                  href={l.href}
+                  style={{
+                    fontFamily: "var(--f-display)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    color: "var(--ink-dim)",
+                    textDecoration: "none",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  {l.label}
+                </a>
+              ))}
+            </nav>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
+              <Link
+                href="/register"
+                className="pill"
+                style={{
+                  cursor: "pointer",
+                  color: "var(--neon-lime)",
+                  borderColor: "var(--neon-lime)",
+                  textDecoration: "none",
+                }}
+              >
+                Parent / Teacher
+              </Link>
+              <Link
+                href="/login"
+                className="chunky-btn cyan"
+                style={{ textDecoration: "none", padding: "10px 18px", fontSize: 13 }}
+              >
+                ▶ Log In
+              </Link>
             </div>
           </div>
-        </div>
-      </footer>
-    </main>
-  );
-}
+        </header>
 
-/* ─────────────────────────────── Sub-components ─────────────────────────────── */
+        {/* Hero */}
+        <section style={{ position: "relative", zIndex: 3 }}>
+          <div
+            style={{
+              maxWidth: 1240,
+              margin: "0 auto",
+              padding: "48px 24px 32px",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)",
+              gap: 40,
+              alignItems: "center",
+            }}
+            className="landing-hero-grid"
+          >
+            <div>
+              <span
+                className="pill"
+                style={{ color: "var(--neon-mag)", borderColor: "var(--neon-mag)" }}
+              >
+                <span
+                  className="dot"
+                  style={{ color: "var(--neon-mag)", background: "var(--neon-mag)" }}
+                />
+                Press start — grades K–12
+              </span>
+              <h1
+                className="h-display"
+                style={{ fontSize: 60, lineHeight: 1.04, margin: "18px 0 14px" }}
+              >
+                School, but <span style={{ color: "var(--neon-yel)" }}>fun</span>.
+                <br />
+                Unlock your potential with{" "}
+                <span style={{ color: "var(--neon-cyan)" }}>LearnOS</span>.
+              </h1>
+              <p
+                style={{
+                  fontSize: 18,
+                  color: "var(--ink-dim)",
+                  maxWidth: 520,
+                  marginBottom: 28,
+                  lineHeight: 1.55,
+                }}
+              >
+                Quests, boss battles, AI tutor voice chat, and a tiny buddy named Byte —
+                standards-aligned K–12 learning, reimagined as an arcade.
+              </p>
 
-function Blobs() {
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-      {/* Big soft blobs */}
-      <div className="absolute -top-24 -left-20 w-[420px] h-[420px] rounded-full bg-[#3b82f6]/25 blur-3xl" />
-      <div className="absolute -top-16 right-[-120px] w-[360px] h-[360px] rounded-full bg-[#fbbf24]/30 blur-3xl" />
-      <div className="absolute top-[42%] -left-24 w-[320px] h-[320px] rounded-full bg-[#22c55e]/20 blur-3xl" />
-      <div className="absolute top-[54%] right-[-100px] w-[360px] h-[360px] rounded-full bg-[#f97316]/25 blur-3xl" />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 20,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Link
+                  href="/register"
+                  className="chunky-btn"
+                  style={{ textDecoration: "none", padding: "16px 26px", fontSize: 15 }}
+                >
+                  ▶ Start Learning Today
+                </Link>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: "var(--ink-mute)",
+                  }}
+                >
+                  <span
+                    className="h-display"
+                    style={{ fontSize: 24, color: "var(--neon-cyan)" }}
+                  >
+                    6–16
+                  </span>
+                  <span style={{ fontSize: 18, color: "var(--neon-yel)" }}>✦</span>
+                </div>
+              </div>
+            </div>
 
-      {/* Accent dots (crayon-bright) */}
-      <span className="absolute top-[9%] left-[15%] w-4 h-4 rounded-full bg-[#3b82f6]" />
-      <span className="absolute top-[12%] left-[42%] w-3 h-3 rounded-full bg-[#fbbf24]" />
-      <span className="absolute top-[22%] right-[18%] w-5 h-5 rounded-full bg-[#22c55e]" />
-      <span className="absolute top-[46%] left-[5%] w-3 h-3 rounded-full bg-[#f97316]" />
-      <span className="absolute top-[60%] right-[8%] w-4 h-4 rounded-full bg-[#a855f7]" />
-      <span className="absolute top-[80%] left-[10%] w-3 h-3 rounded-full bg-[#3b82f6]" />
-
-      {/* Tiny star flecks */}
-      <span className="absolute top-[5%] left-[48%] text-[26px]">✦</span>
-      <span className="absolute top-[30%] left-[30%] text-[18px] text-[#fbbf24]">✦</span>
-      <span className="absolute top-[52%] right-[30%] text-[20px] text-[#3b82f6]">✦</span>
-      <span className="absolute top-[75%] left-[48%] text-[18px] text-[#22c55e]">✦</span>
-
-      {/* Dotted pattern patches */}
-      <div
-        className="absolute bottom-[14%] left-[6%] w-36 h-20 opacity-50"
-        style={{
-          backgroundImage: "radial-gradient(circle, #fbbf24 1.5px, transparent 2px)",
-          backgroundSize: "14px 14px",
-        }}
-      />
-      <div
-        className="absolute top-[8%] right-[24%] w-32 h-14 opacity-60"
-        style={{
-          backgroundImage: "radial-gradient(circle, #f97316 1.5px, transparent 2px)",
-          backgroundSize: "12px 12px",
-        }}
-      />
-    </div>
-  );
-}
-
-function ClassroomIllustration() {
-  return (
-    <div className="relative">
-      {/* Outer circle framing the illustration */}
-      <div className="relative aspect-square max-w-[520px] mx-auto rounded-full bg-gradient-to-br from-[#93c5fd] via-[#bfdbfe] to-[#dbeafe] shadow-elevated overflow-hidden border-[10px] border-white">
-        {/* Classroom backdrop — blackboard + posters */}
-        <div className="absolute inset-[8%] rounded-[48px] bg-gradient-to-b from-[#eef2ff] to-[#e0f2fe] flex items-center justify-center overflow-hidden">
-          {/* Blackboard */}
-          <div className="absolute top-[10%] left-1/2 -translate-x-1/2 w-[62%] h-[32%] rounded-xl bg-[#1f2937] flex flex-col items-center justify-center gap-1 border-4 border-[#a16207] shadow-elevated">
-            <div className="text-white text-[18px] font-bold tracking-wide">1 + 2 = 3</div>
-            <div className="text-white/90 text-[16px] font-bold">A B C</div>
+            {/* Hero panel with Byte + stats */}
+            <div
+              className="panel mag"
+              style={{ padding: 28, position: "relative", overflow: "hidden" }}
+            >
+              <div className="scanline" />
+              <div
+                style={{
+                  position: "absolute",
+                  top: -40,
+                  right: -40,
+                  width: 220,
+                  height: 220,
+                  borderRadius: "50%",
+                  background:
+                    "radial-gradient(circle, rgba(255,62,165,0.35), transparent 70%)",
+                }}
+              />
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
+                <div className="anim-float">
+                  <Byte size={96} />
+                </div>
+                <div>
+                  <div className="label" style={{ color: "var(--neon-yel)" }}>Meet</div>
+                  <div className="h-display" style={{ fontSize: 24 }}>Byte</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-mute)" }}>
+                    Your study buddy
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 10,
+                  marginBottom: 18,
+                }}
+              >
+                {[
+                  { k: "Players", v: "2.4M", c: "var(--neon-cyan)" },
+                  { k: "Quests", v: "50k+", c: "var(--neon-yel)" },
+                  { k: "Buddies", v: "∞", c: "var(--neon-lime)" },
+                ].map((s) => (
+                  <div
+                    key={s.k}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      background: "rgba(0,0,0,0.35)",
+                      border: "2px solid var(--line-soft)",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div
+                      className="h-display"
+                      style={{
+                        fontSize: 22,
+                        color: s.c,
+                        textShadow: `0 0 10px ${s.c}`,
+                      }}
+                    >
+                      {s.v}
+                    </div>
+                    <div className="label" style={{ fontSize: 9 }}>{s.k}</div>
+                  </div>
+                ))}
+              </div>
+              <div
+                style={{
+                  padding: 14,
+                  borderRadius: 12,
+                  background: "rgba(0,0,0,0.35)",
+                  border: "2px solid var(--line-soft)",
+                  fontSize: 13,
+                  color: "var(--ink-dim)",
+                  lineHeight: 1.5,
+                }}
+              >
+                <b style={{ color: "var(--neon-cyan)" }}>Byte:</b> Ready to try the Fraction
+                Dungeon? I&apos;ll cheer you on and never judge a mistake.
+              </div>
+            </div>
           </div>
 
-          {/* Side posters */}
-          <div className="absolute top-[18%] left-[4%] w-14 h-14 rounded-xl bg-white border-2 border-[var(--border)] flex items-center justify-center text-3xl shadow-card">🚀</div>
-          <div className="absolute top-[18%] right-[4%] w-14 h-14 rounded-xl bg-white border-2 border-[var(--border)] flex items-center justify-center text-3xl shadow-card">⚛️</div>
-          <div className="absolute top-[40%] left-[3%] w-14 h-14 rounded-xl bg-white border-2 border-[var(--border)] flex items-center justify-center text-3xl shadow-card">📖</div>
-          <div className="absolute top-[40%] right-[3%] w-14 h-14 rounded-xl bg-white border-2 border-[var(--border)] flex items-center justify-center text-3xl shadow-card">🎨</div>
-
-          {/* Kids row */}
-          <div className="absolute bottom-[6%] left-0 right-0 flex justify-center items-end gap-3 px-4">
-            <div className="text-[58px] drop-shadow-md">👧🏻</div>
-            <div className="text-[58px] drop-shadow-md">👦🏽</div>
-            <div className="text-[58px] drop-shadow-md">🧑🏿</div>
-            <div className="text-[58px] drop-shadow-md">👩🏻‍🦰</div>
+          {/* Feature cards */}
+          <div
+            id="features"
+            style={{
+              maxWidth: 1100,
+              margin: "0 auto",
+              padding: "0 24px",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 16,
+            }}
+          >
+            <FeatureCard
+              glyph="⚔"
+              color="var(--neon-cyan)"
+              title="Boss Battles"
+              desc="Turn quizzes into boss fights — real standards, real XP."
+            />
+            <FeatureCard
+              glyph="🗺"
+              color="var(--neon-mag)"
+              title="World Maps"
+              desc="Quest through Math, Science, English, Coding, Arts & History."
+            />
+            <FeatureCard
+              glyph="✦"
+              color="var(--neon-yel)"
+              title="AI Tutor + Byte"
+              desc="Voice-chat tutor that adapts to mood, pace, and confusion."
+            />
           </div>
-        </div>
+        </section>
 
-        {/* Floating decorations */}
-        <div className="absolute top-4 left-6 text-3xl animate-float">⭐</div>
-        <div className="absolute top-8 right-8 text-3xl animate-float" style={{ animationDelay: "0.6s" }}>✨</div>
-        <div className="absolute bottom-6 right-10 text-3xl animate-float" style={{ animationDelay: "1.2s" }}>🌟</div>
-      </div>
+        {/* Popular subjects */}
+        <section id="subjects" style={{ position: "relative", zIndex: 3, marginTop: 80 }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
+            <div style={{ marginBottom: 24 }}>
+              <span className="label" style={{ color: "var(--neon-cyan)" }}>Worlds</span>
+              <h2 className="h-display" style={{ fontSize: 34, margin: "8px 0 4px" }}>
+                Popular <span style={{ color: "var(--neon-mag)" }}>subjects</span>
+              </h2>
+              <p style={{ color: "var(--ink-dim)" }}>Pick a world, start the quest.</p>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {[
+                { title: "Math", color: "var(--s-math)", icon: "∑" },
+                { title: "English", color: "var(--s-eng)", icon: "A" },
+                { title: "Science", color: "var(--s-sci)", icon: "⚛" },
+                { title: "Coding", color: "var(--s-cs)", icon: "</>" },
+                { title: "Arts", color: "var(--s-art)", icon: "✦" },
+              ].map((s) => (
+                <div
+                  key={s.title}
+                  style={{
+                    padding: 22,
+                    borderRadius: 22,
+                    aspectRatio: "1 / 1",
+                    background: `linear-gradient(135deg, ${s.color}22, transparent)`,
+                    border: `3px solid ${s.color}`,
+                    boxShadow: `0 6px 0 #170826, 0 0 22px ${s.color}44`,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  <div className="subj-chip" style={{ color: s.color }}>
+                    <span
+                      style={{
+                        fontFamily: "var(--f-display)",
+                        fontWeight: 900,
+                        fontSize: 28,
+                        color: s.color,
+                        textShadow: `0 0 10px ${s.color}`,
+                      }}
+                    >
+                      {s.icon}
+                    </span>
+                  </div>
+                  <div
+                    className="h-display"
+                    style={{ fontSize: 18, color: s.color, textShadow: `0 0 10px ${s.color}` }}
+                  >
+                    {s.title}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-      {/* Floating badges around illustration */}
-      <div className="hidden md:flex absolute -left-4 top-10 w-16 h-16 rounded-2xl bg-white border-2 border-[var(--border)] shadow-elevated items-center justify-center text-3xl rotate-[-8deg]">🧮</div>
-      <div className="hidden md:flex absolute -right-2 top-16 w-16 h-16 rounded-2xl bg-white border-2 border-[var(--border)] shadow-elevated items-center justify-center text-3xl rotate-[6deg]">🧪</div>
-      <div className="hidden md:flex absolute -left-2 bottom-14 w-16 h-16 rounded-2xl bg-white border-2 border-[var(--border)] shadow-elevated items-center justify-center text-3xl rotate-[5deg]">📏</div>
+        {/* Testimonials */}
+        <section
+          id="testimonials"
+          style={{ position: "relative", zIndex: 3, marginTop: 96 }}
+        >
+          <div
+            style={{
+              maxWidth: 1100,
+              margin: "0 auto",
+              padding: "0 24px",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.1fr)",
+              gap: 48,
+              alignItems: "center",
+            }}
+            className="landing-testimonials-grid"
+          >
+            <div
+              className="panel cyan"
+              style={{
+                padding: 8,
+                aspectRatio: "4/3",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background:
+                  "linear-gradient(135deg, rgba(39,224,255,0.2), rgba(255,62,165,0.18))",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              <div className="scanline" />
+              <div style={{ fontSize: 140, lineHeight: 1 }}>👩‍🏫</div>
+              <div style={{ position: "absolute", top: 14, left: 14, fontSize: 30 }}>📚</div>
+              <div style={{ position: "absolute", top: 14, right: 14, fontSize: 30 }}>🌟</div>
+              <div style={{ position: "absolute", bottom: 14, left: 14, fontSize: 30 }}>✏️</div>
+              <div style={{ position: "absolute", bottom: 14, right: 14, fontSize: 30 }}>🎨</div>
+            </div>
+
+            <div>
+              <span className="label" style={{ color: "var(--neon-yel)" }}>
+                Testimonials
+              </span>
+              <h2 className="h-display" style={{ fontSize: 36, margin: "8px 0 6px" }}>
+                Happy <span style={{ color: "var(--neon-lime)" }}>players</span>
+              </h2>
+              <p style={{ color: "var(--ink-mute)", marginBottom: 20 }}>
+                Students &amp; parents in the arena
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <TestimonialCard
+                  quote="LearnOS completely changed how my daughter approaches homework. The AI tutor feels like a patient friend — she actually asks for more lessons."
+                  author="Priya · Parent of Grade 6"
+                  color="var(--neon-cyan)"
+                />
+                <TestimonialCard
+                  quote="I love the voice tutor! It explains things in a way I actually get. Plus the XP and streaks make me want to keep going every day."
+                  author="Leo · Grade 8"
+                  color="var(--neon-mag)"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Partners */}
+        <section style={{ position: "relative", zIndex: 3, marginTop: 80 }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
+            <h3
+              className="label"
+              style={{ textAlign: "center", color: "var(--ink-mute)", marginBottom: 24 }}
+            >
+              Partners
+            </h3>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 32,
+                opacity: 0.85,
+              }}
+            >
+              {[
+                { label: "Common Core", icon: "🛡" },
+                { label: "STEM Certified", icon: "✅" },
+                { label: "COPPA Safe", icon: "🛡" },
+                { label: "ISTE Standards", icon: "✅" },
+              ].map((p) => (
+                <div
+                  key={p.label}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: "var(--ink-dim)",
+                    fontFamily: "var(--f-display)",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 999,
+                      background: "rgba(255,255,255,0.04)",
+                      border: "2px solid var(--line-soft)",
+                      color: "var(--neon-cyan)",
+                      display: "grid",
+                      placeItems: "center",
+                      fontSize: 16,
+                    }}
+                  >
+                    {p.icon}
+                  </span>
+                  {p.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Get Started CTA */}
+        <section id="pricing" style={{ position: "relative", zIndex: 3, marginTop: 96 }}>
+          <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
+            <div
+              className="panel mag"
+              style={{
+                padding: "48px 40px",
+                textAlign: "center",
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              <div className="scanline" />
+              <div
+                style={{
+                  position: "absolute",
+                  top: -30,
+                  left: -30,
+                  width: 180,
+                  height: 180,
+                  borderRadius: "50%",
+                  background:
+                    "radial-gradient(circle, rgba(255,229,61,0.35), transparent 70%)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: -30,
+                  right: -30,
+                  width: 200,
+                  height: 200,
+                  borderRadius: "50%",
+                  background:
+                    "radial-gradient(circle, rgba(39,224,255,0.3), transparent 70%)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  top: 24,
+                  right: 36,
+                  fontSize: 40,
+                  opacity: 0.8,
+                }}
+                className="anim-float"
+              >
+                ⭐
+              </div>
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 20,
+                  left: 36,
+                  fontSize: 32,
+                  opacity: 0.8,
+                }}
+                className="anim-float"
+              >
+                ✨
+              </div>
+
+              <span className="label" style={{ color: "var(--neon-yel)" }}>Insert coin</span>
+              <h2
+                className="h-display"
+                style={{ fontSize: 40, margin: "10px 0 12px" }}
+              >
+                Get started in <span style={{ color: "var(--neon-yel)" }}>minutes</span>
+              </h2>
+              <p
+                style={{
+                  color: "var(--ink-dim)",
+                  maxWidth: 560,
+                  margin: "0 auto 24px",
+                  fontSize: 15,
+                }}
+              >
+                Your child&rsquo;s personalized learning journey starts in minutes.
+                No credit card required.
+              </p>
+              <Link
+                href="/register"
+                className="chunky-btn"
+                style={{ textDecoration: "none", padding: "16px 30px", fontSize: 16 }}
+              >
+                ▶ Start Learning Today
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer
+          style={{
+            position: "relative",
+            zIndex: 3,
+            marginTop: 80,
+            borderTop: "2px solid var(--line-soft)",
+            background: "rgba(11, 7, 22, 0.4)",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 1100,
+              margin: "0 auto",
+              padding: "48px 24px",
+              display: "grid",
+              gridTemplateColumns: "minmax(0,1.2fr) repeat(3, minmax(0,1fr))",
+              gap: 40,
+            }}
+            className="landing-footer-grid"
+          >
+            <div>
+              <Link
+                href="/"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  textDecoration: "none",
+                }}
+              >
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    background: "linear-gradient(135deg, var(--neon-mag), var(--neon-vio))",
+                    border: "2px solid #170826",
+                    display: "grid",
+                    placeItems: "center",
+                    boxShadow: "0 4px 0 #170826, 0 0 16px rgba(255,62,165,0.5)",
+                    fontFamily: "var(--f-pixel)",
+                    fontSize: 14,
+                    color: "#fff",
+                  }}
+                >
+                  L
+                </div>
+                <span className="h-display" style={{ fontSize: 20 }}>
+                  Learn<span style={{ color: "var(--neon-cyan)" }}>OS</span>
+                </span>
+              </Link>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "var(--ink-mute)",
+                  marginTop: 16,
+                  maxWidth: 280,
+                  lineHeight: 1.6,
+                }}
+              >
+                AI-powered, personalized, standards-aligned learning for every K-12 student.
+              </p>
+            </div>
+
+            <FooterCol title="Company" items={["About", "Careers", "Press", "Media"]} />
+            <FooterCol title="Courses" items={["Math", "Science", "English", "Coding"]} />
+            <FooterCol title="Help" items={["Blog", "Contact", "FAQ", "Support"]} />
+          </div>
+          <div style={{ borderTop: "1px solid var(--line-soft)" }}>
+            <div
+              style={{
+                maxWidth: 1100,
+                margin: "0 auto",
+                padding: "18px 24px",
+                fontSize: 11,
+                color: "var(--ink-mute)",
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "space-between",
+                gap: 12,
+                fontFamily: "var(--f-display)",
+                fontWeight: 700,
+                letterSpacing: 0.6,
+                textTransform: "uppercase",
+              }}
+            >
+              <div>© 2026 LearnOS. All rights reserved.</div>
+              <div style={{ display: "flex", gap: 16 }}>
+                <a href="#" style={{ color: "var(--ink-mute)", textDecoration: "none" }}>
+                  Privacy
+                </a>
+                <a href="#" style={{ color: "var(--ink-mute)", textDecoration: "none" }}>
+                  Terms
+                </a>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </main>
     </div>
   );
 }
 
 function FeatureCard({
-  icon,
-  iconBg,
+  glyph,
+  color,
   title,
   desc,
 }: {
-  icon: React.ReactNode;
-  iconBg: string;
+  glyph: string;
+  color: string;
   title: string;
   desc: string;
 }) {
   return (
-    <div className="bg-white rounded-[24px] border-2 border-[var(--border)] shadow-card p-6 hover:-translate-y-1 hover:shadow-elevated transition-all text-center">
+    <div className="panel" style={{ padding: 22, textAlign: "center" }}>
       <div
-        className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-card"
-        style={{ background: iconBg }}
+        style={{
+          width: 64,
+          height: 64,
+          margin: "0 auto 14px",
+          borderRadius: 18,
+          border: `3px solid ${color}`,
+          background: "rgba(255,255,255,0.04)",
+          display: "grid",
+          placeItems: "center",
+          boxShadow: `0 0 18px ${color}, inset 0 0 18px rgba(255,255,255,0.06)`,
+          fontFamily: "var(--f-display)",
+          fontWeight: 900,
+          fontSize: 32,
+          color,
+          textShadow: `0 0 10px ${color}`,
+        }}
       >
-        {icon}
+        {glyph}
       </div>
-      <h3 className="font-extrabold text-[var(--text-primary)] text-[19px] mb-1.5">{title}</h3>
-      <p className="text-sm text-[var(--text-muted)] leading-relaxed">{desc}</p>
-    </div>
-  );
-}
-
-function SubjectTile({
-  color,
-  bg,
-  title,
-  Icon,
-}: {
-  color: string;
-  bg: string;
-  title: string;
-  Icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-}) {
-  return (
-    <div
-      className="rounded-[22px] aspect-square p-5 flex flex-col items-center justify-center gap-3 shadow-card hover:scale-[1.04] hover:shadow-elevated transition-all cursor-pointer"
-      style={{ background: bg, border: `2px solid ${color}55` }}
-    >
-      <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-card"
-        style={{ background: "white" }}
-      >
-        <Icon className="w-9 h-9" strokeWidth={2.2} />
-      </div>
-      <div className="font-extrabold text-[19px]" style={{ color: darken(color) }}>
+      <div className="h-display" style={{ fontSize: 19, marginBottom: 6 }}>
         {title}
       </div>
+      <p style={{ fontSize: 13, color: "var(--ink-mute)", lineHeight: 1.55 }}>{desc}</p>
     </div>
   );
 }
 
-function darken(color: string): string {
-  // Simple helper: bright tile colors need a darker label for contrast.
-  const map: Record<string, string> = {
-    "#60a5fa": "#1d4ed8",
-    "#fb923c": "#c2410c",
-    "#34d399": "#047857",
-    "#a855f7": "#7e22ce",
-    "#facc15": "#a16207",
-  };
-  return map[color] ?? color;
-}
-
-function TestimonialCard({ quote, author }: { quote: string; author: string }) {
+function TestimonialCard({
+  quote,
+  author,
+  color,
+}: {
+  quote: string;
+  author: string;
+  color: string;
+}) {
   return (
-    <div className="bg-white rounded-2xl border-2 border-[var(--border)] shadow-card p-5">
-      <p className="text-[var(--text-body)] text-[15px] leading-relaxed italic">&ldquo;{quote}&rdquo;</p>
-      <div className="mt-3 text-xs font-bold text-[var(--brand-blue)]">{author}</div>
-    </div>
-  );
-}
-
-function PartnerBadge({ label, icon }: { label: string; icon: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 text-[var(--text-muted)] font-semibold text-sm tracking-wide">
-      <span className="w-9 h-9 rounded-full bg-[var(--bg-deep)] text-[var(--brand-blue)] flex items-center justify-center">
-        {icon}
-      </span>
-      {label}
+    <div className="panel" style={{ padding: 18, borderColor: color }}>
+      <p
+        style={{
+          color: "var(--ink-dim)",
+          fontSize: 15,
+          lineHeight: 1.6,
+          fontStyle: "italic",
+        }}
+      >
+        &ldquo;{quote}&rdquo;
+      </p>
+      <div
+        style={{
+          marginTop: 10,
+          fontSize: 11,
+          color,
+          fontFamily: "var(--f-display)",
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: 0.6,
+        }}
+      >
+        {author}
+      </div>
     </div>
   );
 }
@@ -417,11 +785,22 @@ function PartnerBadge({ label, icon }: { label: string; icon: React.ReactNode })
 function FooterCol({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
-      <h4 className="font-extrabold text-[var(--text-primary)] text-sm mb-3">{title}</h4>
-      <ul className="space-y-2 text-sm text-[var(--text-muted)]">
+      <h4 className="label" style={{ color: "var(--ink)", marginBottom: 12 }}>
+        {title}
+      </h4>
+      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
         {items.map((it) => (
           <li key={it}>
-            <a href="#" className="hover:text-[var(--text-primary)] transition">{it}</a>
+            <a
+              href="#"
+              style={{
+                fontSize: 13,
+                color: "var(--ink-mute)",
+                textDecoration: "none",
+              }}
+            >
+              {it}
+            </a>
           </li>
         ))}
       </ul>
