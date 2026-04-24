@@ -1,10 +1,10 @@
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-04-24
 
 # LearnOS — Complete Project Structure
 
 ## Overview
 
-LearnOS is an AI-powered personalized K-12 learning platform combining FastAPI backend, Next.js frontend, Supabase PostgreSQL database, Claude API for curriculum/teaching, Claude Vision for sentiment analysis, and OpenAI Realtime for voice.
+LearnOS is an AI-powered personalized K-12 learning platform combining FastAPI backend, Next.js frontend, Supabase PostgreSQL database, Claude API for curriculum/teaching/evaluation, Claude Vision for sentiment analysis, **Google Gemini Live** for native-audio voice tutoring (with tool calls for inline visuals), OpenAI TTS for the audio podcast, and the YouTube Data API for on-demand video search.
 
 ---
 
@@ -54,7 +54,9 @@ AI-Powered-Personalized-Learning-OS/
 │   │   │   ├── onboarding.py           # Student profile & onboarding flow
 │   │   │   ├── curriculum.py           # Curriculum generation & retrieval
 │   │   │   ├── lessons.py              # Lesson content & teaching chat (SSE)
-│   │   │   ├── voice.py                # OpenAI Realtime session management
+│   │   │   ├── voice_gemini.py         # Gemini Live WS proxy (ACTIVE)
+│   │   │   ├── voice.py                # Legacy OpenAI Realtime router (kept for reference)
+│   │   │   ├── youtube.py              # YouTube Data API search (GET /api/youtube/search)
 │   │   │   ├── video.py                # Video sentiment analysis
 │   │   │   ├── activities.py           # Activity submission & evaluation
 │   │   │   ├── progress.py             # Student progress & analytics
@@ -80,7 +82,7 @@ AI-Powered-Personalized-Learning-OS/
 │   │   │   ├── activity_evaluator.py   # Activity grading & feedback
 │   │   │   ├── adaptive.py             # Adaptive ordering & difficulty tuning
 │   │   │   ├── sentiment_analyzer.py   # Claude Vision for video sentiment
-│   │   │   ├── voice_manager.py        # OpenAI Realtime session lifecycle
+│   │   │   ├── voice_manager.py        # Legacy OpenAI Realtime helper (unused by voice_gemini)
 │   │   │   ├── flashcards.py           # SM-2 scheduling + deck generation
 │   │   │   ├── gamification.py         # XP + level + streak bookkeeping
 │   │   │   ├── tutor_session_engine.py # LangGraph state machine for voice + sentiment
@@ -222,7 +224,7 @@ AI-Powered-Personalized-Learning-OS/
 │   │   │
 │   │   ├── hooks/                      # Custom React hooks
 │   │   │   ├── useSupabaseAuth.ts      # Auth state management (expires_at-validated)
-│   │   │   ├── useVoiceChat.ts         # OpenAI Realtime WebSocket logic
+│   │   │   ├── useVoiceChat.ts         # Gemini Live WebSocket hook (proxy, tool handlers, mic VAD gate, Devanagari filter)
 │   │   │   ├── useVideoFeed.ts         # Webcam stream + frame extraction
 │   │   │   ├── useSentiment.ts         # Real-time sentiment from Supabase
 │   │   │   └── useTutorSession.ts      # Tutor event streaming (Realtime)
@@ -279,7 +281,7 @@ Request → FastAPI Router → Service Layer → Models/ORM → Supabase Postgre
 | `curriculum_generator.py` | Generate K-12 curriculum | `generate_curriculum()`, `generate_chapter_content()` |
 | `teaching_engine.py` | Conversational AI tutor (text) | `stream_teaching_response()` (with emotion awareness) |
 | `sentiment_analyzer.py` | Detect emotion from video frames | `analyze_sentiment()` (Claude Vision) |
-| `voice_manager.py` | Create OpenAI Realtime sessions | `create_realtime_session()` (with chapter context injection) |
+| `voice_manager.py` | **Legacy.** Superseded by the `voice_gemini.py` router, which is a transparent WS proxy (no service layer needed because Gemini Live manages its own turn state). |
 | `activity_evaluator.py` | Grade student responses | `evaluate_activity()` (Claude-powered) |
 | `adaptive.py` | Adaptive ordering & difficulty tuning | Concept mastery → chapter re-ordering |
 | `flashcards.py` | SM-2 scheduling + deck generation | Claude deck generation, due-card queue |
@@ -297,7 +299,9 @@ Request → FastAPI Router → Service Layer → Models/ORM → Supabase Postgre
 | `onboarding.py` | core | Student registration, profile, marksheet upload |
 | `curriculum.py` | core | Curriculum generation & retrieval |
 | `lessons.py` | core | Lesson content & streaming teaching chat (SSE) |
-| `voice.py` | core | OpenAI Realtime session management |
+| `voice.py` | legacy | Kept for reference. |
+| `voice_gemini.py` | core | Gemini Live WebSocket proxy (auth + overlapped upstream dial). |
+| `youtube.py` | core | YouTube Data API v3 search proxy (for `show_video` tool). |
 | `video.py` | core | Video sentiment analysis (HTTP + WS) |
 | `activities.py` | core | Activity submission & evaluation |
 | `progress.py` | core | Student progress analytics |
@@ -357,7 +361,7 @@ Request → FastAPI Router → Service Layer → Models/ORM → Supabase Postgre
 | Hook | Purpose |
 |---|---|
 | `useSupabaseAuth()` | Manage Supabase JWT & user session (`expires_at`-validated) |
-| `useVoiceChat()` | OpenAI Realtime WebSocket connection, transcript management |
+| `useVoiceChat()` | Gemini Live WebSocket proxy client, mic-gate lifecycle, transcript management, tool-call dispatch, Devanagari filter |
 | `useVideoFeed()` | Webcam stream + periodic frame capture for sentiment |
 | `useSentiment()` | Subscribe to Supabase Realtime sentiment channel |
 | `useTutorSession()` | Subscribe to tutor event streaming from backend |
@@ -369,7 +373,7 @@ Request → FastAPI Router → Service Layer → Models/ORM → Supabase Postgre
 | Navigation | `Nav.tsx` | Top bar with AI Tutor/Practice/Analytics links + profile dropdown |
 | Lesson Content | `LessonContent.tsx` | Display chapter text, diagrams (Mermaid), formulas (KaTeX) |
 | Teaching Chat | `TeachingChat.tsx` | Text Q&A with AI tutor (SSE stream) |
-| Voice Chat | `VoiceChat.tsx` | OpenAI Realtime S2S interface (Web Audio API) |
+| Voice Chat | `VoiceChat.tsx` | Gemini Live S2S interface (Web Audio API). Primary voice UI is embedded directly in the lesson page. |
 | Video Feed | `VideoFeed.tsx` | Webcam stream + sentiment indicator |
 | AI Content | `AIContentCard.tsx` | Render tool calls (YouTube links, diagrams, questions) |
 | Session Flow | Multiple | MCQ stepping with feedback cards |
@@ -515,13 +519,19 @@ EMOTION_GUIDANCE = {
 
 ### Voice Context Injection
 
-When creating an OpenAI Realtime session, the backend now accepts chapter context and injects it into the system instructions:
+The Gemini Live `systemInstruction` is built client-side in `useVoiceChat.buildSystemPrompt()` from lesson context passed to the hook (grade, board, subject, chapter title, key concepts, summary). The backend (`voice_gemini.py`) stays a transparent proxy — it does not read or modify the prompt. Example embedded context:
 
-```python
-# voice_manager.py: create_realtime_session()
-instructions = f"""You are an expert {subject_name} tutor for grade {grade} 
-({board} curriculum). Currently teaching: {chapter_title}. Student: {student_name}.
-Use Socratic method — ask guiding questions rather than giving answers."""
+```ts
+// useVoiceChat.ts — buildSystemPrompt(opts)
+`You are a warm, patient K-12 voice tutor for a Grade ${grade} student (${board} curriculum).
+Subject: ${subjectName}. Lesson: "${lessonTitle}".
+Overview: ${chapterDescription}
+Key concepts: ${keyConcepts.join("; ")}.
+
+TURN SHAPE (~4–6 sentences): definition → why/how → concrete example → one check question.
+ACCURACY: never invent facts; if unsure, say "I'm not certain about that."
+VISUALS: after every concept, call show_diagram automatically (6+ emoji-labeled nodes,
+classDef-themed colors, image_query from a specific Wikipedia page).`
 ```
 
 ### Real-Time Analytics
@@ -631,5 +641,5 @@ docker-compose up -d
 
 ---
 
-**Last Updated:** 2026-04-21  
+**Last Updated:** 2026-04-24  
 **Status:** Waves 1–7 + theme refresh shipped. Docs in sync with current routers, services, and frontend routes.

@@ -16,6 +16,8 @@ from app.models.chat_message import ChatMessage
 from app.models.student import Student
 from app.models.subject import Subject
 from app.models.sentiment_log import SentimentLog
+from app.models.mastery import UserChapterProgress, UserSubjectStats
+from app.models.progress import StudentProgress
 from app.schemas.lesson import ChatRequest
 from app.services.curriculum_generator import generate_chapter_content, generate_activities
 from app.models.activity import Activity
@@ -309,3 +311,95 @@ async def get_chat_history(
         }
         for msg in messages
     ]
+
+
+@router.post("/{chapter_id}/complete")
+async def mark_chapter_complete(
+    chapter_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Mark a chapter as complete for the current student.
+
+    Updates three things idempotently:
+      * Chapter.status → "completed" (the per-curriculum status)
+      * UserChapterProgress row (create if missing) → is_completed=True,
+        progress_percent=100, last_accessed_at=now
+      * StudentProgress.chapters_completed for the chapter's subject
+        (legacy aggregate used by some dashboard widgets)
+
+    Awards a flat XP bonus on the first completion.
+    """
+    student_id = uuid.UUID(user["sub"])
+    try:
+        chapter_uuid = uuid.UUID(chapter_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid chapter_id")
+
+    chapter = await db.get(Chapter, chapter_uuid)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    # Confirm the chapter belongs to a subject owned by this student.
+    subject = await db.get(Subject, chapter.subject_id)
+    if not subject or subject.student_id != student_id:
+        raise HTTPException(status_code=403, detail="Chapter not accessible")
+
+    # Upsert per-student chapter progress.
+    existing = await db.execute(
+        select(UserChapterProgress).where(
+            UserChapterProgress.user_id == student_id,
+            UserChapterProgress.chapter_id == chapter_uuid,
+        )
+    )
+    ucp = existing.scalar_one_or_none()
+    newly_completed = False
+    now = datetime.utcnow()
+    if ucp is None:
+        ucp = UserChapterProgress(
+            user_id=student_id,
+            chapter_id=chapter_uuid,
+            progress_percent=100.0,
+            is_completed=True,
+            last_accessed_at=now,
+        )
+        db.add(ucp)
+        newly_completed = True
+    else:
+        if not ucp.is_completed:
+            newly_completed = True
+        ucp.is_completed = True
+        ucp.progress_percent = 100.0
+        ucp.last_accessed_at = now
+
+    chapter.status = "completed"
+
+    # Keep the legacy StudentProgress.chapters_completed count in sync so the
+    # dashboard's progress widgets still read the right number.
+    if newly_completed:
+        legacy_res = await db.execute(
+            select(StudentProgress).where(
+                StudentProgress.student_id == student_id,
+                StudentProgress.subject_id == chapter.subject_id,
+            )
+        )
+        legacy = legacy_res.scalar_one_or_none()
+        if legacy is not None:
+            legacy.chapters_completed = (legacy.chapters_completed or 0) + 1
+            legacy.last_active_at = now
+
+    # XP reward: only on the first completion, to avoid farming.
+    xp_awarded = 0
+    if newly_completed:
+        student = await db.get(Student, student_id)
+        if student is not None:
+            xp_awarded = 25
+            student.xp = (student.xp or 0) + xp_awarded
+
+    await db.commit()
+    return {
+        "chapter_id": chapter_id,
+        "is_completed": True,
+        "newly_completed": newly_completed,
+        "xp_awarded": xp_awarded,
+    }

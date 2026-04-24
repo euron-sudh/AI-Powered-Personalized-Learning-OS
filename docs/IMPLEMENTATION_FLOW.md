@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-04-24
 
 # 🔄 Implementation Flow Diagrams
 
@@ -41,7 +41,7 @@ Visual representation of how the AI Tutor OS works end-to-end.
         ┌──────────────────────────────┐
         │ VOICE AUTO-CONNECTS           │
         │ (useVoiceChat.connect())      │
-        │ - OpenAI Realtime WebSocket   │
+        │ - Gemini Live WebSocket proxy │
         │ - Sends system prompt         │
         │ - Triggers response.create    │
         └────────────┬─────────────────┘
@@ -187,7 +187,7 @@ Visual representation of how the AI Tutor OS works end-to-end.
 │  │   └─ pushEmotion() function                     │     │
 │  │                                                  │     │
 │  │ • useVoiceChat()           ← ENHANCED           │     │
-│  │   ├─ WebSocket to OpenAI Realtime               │     │
+│  │   ├─ WebSocket to Gemini Live (via /api/voice/gemini proxy) │
 │  │   ├─ Auto-initiates on connect()                │     │
 │  │   ├─ Tool call handling                         │     │
 │  │   └─ injectSentimentContext()                   │     │
@@ -254,7 +254,7 @@ Visual representation of how the AI Tutor OS works end-to-end.
 │  │   └─ determine_adaptive_action()                 │     │
 │  │                                                  │     │
 │  │ VoiceManager (reused)                            │     │
-│  │   └─ OpenAI Realtime integration                 │     │
+│  │   └─ Gemini Live integration with tool calls     │     │
 │  └──────────────────────────────────────────────────┘     │
 │                                                             │
 │  ┌──────────────────────────────────────────────────┐     │
@@ -377,7 +377,7 @@ Visual representation of how the AI Tutor OS works end-to-end.
                        │
                        ▼
         ┌──────────────────────────────┐
-        │ OPENAI REALTIME API          │
+        │ GEMINI LIVE API              │
         │ Returns:                     │
         │ {                            │
         │   type: 'function_call',     │
@@ -548,7 +548,7 @@ TIME    FRONTEND                  BACKEND                   USER SEES
                                   TutorSessionEngine
                                   Creates session in DB
 
-1s      useVoiceChat.connect()    OpenAI Realtime
+1s      useVoiceChat.connect()    Gemini Live (proxy)
         starts WebSocket          session created
 
 1.5s                              AI system prompt

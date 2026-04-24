@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-04-24
 
 # AI-Powered Personalized Learning OS (LearnOS)
 
@@ -35,7 +35,7 @@ A warm, gamified AI education platform for K-12 students that adapts content, te
 ┌─────────────────────────────────────────────────────────────────┐
 │                        AI ORCHESTRATION LAYER                   │
 │  Claude API (curriculum gen, teaching, eval, content creation)  │
-│  OpenAI Realtime API (speech-to-speech with VAD/diarization)    │
+│  Google Gemini Live (native-audio S2S, tool calls, server VAD)  │
 │  Claude Vision (video frame sentiment analysis)                 │
 └────────────────────────────┬────────────────────────────────────┘
                              │
@@ -62,7 +62,8 @@ A warm, gamified AI education platform for K-12 students that adapts content, te
 |---|---|
 | Frontend | Next.js 14+ (App Router), React 18, TypeScript, Tailwind CSS, shadcn/ui |
 | Backend API | Python 3.11+, FastAPI, Uvicorn, Pydantic v2 |
-| Voice (S2S) | OpenAI Realtime API (WebSocket), Web Audio API, VAD for turn detection |
+| Voice (S2S) | Google Gemini Live `gemini-2.5-flash-native-audio-preview-09-2025` (WebSocket via FastAPI proxy), Web Audio API, server VAD, tool calls for visuals |
+| Video search | YouTube Data API v3 (backend-proxied, safe-search strict, short-clip filter) for the `show_video` tool |
 | Video Feed | WebRTC via browser MediaStream API, canvas frame capture |
 | Sentiment Analysis | Claude Vision API (periodic frame analysis) |
 | Curriculum & Teaching AI | Claude API (anthropic Python SDK) for content generation, tutoring, evaluation |
@@ -101,7 +102,9 @@ A warm, gamified AI education platform for K-12 students that adapts content, te
 │   │   │   ├── onboarding.py          # Student profile, heartbeat, marksheet upload
 │   │   │   ├── curriculum.py          # Curriculum generation, retrieval, adjustment
 │   │   │   ├── lessons.py             # Lesson content & streaming teaching chat (SSE)
-│   │   │   ├── voice.py               # OpenAI Realtime WebSocket proxy
+│   │   │   ├── voice_gemini.py        # Gemini Live WebSocket proxy (primary, registered in main.py)
+│   │   │   ├── voice.py               # Legacy OpenAI Realtime router (still imported but superseded by voice_gemini.py; kept for reference)
+│   │   │   ├── youtube.py             # YouTube Data API search proxy (GET /api/youtube/search)
 │   │   │   ├── video.py               # Video frame sentiment (HTTP + WS)
 │   │   │   ├── activities.py          # Activity fetch, submit, AI evaluate
 │   │   │   ├── progress.py            # Student progress & analytics
@@ -127,7 +130,7 @@ A warm, gamified AI education platform for K-12 students that adapts content, te
 │   │   │   ├── activity_evaluator.py  # AI grading & feedback
 │   │   │   ├── adaptive.py            # Adaptive ordering & difficulty tuning
 │   │   │   ├── sentiment_analyzer.py  # Claude Vision frame analysis
-│   │   │   ├── voice_manager.py       # OpenAI Realtime session lifecycle
+│   │   │   ├── voice_manager.py       # Legacy OpenAI Realtime session helper (unused by voice_gemini proxy; kept for reference only)
 │   │   │   ├── flashcards.py          # SM-2 scheduling + deck generation
 │   │   │   ├── gamification.py        # XP + level + streak bookkeeping
 │   │   │   ├── tutor_session_engine.py # LangGraph tutor session state machine
@@ -400,16 +403,18 @@ Row-Level Security (RLS) policies enforce that students can only access their ow
 13. **Adaptive difficulty** — Adjusts future content based on activity scores
 
 ### Phase 5: Voice (Speech-to-Speech)
-14. **OpenAI Realtime API integration** — WebSocket-based S2S:
-    - FastAPI endpoint creates ephemeral session tokens
-    - Client-side Web Audio API for mic capture and playback
-    - Voice Activity Detection (VAD) for natural turn-taking
-    - Speaker diarization tracking (student vs. system)
+14. **Google Gemini Live integration** — WebSocket-based S2S:
+    - FastAPI proxy at `/api/voice/gemini` keeps `GEMINI_API_KEY` server-side; the browser never sees it
+    - Auth handshake via the FIRST client WS message (`{"auth": "<supabase-jwt>"}`) — keeps long JWTs out of the URL where handshake layers can reject them
+    - Backend overlaps the upstream Gemini dial with JWT verification to shave ~300 ms off perceived connect latency
+    - Client-side Web Audio API for 16 kHz PCM16 mic capture; Gemini emits 24 kHz PCM16 back, played with a 60 ms jitter buffer
+    - `automaticActivityDetection.silenceDurationMs: 1000` — balanced for kid-style pauses
+    - `activityHandling: "NO_INTERRUPTION"` plus client-side physical mic-track-disable during AI speech eliminates speaker-to-mic bleed
+    - Tool-call support: `show_diagram`, `show_video`, `show_image` — the tutor renders Mermaid + Wikipedia images + YouTube clips while it's talking
 15. **Voice tutoring mode** — Student can speak to the AI tutor:
-    - Ask questions verbally
-    - Get spoken explanations
-    - Voice and text chat stay synchronized (transcript shown)
-    - Handles overlapping speech gracefully
+    - Native-audio model, so there's no separate STT/TTS step — audio in, audio out, transcripts for display only
+    - Auto-connects on lesson mount in parallel with the chapter fetch
+    - Transcript view client-side filters Devanagari (Gemini sometimes latches onto Indian-accented English as Hindi script — the audio understanding is unaffected, only the display needs the filter)
 
 ### Phase 6: Video Sentiment Analysis
 16. **Video feed capture** — WebRTC camera access, periodic frame extraction (every 5-10 seconds)
@@ -459,7 +464,7 @@ Row-Level Security (RLS) policies enforce that students can only access their ow
 - **Service layer pattern**: Routers are thin — business logic lives in `services/`
 
 ### Voice: Overlap & Diarization Handling
-- Use OpenAI Realtime API's built-in server VAD mode for turn detection
+- Use Gemini Live's built-in server VAD (`automaticActivityDetection`) for turn detection
 - Configure `turn_detection.silence_duration_ms` to allow natural pauses without premature cutoff
 - Track `speaker` field in transcript events to distinguish student vs. AI
 - If student interrupts, cancel current AI response and process new input
@@ -504,8 +509,10 @@ SUPABASE_DB_URL=postgresql://postgres:<password>@db.<project-ref>.supabase.co:54
 REDIS_URL=redis://localhost:6379
 
 # AI
-ANTHROPIC_API_KEY=<claude-api-key>
-OPENAI_API_KEY=<openai-api-key-for-realtime>
+ANTHROPIC_API_KEY=<claude-api-key>           # curriculum, teaching, evaluation, Vision sentiment
+GEMINI_API_KEY=<gemini-api-key>              # required for Gemini Live voice tutor
+OPENAI_API_KEY=<openai-api-key>              # ONLY used for TTS podcast generation now (voice is Gemini)
+YOUTUBE_DATA_API_KEY=<youtube-data-v3-key>   # optional — enables the show_video tool
 
 # Server
 API_HOST=0.0.0.0
@@ -577,7 +584,10 @@ docker-compose up -d
 | GET | `/api/curriculum/{subject_id}` | Get curriculum (chapters list) |
 | GET | `/api/lessons/{chapter_id}/content` | Get/generate chapter content |
 | POST | `/api/lessons/{chapter_id}/chat` | Streaming teaching chat (SSE) |
-| WS | `/api/voice/ws` | WebSocket for OpenAI Realtime voice session |
+| WS | `/api/voice/gemini` | WebSocket proxy to Gemini Live (auth via first message, then pass-through) |
+| GET | `/api/voice/gemini/health` | Proxy liveness + API key configured flag |
+| GET | `/api/youtube/search?q=...` | Backend YouTube Data API proxy for the `show_video` tool |
+| POST | `/api/lessons/{chapter_id}/complete` | Mark chapter complete; idempotent; awards +25 XP on first completion |
 | POST | `/api/video/analyze` | Analyze video frame for sentiment |
 | WS | `/api/video/sentiment/ws` | WebSocket for live sentiment stream |
 | POST | `/api/activities/{activity_id}/submit` | Submit activity response |
@@ -611,7 +621,7 @@ Pillow>=10.0
 ## Non-Functional Requirements
 
 - **Latency**: Teaching chat responses must start streaming within 1 second
-- **Voice**: Round-trip voice latency < 500ms (leveraging OpenAI Realtime's low-latency design)
+- **Voice**: Round-trip voice latency < 500 ms on good networks (native-audio Gemini Live avoids the STT→LLM→TTS serialization that made the old OpenAI Realtime chain slower)
 - **Video**: Sentiment analysis must not block the UI; runs asynchronously
 - **Security**: All FastAPI routes authenticated via Supabase JWT; file uploads scanned and size-limited; RLS on all tables
 - **Accessibility**: UI supports keyboard navigation; voice mode provides text transcripts

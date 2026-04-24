@@ -47,40 +47,58 @@ async def gemini_proxy(websocket: WebSocket):
     logger.info("[voice_gemini] incoming WS connection from %s", websocket.client)
     await websocket.accept()
 
+    if not settings.gemini_api_key:
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="gemini key missing")
+        return
+
+    # Start dialing Gemini Live in parallel with reading the client's auth
+    # frame. Gemini's TLS + WS handshake takes ~200–400 ms; doing it
+    # concurrently with JWT verification (which is also a few ms of awaits)
+    # shaves that off the user-perceived connect time.
+    upstream_url = GEMINI_WS_URL_TEMPLATE.format(api_key=settings.gemini_api_key)
+    upstream_task = asyncio.create_task(
+        websockets.connect(
+            upstream_url,
+            max_size=None,  # audio frames can be large
+            ping_interval=20,
+            ping_timeout=20,
+        )
+    )
+
     # First message from the client must be {"auth": "<supabase-jwt>"}.
     try:
         first = await asyncio.wait_for(websocket.receive_text(), timeout=10)
     except asyncio.TimeoutError:
+        upstream_task.cancel()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="auth timeout")
         return
     try:
         auth_payload = json.loads(first)
         token = auth_payload.get("auth", "") if isinstance(auth_payload, dict) else ""
     except json.JSONDecodeError:
+        upstream_task.cancel()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="auth malformed")
         return
 
     claims = await verify_supabase_jwt(token)
     if not claims:
+        upstream_task.cancel()
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="invalid token")
-        return
-
-    if not settings.gemini_api_key:
-        await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="gemini key missing")
         return
 
     logger.info("[voice_gemini] authenticated sub=%s", claims.get("sub"))
     # Let the client know it can start sending Gemini frames.
     await websocket.send_text(json.dumps({"authed": True}))
-    upstream_url = GEMINI_WS_URL_TEMPLATE.format(api_key=settings.gemini_api_key)
 
     try:
-        async with websockets.connect(
-            upstream_url,
-            max_size=None,  # audio frames can be large
-            ping_interval=20,
-            ping_timeout=20,
-        ) as upstream:
+        upstream = await upstream_task
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[voice_gemini] upstream dial failed: %s", exc)
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="gemini dial failed")
+        return
+
+    try:
+        async with upstream:
             async def client_to_gemini() -> None:
                 try:
                     while True:

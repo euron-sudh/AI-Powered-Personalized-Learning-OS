@@ -22,7 +22,38 @@ export default function SubjectPage() {
   const [subjectName, setSubjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [completingId, setCompletingId] = useState<string | null>(null);
   const subjectId = params.subjectId as string;
+
+  async function markChapterComplete(chapterId: string) {
+    if (completingId) return;
+    setCompletingId(chapterId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(
+        `/api/proxy/api/lessons/${chapterId}/complete`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        },
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        alert(`Couldn't mark complete: ${res.status} ${txt}`);
+        return;
+      }
+      // Optimistically flip the status so the UI updates immediately; the
+      // next fetchChapters would re-confirm.
+      setChapters((prev) =>
+        prev.map((c) => (c.id === chapterId ? { ...c, status: "completed" } : c)),
+      );
+    } catch (err) {
+      alert(`Couldn't mark complete: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setCompletingId(null);
+    }
+  }
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -150,8 +181,16 @@ export default function SubjectPage() {
 
           return (
             <div key={ch.id} className="panel" style={{ overflow: "hidden" }}>
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setExpandedId(isExpanded ? null : ch.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setExpandedId(isExpanded ? null : ch.id);
+                  }
+                }}
                 style={{
                   width: "100%",
                   padding: 18,
@@ -215,6 +254,27 @@ export default function SubjectPage() {
                     {ch.description}
                   </div>
                 </div>
+                {!isComplete && !isLocked && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markChapterComplete(ch.id);
+                    }}
+                    disabled={completingId === ch.id}
+                    title="Mark this chapter as complete"
+                    className="pill"
+                    style={{
+                      color: "var(--neon-yel)",
+                      borderColor: "var(--neon-yel)",
+                      whiteSpace: "nowrap",
+                      cursor: completingId === ch.id ? "default" : "pointer",
+                      fontWeight: 700,
+                      opacity: completingId === ch.id ? 0.7 : 1,
+                    }}
+                  >
+                    {completingId === ch.id ? "Saving…" : "✓ Complete"}
+                  </button>
+                )}
                 <span
                   className="pill"
                   style={{ color: badgeColor, borderColor: badgeColor, whiteSpace: "nowrap" }}
@@ -231,7 +291,7 @@ export default function SubjectPage() {
                 >
                   ▼
                 </span>
-              </button>
+              </div>
 
               {isExpanded && (
                 <div

@@ -1,9 +1,13 @@
-**Last Updated:** 2026-04-21
+<!--
+Last Updated: 2026-04-24
+LearnOS — 20-Slide Presentation Content
+Audience: Complete beginners
+Purpose: Understand what LearnOS is, every feature it ships today, and where it's going next
 
-# LearnOS — 20-Slide Presentation Content
-**Audience**: Complete beginners | **Purpose**: Understand what LearnOS is and does
-
----
+This file is designed for Markdown-to-slides tools (Marp, Slidev, Reveal):
+each `---` separator is one slide. There are exactly 20 separators below,
+corresponding to the 20 numbered slides.
+-->
 
 ## SLIDE 1 — Title
 **Headline:** LearnOS
@@ -14,262 +18,251 @@
 
 ## SLIDE 2 — The Problem: One-Size-Fits-All Education
 **Headline:** Every student is different. Most classrooms aren't.
-**Points:**
 - 30 students. 1 teacher. 1 pace. 1 style.
 - Fast learners get bored. Slow learners get left behind.
 - Nobody asks: *"How are you feeling right now?"*
 - Nobody changes the lesson because you look confused.
 
-**Visual idea:** A classroom with one teacher and many students with different facial expressions (bored, confused, engaged)
+**Visual idea:** A classroom with one teacher and many students with different facial expressions
 
 ---
 
 ## SLIDE 3 — The Vision: Netflix for Learning
 **Headline:** What if education adapted to YOU — in real time?
-**Points:**
 - Netflix recommends what to watch next → LearnOS recommends what to learn next
 - Spotify adapts your playlist → LearnOS adapts your lesson pace
-- Duolingo gives streaks → LearnOS gives XP, levels, and achievements
+- Duolingo gives streaks → LearnOS gives XP, levels, daily challenges
 - A private tutor who never gets tired → That's LearnOS
 
-**Visual idea:** Split screen — boring textbook vs. interactive AI tutor
+---
+
+## SLIDE 4 — What is LearnOS? (Feature Panorama)
+**Headline:** Everything LearnOS does today, on one slide
+| Category | Feature |
+|---|---|
+| Talk | Voice AI tutor (Gemini Live) with inline diagrams, Wikipedia images, short YouTube clips |
+| See | Video sentiment analysis (Claude Vision) |
+| Learn | AI curriculum, Mermaid+LaTeX chapter content, adaptive re-ordering |
+| Test | AI quiz engine, adaptive practice, SM-2 flashcards |
+| Finish | One-tap **Mark chapter complete** (+25 XP) |
+| Explore | Story mode, audio podcast, career glimpse, doubt scanner, physics sim |
+| Thrive | Mood check-in, Pomodoro, multi-day AI project builder |
+| Track | Analytics, emotion timeline, streak + level dashboard |
+| Stick | XP, levels, streak freezes, daily challenges, leaderboard, AI study buddy |
+| Guide | Next-best-action coach, parent dashboard, learning-path view |
+
+*(The rest of the deck walks through each of these.)*
 
 ---
 
-## SLIDE 4 — What is LearnOS?
-**Headline:** An AI-powered learning operating system for K-12 students
-**Definition:** LearnOS is a web application where an AI tutor:
-- Teaches you through voice conversation
-- Watches your facial expressions to detect confusion or boredom
-- Adapts the lesson in real time
-- Quizzes you, tracks your progress, and builds your curriculum
-
-**Visual idea:** A student at a laptop with speech bubbles, a camera icon, and a brain icon
-
----
-
-## SLIDE 5 — The 6 Core Features
-**Headline:** Six things LearnOS does that no textbook can
-1. 🎙️ Talks to you (Voice AI Tutor)
-2. 👁️ Watches your reactions (Video Sentiment)
-3. 🧠 Adapts the lesson (Smart Curriculum)
-4. 📝 Quizzes you intelligently (AI Quiz Engine)
-5. 📊 Tracks your mastery (Progress Analytics)
-6. 🏆 Rewards your effort (Gamification)
-
----
-
-## SLIDE 6 — Feature 1: Voice AI Tutor
-**Headline:** Ask anything. Get a real answer. Out loud.
+## SLIDE 5 — Voice AI Tutor + Visuals Mid-Speech
+**Headline:** Ask anything. Get a real answer. Out loud — with a picture.
 **How it works:**
-- Click the mic → speak your question
-- LearnOS replies in natural spoken language
-- Shows YouTube videos, diagrams, and formulas as it talks
-- Adapts tone based on how you're doing
+- Tutor auto-connects on lesson mount — ready before the page finishes loading
+- Replies in 4–6 sentences: definition → how/why → concrete example → one check question, then stops and waits
+- While it's still talking, it renders visuals via **tool calls**:
+  - `show_diagram` — Mermaid flowchart (≥ 6 emoji-labelled nodes, themed colors) **plus** a real Wikipedia lead image
+  - `show_video` — short (< 4 min), embeddable, safe-search YouTube clip (backend-searched — no hallucinated IDs)
+  - `show_image` — specific Wikimedia Commons URL (used sparingly)
+- VAD tuned for kid-style pauses (`silenceDurationMs: 1000`), `NO_INTERRUPTION` keeps turns intact
 
-**Example:** *"I don't understand gravity"*
-→ AI explains with an analogy, shows a diagram, asks a follow-up question
-
-**Tech behind it:** OpenAI Realtime API (speech-to-speech)
+**Tech:** Google Gemini Live (`gemini-2.5-flash-native-audio-preview-09-2025`), FastAPI WebSocket proxy, YouTube Data API v3
 
 ---
 
-## SLIDE 7 — Feature 2: Video Sentiment Analysis
+## SLIDE 6 — Video Sentiment Analysis
 **Headline:** LearnOS can see when you're confused — before you say so
-**How it works:**
-- Your webcam captures a frame every few seconds
-- AI analyses your face: engaged, confused, bored, frustrated, drowsy
-- Lesson automatically adjusts based on your emotion
-
-**What changes:**
-- 😕 Confused → AI slows down, re-explains differently
-- 😴 Bored/Drowsy → Suggests a short break, switches to interactive mode
-- 😤 Frustrated → Encouragement, breaks problem into smaller steps
-
-**Tech behind it:** Claude Vision API
+- Webcam captures a frame every few seconds → **Claude Vision** classifies it (engaged / happy / confused / bored / frustrated / drowsy)
+- Only the label is stored; the raw frame is discarded immediately
+- Lesson adapts in real time:
+  - 😕 Confused → slow down, re-explain with a new analogy
+  - 😴 Bored / Drowsy → suggest a short break, switch to interactive mode
+  - 😤 Frustrated → warm tone, break the problem into smaller steps
 
 ---
 
-## SLIDE 8 — Feature 3: Adaptive Curriculum
-**Headline:** A curriculum that grows with you
-**How it works:**
-- You tell LearnOS your grade, subjects, and goals during onboarding
-- AI builds a personalised roadmap of topics to learn
-- After each quiz, the roadmap updates based on what you know
-- Weak topics get more practice; strong topics advance faster
-
-**Visual idea:** A roadmap with branches — some topics green (mastered), some yellow (in progress), some grey (upcoming)
+## SLIDE 7 — AI Curriculum (Adaptive)
+**Headline:** A curriculum that grows with you — by the board you picked
+- Onboarding captures grade, board (**CBSE / ICSE / Cambridge IGCSE / IB / Common Core**), subjects, optional marksheet
+- Claude generates 8–12 chapters/subject in board-specific style (NCERT format, Cambridge command words, IB inquiry, etc.)
+- After a quiz score below 60 %, remaining chapters are **auto re-ordered** to front-load weak topics (prerequisites preserved)
+- Per-chapter content (HTML + Mermaid diagrams + LaTeX) is generated on demand the first time you open it
 
 ---
 
-## SLIDE 9 — Feature 4: AI Quiz Engine
-**Headline:** Quizzes that actually teach, not just test
-**How it works:**
-- After each topic, LearnOS generates a quiz tailored to you
-- Mix of multiple-choice and short-answer questions
-- AI grades your answers and explains every mistake
-- Your score updates your mastery level for that topic
-
-**Key detail:** If you score low, the roadmap sends you back to reinforce the weak area.
+## SLIDE 8 — AI Quiz Engine + Chapter Completion
+**Headline:** Quizzes that teach, not just test
+- Every chapter has a matching AI-generated activity (MCQ, short answer, problem sets), styled to the student's board
+- Claude grades → score / correctness breakdown / detailed feedback / strengths & weaknesses
+- Strengths & weaknesses feed the adaptive re-ordering engine
+- **✓ Mark complete** button inside the lesson and on the chapter list: flips status to "Complete," increments progress aggregate, awards **+25 XP** on first completion only (idempotent)
 
 ---
 
-## SLIDE 10 — Feature 5: Progress Analytics
-**Headline:** Know exactly where you stand — and where to go next
-**What you can see:**
-- 📈 Average mastery % across all topics
-- 🎯 Topics to focus on today
-- 📚 Topics already mastered
-- 🔥 Streak days and XP points
-- 📋 Recent quiz scores and feedback
-
-**Visual idea:** A clean dashboard with progress bars, topic cards, and a streak counter
+## SLIDE 9 — Spaced Repetition + Adaptive Practice
+**Headline:** Remember everything, and practise where it still hurts
+- **SM-2 flashcards (`/review`)** — Claude auto-generates 8–12 cards per completed chapter; Again / Hard / Good / Easy (keyboard 1–4); a backfill tool regenerates missing decks
+- **Adaptive practice (`/practice`)** — AI picks questions from your *weak* topics; difficulty ramps with your rolling average score
+- Intervals update via the SM-2 algorithm — cards you ace move weeks out, cards you miss come back tomorrow
 
 ---
 
-## SLIDE 11 — Feature 6: Gamification
+## SLIDE 10 — Immersive Learning (5 extra modes)
+**Headline:** Five extra ways to absorb a chapter
+| Mode | What it does |
+|---|---|
+| 📖 Story (`/story/[chapterId]`) | Claude narrates the chapter as a 5-scene story with a moral |
+| 🎧 Podcast (`/podcast/[chapterId]`) | On-demand MP3, 6 voice options, streamable with download (OpenAI TTS) |
+| 💼 Career (`/career/[chapterId]`) | One-paragraph "what people do with this in the real world" |
+| 🔍 Doubt scanner (`/scan`) | Upload a photo of a problem — Claude Vision returns step-by-step reasoning + the underlying concept |
+| 🎯 Physics sim (`/sim/projectile`) | Live canvas simulation with angle/speed sliders + analytical predictions |
+
+Icon shortcuts for story / podcast / career are injected into the lesson chat panel for one-tap switching.
+
+---
+
+## SLIDE 11 — Wellness + AI Project Mode
+**Headline:** Learning isn't just cognitive — it's emotional
+- **🧘 Mood + Pomodoro (`/focus`)** — 6-mood grid + 1-5 energy slider; coach response per mood (e.g. *stuck* → "step away for 5 minutes"); SVG-ring Pomodoro timer (25/15/50 min); completions grant XP
+- **🛠️ AI Project Mode (`/project`)** — pick a subject, chapters, and a theme; Claude proposes a multi-day project with title, motivation, 4–6 milestones, daily tasks, required skills, and a stretch goal; milestone checklist persists to `localStorage`
+
+---
+
+## SLIDE 12 — Analytics + Next-Best-Action Coach
+**Headline:** Know exactly where you stand — and what to do next
+- **📊 Analytics (`/analytics`)** — bar chart (avg score per subject), stacked area (emotion timeline), donut (emotion distribution), chapter-progress bars, AI-identified strengths & areas to improve; live-updating via Supabase Realtime
+- **🎯 Next-best-action coach** — aggregates streak-at-risk, due flashcards, recent mood, rolling quiz average, missing check-ins, inactive subjects into up to **3 prioritised cards** on the dashboard (top pick gets a "Top pick" badge)
+
+---
+
+## SLIDE 13 — Gamification
 **Headline:** Learning feels like levelling up a game
-**Rewards system:**
-- ⭐ XP points for every quiz, lesson, and feedback submitted
-- 🏆 Level up as your XP grows (Level 1 → 2 → 3…)
-- 🔥 Streak days for consecutive days of learning
-- 🥇 Achievements unlocked: "3-day streak", "Quiz Master", "Level 3 Unlocked"
-
-**Why it works:** Small rewards trigger dopamine and build habit.
-
----
-
-## SLIDE 12 — How a Student Uses LearnOS (User Journey)
-**Headline:** From signup to lesson in 5 minutes
-**Steps:**
-1. **Sign Up** — Enter email, create password
-2. **Onboard** — Tell LearnOS your grade, subjects, and learning goals
-3. **Get Your Roadmap** — AI builds your personalised learning plan
-4. **Start a Lesson** — AI tutor greets you and starts teaching
-5. **Chat & Learn** — Ask questions, watch videos, read diagrams
-6. **Take a Quiz** — Test what you learned
-7. **See Your Progress** — Dashboard shows mastery and next steps
+| Mechanic | Detail |
+|---|---|
+| ⭐ XP | Earned from lessons, quizzes, reviews, Pomodoros, chapter completions |
+| 🏆 Levels | Gated on cumulative XP |
+| 🔥 Streaks | Consecutive active days |
+| 🛡️ Streak freezes | Auto-applied when a day is missed (up to your freeze balance) |
+| 🎯 Daily challenges | 3 rotating quests a day with XP rewards |
+| 🥇 Leaderboard (`/leaderboard`) | Global + friends rankings |
+| 🤖 Study buddy (`/buddy`) | Companion that cheers progress, nudges on inactivity |
 
 ---
 
-## SLIDE 13 — The Dashboard
-**Headline:** Your learning mission control
-**What's on the dashboard:**
-- Today's recommended lessons
-- Your XP, level, and streak
-- Topic mastery scores (colour-coded)
-- Recent quiz results
-- Quick-start buttons for each topic
-
-**Visual idea:** Screenshot or wireframe of the dashboard UI
+## SLIDE 14 — Parent Dashboard, Learning Path, Courses
+**Headline:** Views beyond the student's day-to-day
+- **👨‍👩‍👧 Parent dashboard (`/parent`)** — read-only weekly digest: subjects touched, quiz scores, mood trends, streak days, suggested talking points
+- **🧭 Learning path (`/path`)** — visual tree: mastered green, in-progress yellow, upcoming grey, with the AI-chosen next chapter highlighted
+- **🎓 Courses (`/courses`)** — curated external course recommendations grouped by the student's subjects (Khan Academy, Coursera, edX, selected YouTube channels)
 
 ---
 
-## SLIDE 14 — The Lesson Experience
-**Headline:** A lesson is a conversation, not a lecture
-**What happens during a lesson:**
-- AI tutor starts speaking automatically (no button needed)
-- Content cards appear: YouTube videos, diagrams, formulas
-- You can speak back or type your response
-- AI adjusts depth based on your answers and facial expression
-- Lesson ends with a quiz when you're ready
+## SLIDE 15 — User Journey + The Dashboard
+**Headline:** From signup to a live lesson in under 5 minutes
+1. **Sign up** — email/password or Google OAuth
+2. **Onboard** — grade, board, subjects, optional marksheet
+3. **Roadmap generated** — Claude builds 8-12 chapters/subject
+4. **Open a lesson** — voice tutor auto-connects; visuals render as it talks
+5. **Chat or speak** — answer; webcam sentiment adjusts pace
+6. **Take the quiz** — AI grades and explains
+7. **Mark complete** — +25 XP, chapter turns green
+8. **See progress** — dashboard shows mastery, streak, next-best-action
+
+**Dashboard contents:** Continue-learning hero · subject cards · stat cells (Subjects / Level / Streak / XP) · daily challenges strip · next-best-action cards · arcade cabinet grid (Curriculum · Practice · Flashcards · AI Tutor · Progress · Focus & Mood · Projects · Doubt Scanner)
 
 ---
 
-## SLIDE 15 — Behind the Scenes: Specialised AI Services
-**Headline:** LearnOS orchestrates multiple AI services working together
+## SLIDE 16 — Behind the Scenes: AI Services
+**Headline:** Multiple AI services working in concert
 | Service | Job |
-|-------|-----|
-| Curriculum Generator | Builds personalised K-12 curriculum from onboarding data |
-| Teaching Engine | Streams Socratic lessons that adapt to detected emotion |
-| Adaptive Engine | Re-orders chapters and tunes difficulty from concept mastery |
-| Activity Evaluator | Grades quizzes and gives detailed, targeted feedback |
-| Sentiment Analyzer | Reads webcam frames via Claude Vision, every few seconds |
-| Voice Manager | Runs OpenAI Realtime speech-to-speech with chapter context |
-| Flashcards Engine | SM-2 spaced repetition deck generation + scheduling |
-| Gamification | XP, levels, streaks, streak-freeze, daily challenges |
-| Tutor Session Engine | LangGraph state machine fusing voice + sentiment signals |
-| Parent Digest | Weekly read-only progress summary for parents |
-| Next-Best-Action Coach | Aggregates signals into 3 prioritised action cards |
+|---|---|
+| Curriculum Generator | Personalised K-12 curriculum from onboarding + board + syllabus data |
+| Teaching Engine | Streams Socratic chat (SSE), adapts to detected emotion |
+| Adaptive Engine | Re-orders chapters + tunes difficulty from concept-level mastery |
+| Activity Evaluator | Grades quizzes with detailed, targeted feedback |
+| Sentiment Analyzer | Classifies webcam frames via Claude Vision |
+| Voice Proxy (`voice_gemini.py`) | Browser ↔ Gemini Live; keeps key server-side, overlaps dial with JWT verification |
+| YouTube Search (`youtube.py`) | Backend proxy for `show_video`; safe-search strict, short clips, 1 h cache |
+| Flashcards Engine | SM-2 generation + due-card scheduling |
+| Gamification | XP, levels, streaks, freezes, daily challenges |
+| Immersive Content | Story / podcast / career / doubt scanner / physics sim |
+| Project Builder | Multi-day projects with milestone checklists |
+| Next-Best-Action Coach | Aggregates signals into 3 prioritised cards |
+| Parent Digest | Weekly read-only progress summary |
 
 ---
 
-## SLIDE 16 — The Technology Stack (Simple Version)
+## SLIDE 17 — Technology Stack
 **Headline:** What powers LearnOS
 | Layer | What it does | Technology |
-|-------|-------------|------------|
-| Frontend | What you see and click | Next.js (React) |
-| Backend API | Brains of the operation | Python + FastAPI |
-| AI Tutor | Teaching, quizzing, evaluating | Claude AI (Anthropic) |
-| Voice | Speaking and listening | OpenAI Realtime API |
-| Emotion Detection | Reading your face | Claude Vision |
-| Database | Storing your progress | Supabase (PostgreSQL) |
-| Login / Auth | Keeping your account safe | Supabase Auth |
+|---|---|---|
+| Frontend | What you see and click | Next.js 14 (App Router) + React 18 + TypeScript + Tailwind |
+| Backend | Brains of the operation | Python 3.11+ · FastAPI · Pydantic v2 · SQLAlchemy async |
+| AI — Content | Curriculum, teaching, evaluation, story, podcast scripts | Claude (Anthropic) |
+| AI — Voice | Speaking, listening, drawing visuals mid-sentence | Google Gemini Live (native-audio) |
+| AI — Vision | Webcam frames + doubt-scanner photos | Claude Vision |
+| Video search | Safe embeddable short clips | YouTube Data API v3 |
+| Text-to-speech | Audio podcast tracks | OpenAI TTS |
+| Diagrams / Math | In-browser rendering | Mermaid.js + KaTeX |
+| Database · Auth · Storage · Realtime | One BaaS layer | Supabase PostgreSQL / Auth / Storage / Realtime |
+| Cache / rate-limit / migrations | Infra | Redis + slowapi · Alembic |
 
 ---
 
-## SLIDE 17 — Privacy & Safety
+## SLIDE 18 — Privacy & Safety
 **Headline:** Your data is yours
-**Key commitments:**
-- 📷 Video frames are analysed and immediately deleted — never stored
-- 🔒 Every student only sees their own data
-- 🛡️ Login protected by Supabase Auth (industry-standard security)
-- 🚫 No raw video recordings kept
-- ✅ Designed with COPPA (children's privacy) principles in mind
+- 📷 Webcam frames are analysed and **immediately deleted** — never stored
+- 🔒 Supabase Row-Level Security on every table — students only see their own data
+- 🛡️ Every FastAPI route validates the Supabase JWT before processing
+- 🗝️ AI keys live server-side behind the FastAPI proxy — never exposed to the browser
+- 📄 Marksheets stored in a private Supabase Storage bucket with signed URLs
+- ✅ Designed with COPPA principles in mind
 
 ---
 
-## SLIDE 18 — Who is LearnOS For?
-**Headline:** Built for students, usable by anyone
-**Primary audience:** K-12 students (ages 6–18)
-**Works best for:**
-- Students who struggle to keep up in class
-- Students who get bored and need challenge
-- Self-learners who want structure
-- Students prepping for exams (CBSE, ICSE, Common Core)
-- Parents wanting to supplement school education
+## SLIDE 19 — Who It's For + Getting Started
+**Primary audience:** K-12 students (ages 6–18) — strugglers who need pacing, fast learners who need challenge, self-learners who want structure, exam-prep students (CBSE · ICSE · Cambridge · IB · Common Core), parents supplementing school.
 
----
-
-## SLIDE 19 — Getting Started (Quick Setup)
-**Headline:** Running locally in under 10 minutes
+**Run it locally (~15 min):**
 ```bash
-# 1. Start the backend
-cd backend
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --port 8000
+cd backend && python -m venv venv && source venv/Scripts/activate
+pip install -r requirements.txt && alembic upgrade head
+uvicorn app.main:app --reload --port 8000
 
-# 2. Start the frontend
-cd frontend
-npm install
-npm run dev
-# → Open http://localhost:3000
+cd ../frontend && npm install && npm run dev
+# → http://localhost:3000
 ```
-**Full guide:** See GETTING_STARTED.md
+
+**Keys in `backend/.env`:** `ANTHROPIC_API_KEY` (required) · `GEMINI_API_KEY` (required) · `OPENAI_API_KEY` (podcast) · `YOUTUBE_DATA_API_KEY` (optional, unlocks `show_video`). Full guide: [QUICKSTART.md](../QUICKSTART.md).
 
 ---
 
-## SLIDE 20 — Recently Shipped & What's Next
-**Headline:** Already live on LearnOS today
-- 🏆 Wave 1 — Gamification: XP, levels, streaks, daily challenges, leaderboard, AI study buddy
-- 🃏 Wave 2 — SM-2 flashcards with Again/Hard/Good/Easy review
-- 🧭 Wave 3 — Adaptive engine (concept-level mastery, auto chapter re-ordering)
-- 👨‍👩‍👧 Wave 4 — Parent read-only dashboard + learning-path view
-- 🎭 Wave 5 — Story mode, audio podcast (TTS), career glimpse, doubt scanner (Vision), physics sim
-- 🧘 Wave 6 — Mood check-in + Pomodoro, AI multi-day project builder
-- 🎯 Wave 7 — Next-best-action coach on the dashboard
-- 🎨 Theme refresh — parchment palette, glossy gradient stat tiles, adventure hero
+## SLIDE 20 — Project Roadmap
+**Headline:** Shipped so far, and what's coming next
 
-**On the roadmap:**
+### ✅ Already live
+| Wave | Highlights |
+|---|---|
+| Core | Auth, onboarding, dashboard, subjects, chapters, activities |
+| Wave 1 · Gamification | XP, levels, streaks, freezes, daily challenges, leaderboard, study buddy |
+| Wave 2 · Spaced repetition | SM-2 flashcards, `/review`, backfill tool |
+| Wave 3 · Adaptive engine | Concept mastery, auto chapter re-ordering, difficulty tuning |
+| Wave 4 · Parent & Path | Parent dashboard, learning-path tree, courses |
+| Wave 5 · Immersive | Story, podcast (TTS), career glimpse, doubt scanner, physics sim |
+| Wave 6 · Wellness & Projects | Mood check-in, Pomodoro, multi-day AI project builder |
+| Wave 7 · Coach | Next-best-action cards on the dashboard |
+| Theme refresh | Parchment palette, glossy gradient tiles, adventure hero, kid-friendly doodles |
+| Wave 8 · Voice + Visuals | **Gemini Live** migration, tool-call visuals (diagrams · Wikipedia images · YouTube clips), **chapter completion** endpoint + UI, **YouTube Data API** integration, Devanagari filter, VAD tuning, parallel Gemini dial |
+
+### 🛣️ On the roadmap
 - 📱 Mobile app (iOS & Android)
-- 🌍 Multi-language support (Hindi, Tamil, Spanish…)
-- 🏫 School admin panel for classroom deployment
-- 📖 Upload your own textbooks for AI to teach from
-- 🤝 Peer learning rooms (study with friends, AI as moderator)
+- 🌍 Multi-language UI (Hindi, Tamil, Spanish…); tutor keeps replying in English or student's choice
+- 🏫 School admin panel — classroom deployment, cohort dashboards
+- 📖 BYOB — "bring your own book" uploads for Claude to teach from
+- 🤝 Peer learning rooms — study with friends, AI moderator
+- 🎓 Exam mode — timed mock papers scored to rubric
+- 🧠 Smarter coach — forecast which chapter to review before tomorrow's school test via calendar + syllabus signals
 
 **The mission:** Every student on Earth deserves a personal tutor. LearnOS makes that possible.
 
----
-*LearnOS — AI-Powered Personalized Learning OS*
-*Built with Claude AI + OpenAI + Next.js + FastAPI*
+*LearnOS — AI-Powered Personalized Learning OS · Built with Claude · Gemini Live · Next.js · FastAPI · Supabase*

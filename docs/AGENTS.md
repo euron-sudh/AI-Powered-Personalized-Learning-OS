@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-04-24
 
 # AGENTS.md — LearnOS Project Guide for Codex / Automated Agents
 
@@ -12,7 +12,7 @@ LearnOS is an AI-powered K-12 learning platform. The stack is:
 
 - **Backend**: Python 3.11+ FastAPI, SQLAlchemy (async) against Supabase PostgreSQL, Alembic migrations
 - **Frontend**: Next.js 14 App Router, TypeScript, Tailwind, shadcn/ui
-- **AI**: Claude API (curriculum, teaching, evaluation, story, doubt-scan), OpenAI Realtime (voice), OpenAI TTS (podcast), Claude Vision (sentiment + doubt scanner)
+- **AI**: Claude API (curriculum, teaching, evaluation, story, doubt-scan), **Google Gemini Live** (voice S2S, `gemini-2.5-flash-native-audio-preview-09-2025`, with tool calls for visuals), OpenAI TTS (podcast only), Claude Vision (sentiment + doubt scanner), YouTube Data API v3 (backend-proxied video search for the `show_video` tool)
 
 All Supabase/Postgres routes under `/api/*` are live and in use.
 
@@ -27,7 +27,7 @@ LearnOS/
 │   │   ├── main.py                 # FastAPI app entry (lifespan, CORS)
 │   │   ├── config.py               # Pydantic Settings
 │   │   ├── dependencies.py         # Auth + DB session injection
-│   │   ├── routers/                # 23 routers (see table below)
+│   │   ├── routers/                # 25 routers (adds voice_gemini.py + youtube.py)
 │   │   ├── services/               # 12 service modules
 │   │   ├── models/                 # SQLAlchemy ORM models
 │   │   ├── schemas/                # Pydantic request/response schemas
@@ -72,7 +72,7 @@ Full endpoint table in [PROJECT_TREE.md](../PROJECT_TREE.md#api-endpoint-summary
 | `activity_evaluator.py` | AI grading & feedback |
 | `adaptive.py` | Concept mastery → chapter re-ordering + difficulty tuning |
 | `sentiment_analyzer.py` | Claude Vision frame classification |
-| `voice_manager.py` | OpenAI Realtime session lifecycle with context injection |
+| `voice_manager.py` | **Legacy.** Kept alongside `voice.py` for historical reference; the active path is the `voice_gemini.py` router which proxies directly to Gemini Live. No service file is needed because Gemini's WS handles turn state. |
 | `flashcards.py` | SM-2 scheduling + Claude deck generation |
 | `gamification.py` | XP, level, streak, streak-freeze bookkeeping |
 | `tutor_session_engine.py` | LangGraph state machine routing voice + sentiment |
@@ -97,7 +97,9 @@ Migrations live in `backend/alembic/versions/0001_initial_schema.py` through `00
 ### Backend (`backend/.env`)
 ```env
 ANTHROPIC_API_KEY=        # Claude API
-OPENAI_API_KEY=           # OpenAI Realtime + TTS
+GEMINI_API_KEY=           # Gemini Live voice (required)
+OPENAI_API_KEY=           # OpenAI TTS (podcast only; voice is Gemini now)
+YOUTUBE_DATA_API_KEY=     # optional — powers the show_video tool
 SUPABASE_URL=
 SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -190,5 +192,5 @@ with patch("app.services.curriculum_generator.anthropic_client") as mock:
 3. **Waves 1–7 + theme refresh are shipped.** When adding a feature, check whether it belongs in an existing wave router before creating a new one.
 4. **Immersive / wellness / projects / suggest logic lives in the router module itself** — don't hunt for separate service files that don't exist.
 5. **Teaching is emotion-aware**: `teaching_engine.py` receives emotion + confidence from the frontend (sentiment analysis) and adjusts tone via an `EMOTION_GUIDANCE` map.
-6. **Voice sessions inject chapter context**: `voice_manager.create_realtime_session()` builds grade/board/chapter-specific instructions for the OpenAI Realtime session.
+6. **Voice sessions inject chapter context from the client**: the `useVoiceChat` hook builds the Gemini Live `systemInstruction` on connect, embedding grade, board, lesson title, key concepts, and summary so the tutor speaks in lesson scope. `voice_gemini.py` (router) is a transparent proxy — it doesn't touch the prompt. Tool calls (`show_diagram`, `show_video`, `show_image`) are declared in the same setup frame so the tutor can render visuals mid-turn.
 7. **Theme is global via CSS variables** in `frontend/src/app/globals.css` (parchment palette, glossy gradients). Most components inherit automatically — avoid hardcoding hex colors in new components.

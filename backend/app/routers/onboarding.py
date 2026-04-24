@@ -72,7 +72,18 @@ async def save_onboarding(
             if existing.xp is None: existing.xp = 0
             if existing.level is None: existing.level = 1
             if existing.streak_days is None: existing.streak_days = 0
-        
+
+        # Commit the student row immediately so /api/onboarding/profile and
+        # /api/onboarding/heartbeat stop 404-ing for this user while we spend
+        # the next ~3 minutes generating curriculum via Claude. Before this
+        # eager commit, the dashboard could be reached mid-generation and
+        # show "Finish onboarding" forever because the student row was still
+        # uncommitted on this session. Subsequent subject/chapter writes are
+        # committed at the end in a single batch.
+        await db.commit()
+        # Re-attach the student to the session so further mutations still
+        # flow through this transaction.
+        student = await db.get(Student, student_id)
         await db.flush()
 
         # Create a subject entry + seed chapters for each area of interest

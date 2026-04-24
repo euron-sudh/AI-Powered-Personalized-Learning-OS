@@ -135,7 +135,32 @@ export default function DashboardPage() {
         fetch(`/api/proxy/api/suggest/next-best-action`, { headers }),
       ]);
 
-      if (profileRes.ok) setProfile(await profileRes.json());
+      if (profileRes.ok) {
+        setProfile(await profileRes.json());
+      } else if (profileRes.status === 404) {
+        // No student row for this UUID. Two possible reasons:
+        //   (a) Onboarding POST is still committing (eager commit lands in
+        //       ~1s, but slow networks can take longer) — retry briefly.
+        //   (b) The user genuinely hasn't onboarded yet (fresh account,
+        //       re-registered account, OAuth identity new to our DB) —
+        //       they shouldn't be parked on the dashboard with a banner
+        //       they might miss; route them straight to the wizard.
+        const started = Date.now();
+        let recovered = false;
+        while (Date.now() - started < 6_000) {
+          await new Promise((r) => setTimeout(r, 1000));
+          const retry = await fetch(`/api/proxy/api/onboarding/profile`, { headers });
+          if (retry.ok) {
+            setProfile(await retry.json());
+            recovered = true;
+            break;
+          }
+        }
+        if (!recovered) {
+          router.replace("/onboarding");
+          return;
+        }
+      }
       if (subjectsRes.ok) {
         const data = await subjectsRes.json();
         setSubjects(data.subjects || []);
@@ -1097,7 +1122,7 @@ export default function DashboardPage() {
             { href: "/learn", icon: "📚", label: "Curriculum", color: "var(--neon-cyan)" },
             { href: "/practice", icon: "🎯", label: "Practice Quiz", color: "var(--neon-yel)" },
             { href: "/review", icon: "🔁", label: "Flashcards", color: "var(--neon-mag)" },
-            { href: "/buddy", icon: "🤖", label: "AI Tutor", color: "var(--neon-lime)" },
+            { href: "/learn", icon: "🤖", label: "AI Tutor", color: "var(--neon-lime)" },
             { href: "/analytics", icon: "📊", label: "Progress", color: "var(--neon-cyan)" },
             { href: "/focus", icon: "💚", label: "Focus & Mood", color: "var(--neon-mag)" },
             { href: "/project", icon: "🔨", label: "Projects", color: "var(--neon-ora)" },

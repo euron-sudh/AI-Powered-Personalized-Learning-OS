@@ -29,6 +29,49 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
 };
 
+// Frame MUST live at module scope. When it was defined inside RegisterPage,
+// every keystroke re-created the function, React treated it as a new
+// component type, and the entire form tree unmounted/remounted on each
+// change — destroying focus on the active input (users saw "type one
+// character, lose focus, click again" behaviour). Keep it out here.
+function Frame({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="arcade-root"
+      data-grade="68"
+      data-motion="on"
+      data-mascot="on"
+      style={{ minHeight: "100vh" }}
+    >
+      <main
+        className="screen"
+        style={{
+          minHeight: "100vh",
+          position: "relative",
+          display: "grid",
+          placeItems: "center",
+          borderRadius: 0,
+          border: "none",
+        }}
+      >
+        <div className="gridbg" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
+        <FloatingPixels count={20} />
+        <div
+          style={{
+            position: "relative",
+            zIndex: 2,
+            width: "100%",
+            maxWidth: 460,
+            padding: 32,
+          }}
+        >
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -90,44 +133,6 @@ export default function RegisterPage() {
     const { error } = await supabase.auth.resend({ type: "signup", email });
     setResending(false);
     setResendMsg(error ? "Failed to resend. Please try again." : "Confirmation email resent! Check your inbox.");
-  }
-
-  function Frame({ children }: { children: React.ReactNode }) {
-    return (
-      <div
-        className="arcade-root"
-        data-grade="68"
-        data-motion="on"
-        data-mascot="on"
-        style={{ minHeight: "100vh" }}
-      >
-        <main
-          className="screen"
-          style={{
-            minHeight: "100vh",
-            position: "relative",
-            display: "grid",
-            placeItems: "center",
-            borderRadius: 0,
-            border: "none",
-          }}
-        >
-          <div className="gridbg" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
-          <FloatingPixels count={20} />
-          <div
-            style={{
-              position: "relative",
-              zIndex: 2,
-              width: "100%",
-              maxWidth: 460,
-              padding: 32,
-            }}
-          >
-            {children}
-          </div>
-        </main>
-      </div>
-    );
   }
 
   if (emailSent) {

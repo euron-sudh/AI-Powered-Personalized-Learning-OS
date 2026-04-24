@@ -426,12 +426,11 @@ export function LiveArcadeTopBar({ active }: { active: ArcadeTab }) {
   }, [loading, user]);
 
   async function handleSignOut() {
-    try {
-      await apiDelete("/auth/logout").catch(() => {});
-    } finally {
-      await supabase.auth.signOut();
-      router.push("/");
-    }
+    // Supabase sign-out fully invalidates the session — no backend endpoint
+    // needed. The previous apiDelete("/auth/logout") call hit a non-existent
+    // route (there is no /api/auth/logout) and 404-ed silently every time.
+    await supabase.auth.signOut();
+    router.push("/");
   }
 
   return (

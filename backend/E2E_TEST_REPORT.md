@@ -3,6 +3,8 @@
 **Student Profile:** Ravi Kumar (Grade 10, CBSE Board)  
 **Test Environment:** Windows 11, FastAPI Backend, Supabase PostgreSQL
 
+> **Historical snapshot.** This report was captured before the 2026-04-24 voice migration. Mentions of "OpenAI Realtime" below reflect the stack at test time; the active voice pipeline is now Google Gemini Live via the `voice_gemini.py` WebSocket proxy. See [README.md](../README.md#voice-tutoring-speech-to-speech) for the current architecture.
+
 ---
 
 ## Executive Summary

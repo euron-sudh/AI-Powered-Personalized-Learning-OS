@@ -52,6 +52,7 @@ from app.routers import (
     voice_gemini,
     wellness,
     learning,
+    youtube,
 )
 
 
@@ -152,6 +153,7 @@ app.include_router(immersive.router, prefix="/api/immersive", tags=["immersive"]
 app.include_router(wellness.router, prefix="/api/wellness", tags=["wellness"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(suggest.router, prefix="/api/suggest", tags=["suggest"])
+app.include_router(youtube.router, prefix="/api/youtube", tags=["youtube"])
 
 # Adaptive Learning OS — multi-agent engine routes (/api/system/*)
 

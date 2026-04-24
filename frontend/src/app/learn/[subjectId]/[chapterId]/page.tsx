@@ -131,7 +131,14 @@ function MermaidDiagram({ code }: { code: string }) {
           ref.current.innerHTML = svg;
           const svgEl = ref.current.querySelector("svg");
           if (svgEl) {
+            // Constrain BOTH dimensions so a small diagram (e.g. 3 nodes)
+            // doesn't get stretched to the full container width — that made
+            // labels look comically huge. Letting the SVG stay at its
+            // natural size up to the container bounds keeps text readable
+            // and the layout airy.
             svgEl.style.maxWidth = "100%";
+            svgEl.style.maxHeight = "100%";
+            svgEl.style.width = "auto";
             svgEl.style.height = "auto";
             svgEl.style.transformOrigin = "center center";
             svgEl.style.transition = "transform 0.1s ease-out";
@@ -323,7 +330,11 @@ function buildInlineVideoEmbedUrl(
   if (opts.autoplay) p.set("autoplay", "1");
   if (opts.start !== undefined) p.set("start", String(opts.start));
   if (opts.end !== undefined) p.set("end", String(opts.end));
-  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${p.toString()}`;
+  // Previously used youtube-nocookie.com for the privacy domain, but some
+  // videos aren't whitelisted there and fail with "Error 153 — video player
+  // configuration error". Plain youtube.com accepts all public embeddable
+  // videos; the privacy difference is negligible for kid-safe search results.
+  return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${p.toString()}`;
 }
 
 const EMOTIONS: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -347,6 +358,8 @@ export default function TutorPage() {
   const [currentVisual, setCurrentVisual] = useState<Visual | null>(null);
   const [sessionStarted] = useState(new Date());
   const [, forceTick] = useState(0);
+  const [isChapterComplete, setIsChapterComplete] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const subjectId = params.subjectId as string;
   const chapterId = params.chapterId as string;
@@ -372,14 +385,54 @@ export default function TutorPage() {
             const n = typeof x === "number" ? x : typeof x === "string" ? Number(x) : NaN;
             return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined;
           };
-          v = {
+          const directVideoId = args.video_id ? String(args.video_id) : "";
+          const query = args.query ? String(args.query) : "";
+          // No hard cap. Honor the AI's start/end trims when provided
+          // (useful to skip intros on longer clips); otherwise play the full
+          // clip. Video length is instead kept short via the backend's
+          // videoDuration=short YouTube search filter (< 4 min).
+          const clampedStart = toNumOrUndef(args.start_seconds);
+          const clampedEnd = toNumOrUndef(args.end_seconds);
+          const video: Visual = {
             kind: "video",
-            videoId: String(args.video_id ?? ""),
-            title: String(args.title ?? "Video"),
+            videoId: directVideoId,
+            title: String(args.title ?? (query || "Video")),
             concept: args.concept ? String(args.concept) : undefined,
-            startSeconds: toNumOrUndef(args.start_seconds),
-            endSeconds: toNumOrUndef(args.end_seconds),
+            startSeconds: clampedStart,
+            endSeconds: clampedEnd,
           };
+          v = video;
+          // If the model passed only a query (the new path), resolve it via the
+          // backend YouTube search proxy and patch the visual in place. Same
+          // pattern as resolveWikipediaImage above — comparison by reference
+          // so later visuals aren't overwritten if the student moved on.
+          if (!directVideoId && query) {
+            void (async () => {
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return;
+                const res = await fetch(
+                  `/api/proxy/api/youtube/search?q=${encodeURIComponent(query)}`,
+                  { headers: { Authorization: `Bearer ${session.access_token}` } },
+                );
+                if (!res.ok) return;
+                const data = (await res.json()) as { video_id?: string; title?: string };
+                if (!data.video_id) return;
+                const patched: Visual = {
+                  ...video,
+                  videoId: data.video_id,
+                  title: video.title || data.title || "Video",
+                };
+                setCurrentVisual((cur) => (cur === video ? patched : cur));
+                setMessages((prev) =>
+                  prev.map((m) => (m.visual === video ? { ...m, visual: patched } : m)),
+                );
+              } catch {
+                // Network/quota error — leave the visual with an empty videoId;
+                // the video renderer can show a "couldn't load" state.
+              }
+            })();
+          }
         } else if (toolName === "show_diagram") {
           const diagram: Visual = {
             kind: "diagram",
@@ -461,12 +514,77 @@ export default function TutorPage() {
     }
   }, [user, authLoading, router, chapterId]);
 
-  // Auto-connect voice once chapter is loaded
+  // Remember whether the user explicitly disconnected so the auto-connect
+  // effect below doesn't immediately reconnect them. Without this, clicking
+  // Disconnect flips `isConnected` to false, the effect's dep list re-runs,
+  // and connect(true) fires again — producing a disconnect/reconnect loop
+  // where each cycle starts a fresh Gemini session (which loses context and
+  // hallucinates).
+  const userDisconnectedRef = useRef(false);
+  const hasAutoConnectedRef = useRef(false);
+
+  // Auto-connect voice as soon as the user is authenticated — do NOT wait
+  // for the chapter fetch to complete. The chapter fetch is 1–3 seconds of
+  // network + curriculum parsing; the voice WS handshake + Gemini setup is
+  // another 0.5–1 second. Running them serially was ~3 seconds of dead air
+  // on lesson open. Running in parallel compresses that to whichever
+  // finishes last (usually the chapter fetch).
+  //
+  // The hook reads options via `optionsRef.current` at the moment setup is
+  // sent, so even though we connect before the chapter is loaded, the
+  // system prompt and opening message still get the full lesson context as
+  // long as the chapter arrives before Gemini's setupComplete (it does, on
+  // every realistic network). If the chapter is slower than Gemini, the
+  // AI's first greeting will still work — it just won't know the specific
+  // lesson title, which is far cheaper than 3 seconds of silence.
   useEffect(() => {
-    if (!loading && chapter && !isConnected) {
-      connect(true);
+    if (authLoading || !user) return;
+    if (hasAutoConnectedRef.current) return;
+    if (userDisconnectedRef.current) return;
+    if (isConnected) return;
+    hasAutoConnectedRef.current = true;
+    connect(true);
+  }, [authLoading, user, isConnected, connect]);
+
+  const handleVoiceDisconnect = () => {
+    userDisconnectedRef.current = true;
+    disconnect();
+  };
+
+  const handleVoiceReconnect = () => {
+    userDisconnectedRef.current = false;
+    connect(true);
+  };
+
+  const handleMarkComplete = async () => {
+    if (isChapterComplete || completing) return;
+    setCompleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setCompleting(false);
+        return;
+      }
+      const res = await fetch(
+        `/api/proxy/api/lessons/${chapterId}/complete`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        },
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        alert(`Couldn't mark complete: ${res.status} ${txt}`);
+        setCompleting(false);
+        return;
+      }
+      setIsChapterComplete(true);
+    } catch (err) {
+      alert(`Couldn't mark complete: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setCompleting(false);
     }
-  }, [loading, chapter, isConnected, connect]);
+  };
 
   // Mirror voice transcript into the chat panel, preserving any inline visuals.
   useEffect(() => {
@@ -505,6 +623,7 @@ export default function TutorPage() {
         const ch = data.chapters?.find((c: any) => c.id === chapterId);
         if (ch) {
           setChapter(ch);
+          setIsChapterComplete(ch.status === "completed");
           // Remember this lesson so the dashboard's "Continue Learning" can
           // drop the student right back here next time.
           try {
@@ -688,12 +807,29 @@ export default function TutorPage() {
               }}
             >
               <div style={{ minWidth: 0, flex: 1 }}>
-                <span
-                  className="pill"
-                  style={{ color: "var(--neon-cyan)", borderColor: "var(--neon-cyan)" }}
-                >
-                  Live Lesson
-                </span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <span
+                    className="pill"
+                    style={{ color: "var(--neon-cyan)", borderColor: "var(--neon-cyan)" }}
+                  >
+                    Live Lesson
+                  </span>
+                  <button
+                    onClick={handleMarkComplete}
+                    disabled={isChapterComplete || completing}
+                    title={isChapterComplete ? "Chapter already marked complete" : "Mark this chapter as complete"}
+                    className="pill"
+                    style={{
+                      cursor: isChapterComplete || completing ? "default" : "pointer",
+                      color: isChapterComplete ? "var(--neon-lime)" : "var(--neon-yel)",
+                      borderColor: isChapterComplete ? "var(--neon-lime)" : "var(--neon-yel)",
+                      fontWeight: 700,
+                      opacity: completing ? 0.7 : 1,
+                    }}
+                  >
+                    {isChapterComplete ? "✓ Completed" : completing ? "Saving…" : "✓ Mark complete"}
+                  </button>
+                </div>
                 <h1 className="h-display" style={{ fontSize: 32, margin: "10px 0 6px" }}>
                   {titleHead}
                   {titleAccent && (
@@ -810,7 +946,7 @@ export default function TutorPage() {
                           end: currentVisual.endSeconds,
                         })}
                         title={currentVisual.title}
-                        referrerPolicy="no-referrer"
+                        referrerPolicy="strict-origin-when-cross-origin"
                         sandbox="allow-scripts allow-same-origin allow-presentation"
                         allow="autoplay; encrypted-media; picture-in-picture"
                       />
@@ -961,7 +1097,7 @@ export default function TutorPage() {
             >
               <button
                 onClick={() => {
-                  disconnect();
+                  handleVoiceDisconnect();
                   router.back();
                 }}
                 className="pill"
@@ -996,7 +1132,23 @@ export default function TutorPage() {
                   📹 {isVideoOn ? "On" : "Off"}
                 </button>
                 <button
-                  onClick={() => (isConnected ? disconnect() : connect(true))}
+                  onClick={handleMarkComplete}
+                  disabled={isChapterComplete || completing}
+                  title={isChapterComplete ? "Chapter already marked complete" : "Mark this chapter as complete"}
+                  className="chunky-btn"
+                  style={{
+                    fontSize: 12,
+                    padding: "10px 16px",
+                    background: isChapterComplete ? "var(--neon-lime)" : "var(--neon-yel)",
+                    color: "#170826",
+                    cursor: isChapterComplete || completing ? "default" : "pointer",
+                    opacity: completing ? 0.7 : 1,
+                  }}
+                >
+                  {isChapterComplete ? "✓ Completed" : completing ? "Saving…" : "✓ Mark complete"}
+                </button>
+                <button
+                  onClick={() => (isConnected ? handleVoiceDisconnect() : handleVoiceReconnect())}
                   title={isConnected ? "Disconnect tutor" : "Reconnect tutor"}
                   className="chunky-btn cyan"
                   style={{ fontSize: 12, padding: "10px 16px" }}
@@ -1194,7 +1346,7 @@ export default function TutorPage() {
                               end: msg.visual.endSeconds,
                             })}
                             title={msg.visual.title}
-                            referrerPolicy="no-referrer"
+                            referrerPolicy="strict-origin-when-cross-origin"
                             sandbox="allow-scripts allow-same-origin allow-presentation"
                             allow="encrypted-media; picture-in-picture"
                           />

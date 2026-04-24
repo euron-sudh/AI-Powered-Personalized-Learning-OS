@@ -1,4 +1,4 @@
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-04-24
 
 # LearnOS — Quick Start Guide
 
@@ -11,8 +11,10 @@ Get the AI-powered personalized learning platform running locally in **15 minute
 - **Node.js** 18+ (for frontend)
 - **Python** 3.11+ (for backend)
 - **Supabase account** (free tier works) → [supabase.com](https://supabase.com)
-- **OpenAI API key** (for voice speech-to-speech)
-- **Anthropic Claude API key** (for curriculum + teaching)
+- **Anthropic Claude API key** (curriculum, teaching, evaluation, Vision)
+- **Google Gemini API key** ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) — required for voice tutor (Gemini Live)
+- **OpenAI API key** — used only for TTS podcast generation (voice is Gemini, no longer OpenAI Realtime)
+- **YouTube Data API v3 key** (optional — enables the `show_video` tool; skip and the tutor falls back to diagrams only)
 - **Git** (to clone the repo)
 
 ---
@@ -63,7 +65,9 @@ SUPABASE_DB_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/
 
 # API Keys
 ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=AIza...                # required for voice tutor
+OPENAI_API_KEY=sk-...                 # only for TTS podcast
+YOUTUBE_DATA_API_KEY=AIza...          # optional — powers show_video tool
 
 # Server
 API_HOST=0.0.0.0
@@ -177,7 +181,9 @@ kill -9 <PID>
 
 ### "Missing API keys"
 - Get `ANTHROPIC_API_KEY` from [console.anthropic.com](https://console.anthropic.com)
-- Get `OPENAI_API_KEY` from [platform.openai.com](https://platform.openai.com)
+- Get `GEMINI_API_KEY` from [aistudio.google.com/apikey](https://aistudio.google.com/apikey) (free tier works)
+- Get `OPENAI_API_KEY` from [platform.openai.com](https://platform.openai.com) (used for TTS podcast only)
+- Get `YOUTUBE_DATA_API_KEY` from [Google Cloud Console](https://console.cloud.google.com/apis/library/youtube.googleapis.com) → enable "YouTube Data API v3" → Credentials → API key (default 10,000 units/day free; each video search costs 100 units)
 
 ---
 
@@ -191,8 +197,9 @@ Frontend (Next.js, React)          Backend (FastAPI)           AI Services
   /learn              →  Lesson API ← Claude Curriculum Gen
   /practice           →  Quiz API   ← Claude Activity Gen
   /analytics          →  Progress   ← Student data from DB
-  (Voice, Sentiment)  →  Realtime   ← OpenAI Realtime (Voice)
+  (Voice, Sentiment)  →  Realtime   ← Gemini Live (Voice + tool calls)
                                     ← Claude Vision (Sentiment)
+                                    ← YouTube Data API v3 (video search)
 ```
 
 ---
