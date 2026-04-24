@@ -96,7 +96,7 @@ export default function HomePage() {
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
               <Link
-                href="/register"
+                href="/parent"
                 className="pill"
                 style={{
                   cursor: "pointer",

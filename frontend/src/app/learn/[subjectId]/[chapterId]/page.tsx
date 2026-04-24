@@ -377,8 +377,14 @@ export default function TutorPage() {
       quizTopic,
       quizCorrect,
       quizChosen,
-      onToolCall: (toolName: string, args: Record<string, unknown>) => {
+      onToolCall: (toolName: string, args: Record<string, unknown>): void | Promise<void> => {
         let v: Visual | null = null;
+        // When set, the hook will delay the Gemini toolResponse ack until
+        // this promise resolves — Gemini holds its turn for the whole wait,
+        // so the tutor stays silent while the video plays, and picks up
+        // speaking the moment the clip ends.
+        let holdUntil: Promise<void> | null = null;
+
         if (toolName === "show_video" || toolName === "show_youtube_video") {
           // `show_youtube_video` kept as alias for older model turns mid-session.
           const toNumOrUndef = (x: unknown) => {
@@ -402,6 +408,15 @@ export default function TutorPage() {
             endSeconds: clampedEnd,
           };
           v = video;
+
+          // Compute how long to hold Gemini's turn. If the AI trimmed to a
+          // specific range use that; otherwise assume a short clip (~30s).
+          // Pad 2 s for the iframe load and the student's eyes catching up.
+          const startS = clampedStart ?? 0;
+          const endS = clampedEnd;
+          const clipSeconds = endS !== undefined ? Math.max(5, endS - startS) : 30;
+          const holdMs = (clipSeconds + 2) * 1000;
+          holdUntil = new Promise<void>((resolve) => setTimeout(resolve, holdMs));
           // If the model passed only a query (the new path), resolve it via the
           // backend YouTube search proxy and patch the visual in place. Same
           // pattern as resolveWikipediaImage above — comparison by reference
@@ -472,6 +487,7 @@ export default function TutorPage() {
           setCurrentVisual(v);
           setMessages((prev) => [...prev, { role: "tutor", content: "", visual: v! }]);
         }
+        return holdUntil ?? undefined;
       },
     }),
     [chapterId, chapter?.title, chapter?.description, subjectName, quizTopic, quizCorrect, quizChosen]

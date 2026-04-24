@@ -128,16 +128,14 @@ export default function DashboardPage() {
       // Heartbeat first so streak/last_active reflect today before we read profile
       await fetch(`/api/proxy/api/onboarding/heartbeat`, { method: "POST", headers }).catch(() => null);
 
-      const [profileRes, subjectsRes, challengesRes, suggestRes] = await Promise.all([
-        fetch(`/api/proxy/api/onboarding/profile`, { headers }),
-        fetch(`/api/proxy/api/onboarding/subjects`, { headers }),
-        fetch(`/api/proxy/api/challenges/today`, { headers }),
-        fetch(`/api/proxy/api/suggest/next-best-action`, { headers }),
+      let [profileRes, subjectsRes, challengesRes, suggestRes] = await Promise.all([
+        fetch(`/api/proxy/api/onboarding/profile`, { headers, cache: "no-store" }),
+        fetch(`/api/proxy/api/onboarding/subjects`, { headers, cache: "no-store" }),
+        fetch(`/api/proxy/api/challenges/today`, { headers, cache: "no-store" }),
+        fetch(`/api/proxy/api/suggest/next-best-action`, { headers, cache: "no-store" }),
       ]);
 
-      if (profileRes.ok) {
-        setProfile(await profileRes.json());
-      } else if (profileRes.status === 404) {
+      if (profileRes.status === 404) {
         // No student row for this UUID. Two possible reasons:
         //   (a) Onboarding POST is still committing (eager commit lands in
         //       ~1s, but slow networks can take longer) — retry briefly.
@@ -149,9 +147,12 @@ export default function DashboardPage() {
         let recovered = false;
         while (Date.now() - started < 6_000) {
           await new Promise((r) => setTimeout(r, 1000));
-          const retry = await fetch(`/api/proxy/api/onboarding/profile`, { headers });
+          const retry = await fetch(`/api/proxy/api/onboarding/profile`, {
+            headers,
+            cache: "no-store",
+          });
           if (retry.ok) {
-            setProfile(await retry.json());
+            profileRes = retry;
             recovered = true;
             break;
           }
@@ -160,6 +161,20 @@ export default function DashboardPage() {
           router.replace("/onboarding");
           return;
         }
+        // IMPORTANT: the sibling requests fired at t=0 (before the student
+        // row committed) and returned empty. Re-issue them now so subjects /
+        // challenges / NBA reflect the freshly-committed state, otherwise
+        // the dashboard would render "No worlds unlocked yet" even though
+        // curriculum was just created.
+        [subjectsRes, challengesRes, suggestRes] = await Promise.all([
+          fetch(`/api/proxy/api/onboarding/subjects`, { headers, cache: "no-store" }),
+          fetch(`/api/proxy/api/challenges/today`, { headers, cache: "no-store" }),
+          fetch(`/api/proxy/api/suggest/next-best-action`, { headers, cache: "no-store" }),
+        ]);
+      }
+
+      if (profileRes.ok) {
+        setProfile(await profileRes.json());
       }
       if (subjectsRes.ok) {
         const data = await subjectsRes.json();

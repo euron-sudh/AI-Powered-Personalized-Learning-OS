@@ -55,15 +55,23 @@ async def gemini_proxy(websocket: WebSocket):
     # frame. Gemini's TLS + WS handshake takes ~200–400 ms; doing it
     # concurrently with JWT verification (which is also a few ms of awaits)
     # shaves that off the user-perceived connect time.
+    #
+    # NOTE: `websockets.connect(...)` returns a `connect` object (async
+    # context manager / awaitable), NOT a coroutine — passing it directly
+    # to asyncio.create_task raises
+    #   TypeError: a coroutine was expected, got <...client.connect object>
+    # Wrap it in an async helper so create_task gets a real coroutine.
     upstream_url = GEMINI_WS_URL_TEMPLATE.format(api_key=settings.gemini_api_key)
-    upstream_task = asyncio.create_task(
-        websockets.connect(
+
+    async def _dial_upstream():
+        return await websockets.connect(
             upstream_url,
             max_size=None,  # audio frames can be large
             ping_interval=20,
             ping_timeout=20,
         )
-    )
+
+    upstream_task = asyncio.create_task(_dial_upstream())
 
     # First message from the client must be {"auth": "<supabase-jwt>"}.
     try:

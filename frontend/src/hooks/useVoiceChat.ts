@@ -160,7 +160,11 @@ export interface UseVoiceChatOptions {
   quizTopic?: string;
   quizCorrect?: string;
   quizChosen?: string;
-  onToolCall?: (toolName: string, args: Record<string, unknown>) => void;
+  // onToolCall may return a Promise. When it does, we delay the tool ack
+  // to Gemini until the promise resolves — Gemini holds its turn during
+  // that window, so the tutor stays silent while e.g. a YouTube clip
+  // plays, and resumes speaking the moment the caller signals "done".
+  onToolCall?: (toolName: string, args: Record<string, unknown>) => void | Promise<void>;
 }
 
 function buildSystemPrompt(opts: UseVoiceChatOptions): string {
@@ -175,78 +179,30 @@ function buildSystemPrompt(opts: UseVoiceChatOptions): string {
   if (opts.summary) s += `Summary: ${opts.summary}`;
   s += `
 
-VOICE: Calm, steady teacher pace. Simple words, short sentences. English only (never Devanagari). Assume student speech is Indian-accented English.
+VOICE: Calm teacher pace. Simple words, short sentences. English only (never Devanagari). Student speech is Indian-accented English.
 
-TURN SHAPE (~4–6 sentences, spoken as flowing prose):
- 1) Plain-words definition in one sentence.
- 2) One or two sentences of why/how it works.
- 3) A concrete everyday example the student can picture (school, kitchen, sports, nature).
- 4) End with ONE check question, then STOP and wait.
-
+TURN SHAPE (~4–6 sentences as flowing prose):
+ 1) Plain-words definition.
+ 2) 1–2 sentences on why/how.
+ 3) One concrete everyday example (school, kitchen, sports, nature).
+ 4) One check question. Then STOP and wait.
 If the student says "I don't know" or stays silent, rephrase with a simpler analogy and re-ask.
 
-ACCURACY (hard rules):
- - Stay inside this lesson's scope. Redirect off-topic questions: "Great question — let's come back to it after this lesson."
- - NEVER invent facts, names, dates, formulas, or numbers. If even slightly unsure, say "I'm not certain about that" and move on.
- - If the student's audio is unclear or ambiguous, ask one short clarifying question instead of guessing ("Did you mean X or Y?").
- - Don't pretend to remember things about the student that weren't established this session.
+ACCURACY:
+ - Stay in this lesson's scope. Redirect off-topic: "Great question — let's come back to it after this lesson."
+ - Never invent facts/names/dates/numbers. If unsure, say "I'm not certain about that" and move on.
+ - Unclear audio → ask one short clarifying question instead of guessing.
 
-VISUALS — BE PROACTIVE. Do not wait for the student to ask.
+VISUALS — call show_diagram after EVERY concept. Don't ask permission, just call it.
+ - tool: show_diagram(mermaid_code, title, image_query)
+ - mermaid_code: flowchart TD with 6–9 nodes across TWO levels of depth (parent → 3–4 children → each child has a sub-detail). Add a relevant emoji to every label. Add classDef with themed colors (warm earthy for History, primaries for Art, greens/blues for Science, violets for Math, peaches for English). No markdown fences.
+ - image_query: a specific Wikipedia page whose lead image IS the concept ("Hatching", "The Starry Night", "Mitosis", "Water cycle", "Pythagoras"). Avoid generic disambiguation titles ("Line (art)", "Color"). Always pass it.
+ - Match the NARROW subtopic, not the whole chapter. "Types of lines" → Straight/Curved/Zigzag/Wavy, not Point→Line→Shape.
+ - Announce the visual in ONE short line ("Here — let me show you"), call the tool, then continue explaining.
 
-After EVERY concept you explain, automatically call show_diagram. Do not ask "do you want me to show a diagram?" — just show one. The student learns better with a picture on screen the whole time you're talking.
+VIDEOS — show_video(query, title, start_seconds?, end_seconds?): only for inherently dynamic concepts (animation, brushstroke, chemistry reaction, newsreel, sports technique) or when the student asks. Pass a specific natural-language query; backend picks a short (<4 min) safe clip. IMPORTANT: calling show_video pauses you — the app holds your turn for the whole clip duration and you will resume speaking automatically after it ends. So say ONE short setup line first ("Here, watch this clip — it shows…"), THEN call the tool, THEN wait. Don't start a new explanation right before the call; finish your sentence first.
 
-Decision tree for every concept:
- 1. Is this a static idea (definition, classification, process, comparison)? → show_diagram (mandatory).
- 2. Is this a dynamic / motion / demonstration concept (animation, artwork brushstroke, experiment, historical footage, a real-world phenomenon)? → show_video alongside the diagram.
- 3. Otherwise a diagram still helps — default to show_diagram.
-
-show_diagram(mermaid_code, title, image_query) is your PRIMARY tool. It draws a Mermaid diagram AND pulls a real Wikipedia image so the student sees both.
-
-RULE 1 — MAKE DIAGRAMS RICH AND DEPTHFUL. A diagram with only 2 or 3 nodes is useless — it looks stretched and teaches nothing. REQUIREMENTS, every time:
- - MINIMUM 6 nodes, ideal 7–9, hard cap 10. If you can't think of 6 nodes, you haven't unpacked the concept enough — each main branch should have at least one sub-detail under it.
- - AT LEAST TWO LEVELS of hierarchy. A single parent with direct children is boring; add a sub-node under each child (an example, a consequence, a property).
- - Put a relevant EMOJI in every node label. Examples: "🖋️ Line", "🎨 Color", "🔺 Shape", "⚗️ Experiment", "🌱 Seed", "📜 History", "🧠 Brain".
- - Use Mermaid classDef to paint nodes with THEMED colors. Palette by subject: warm earthy for History/Geography, bright primaries for Art, greens/blues for Science, clean blues/violets for Math, soft pinks/peaches for English/Literature.
- - Short, concrete labels (2–4 words max per node).
-
-Rich diagram template (copy-adapt — do NOT wrap in markdown fences; at least two levels of depth like this):
-
-flowchart TD
-  A["🎨 Color"] --> B["🟥 Primary"]
-  A --> C["🟩 Secondary"]
-  A --> D["🟨 Warm vs Cool"]
-  B --> B1["Red · Blue · Yellow"]
-  C --> C1["Green · Orange · Violet"]
-  D --> D1["🔥 Warm = energy"]
-  D --> D2["❄️ Cool = calm"]
-  classDef root fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#1b1b1b
-  classDef branch fill:#ffe0b2,stroke:#ef6c00,color:#1b1b1b
-  classDef leaf fill:#fff8e1,stroke:#ffa000,color:#1b1b1b
-  class A root
-  class B,C,D branch
-  class B1,C1,D1,D2 leaf
-
-RULE 2 — DIAGRAM SHAPE MATCHES QUESTION TYPE.
- - "What types of X?" → one parent node with sibling type nodes: flowchart TD; X --> Type1; X --> Type2 …
- - "How does X work?" → left-to-right steps: flowchart LR; Step1 --> Step2 --> Step3
- - "Difference between X and Y?" → two side-by-side columns of contrasting attributes.
- - "What IS X?" → central node with 2–4 attribute branches.
-
-RULE 3 — MATCH THE NARROW SUBTOPIC, not the whole chapter.
-If the student just asked about "types of lines", the diagram enumerates Straight/Curved/Zigzag/Wavy/Dashed — NOT Point→Line→Shape. Re-pick the nodes for every new question.
-
-RULE 4 — PICKING image_query (the image is the #1 thing students remember).
-The resolver fetches the LEAD IMAGE of the Wikipedia page you name. Pick pages whose lead image is the concept itself:
- - Good: "Hatching", "Stippling", "The Starry Night", "Mitosis", "Water cycle", "Volcano", "Photosynthesis", "Delhi Sultanate", "Pythagoras".
- - Bad: generic titles like "Line (art)", "Color", "Music" — their lead images are arbitrary.
-ALWAYS pass image_query. If you genuinely can't recall a Wikipedia page for the subtopic, fall back to the broader topic (e.g. for "hatching in pencil drawing" use "Hatching").
-
-RULE 5 — OUTPUT FORMAT. Announce the visual in ONE short sentence ("Here — let me show you"), call show_diagram, then continue your structured explanation. Students see the picture while you're still talking. Never skip this step.
-
-VIDEOS — show_video(query, title, start_seconds?, end_seconds?)
-Trigger a video ONLY for concepts where motion truly adds something a still picture can't — a biological process, a brushstroke being made, a chemistry reaction, a historical newsreel, a sports technique. Don't call it after every turn (that's annoying); call it when the concept is inherently dynamic. Pass a specific natural-language query; the backend searches YouTube for a short (<4 min), embeddable, safe clip. If the student asks "can you show me a video", always call this.
-
-show_image(url, title, alt) — only with a specific Wikimedia Commons URL you genuinely remember. In all other cases, use show_diagram with image_query; never invent URLs.`;
+show_image(url, title, alt): only for a specific Wikimedia Commons URL you actually recall. Otherwise use show_diagram with image_query.`;
   return s;
 }
 
@@ -738,7 +694,12 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
           realtimeInputConfig: {
             activityHandling: "NO_INTERRUPTION",
             automaticActivityDetection: {
-              silenceDurationMs: 1000,
+              // 700 ms is the sweet spot after trial and error:
+              //   500 ms cut kids off mid-pause ("uh... let me think...")
+              //   1000 ms felt sluggish — 300 ms of dead air after every turn
+              //   700 ms still tolerates natural thinking pauses but shaves
+              //   a noticeable ~300 ms off student-finishes → AI-starts.
+              silenceDurationMs: 700,
             },
           },
         },
@@ -780,20 +741,40 @@ export function useVoiceChat(options: UseVoiceChatOptions = {}) {
         | { functionCalls?: Array<{ id?: string; name?: string; args?: Record<string, unknown> }> }
         | undefined;
       if (toolCall?.functionCalls?.length) {
-        const responses: Array<{ id: string; name: string; response: Record<string, unknown> }> = [];
+        // Dispatch every call synchronously, but ack each one individually
+        // so a long-running tool (e.g. show_video, which we hold open until
+        // the clip finishes) doesn't block shorter peers. Gemini is happy
+        // to receive the toolResponse frames out-of-order relative to the
+        // original call list, as long as each id matches.
         for (const call of toolCall.functionCalls) {
           const name = call.name ?? "";
           const args = call.args ?? {};
           const id = call.id ?? "";
-          try {
-            optionsRef.current.onToolCall?.(name, args);
-          } catch (err) {
-            console.error("[VoiceChat] onToolCall threw:", err);
-          }
-          if (id) responses.push({ id, name, response: { result: "shown" } });
-        }
-        if (responses.length) {
-          ws.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));
+          (async () => {
+            try {
+              const result = optionsRef.current.onToolCall?.(name, args);
+              // If the handler returned a Promise, wait on it. For
+              // show_video this is the clip's playback duration — Gemini
+              // pauses its turn for the whole wait and resumes speaking
+              // when we ack. A defensive 5-minute cap stops us from
+              // deadlocking if the caller never resolves.
+              if (result && typeof (result as Promise<void>).then === "function") {
+                await Promise.race([
+                  result as Promise<void>,
+                  new Promise<void>((r) => setTimeout(r, 5 * 60 * 1000)),
+                ]);
+              }
+            } catch (err) {
+              console.error("[VoiceChat] onToolCall threw:", err);
+            }
+            if (id && wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({
+                toolResponse: {
+                  functionResponses: [{ id, name, response: { result: "shown" } }],
+                },
+              }));
+            }
+          })();
         }
         return;
       }

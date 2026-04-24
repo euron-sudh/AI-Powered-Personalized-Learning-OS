@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
 import { ArcadeShell, PixelBar } from "@/components/arcade";
@@ -24,20 +25,40 @@ interface Digest {
 }
 
 export default function ParentDigestPage() {
+  const router = useRouter();
   const { user, loading: authLoading } = useSupabaseAuth();
   const [digest, setDigest] = useState<Digest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notOnboarded, setNotOnboarded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setNotOnboarded(false);
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) { setLoading(false); return; }
     const res = await fetch("/api/proxy/api/parent/digest", {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
-    if (res.ok) setDigest(await res.json());
+    if (res.ok) {
+      setDigest(await res.json());
+    } else if (res.status === 404) {
+      // Account exists (the parent signed in with the student's login) but
+      // the student hasn't finished onboarding yet — there's no digest to
+      // show. Render a helpful empty state instead of crashing.
+      setNotOnboarded(true);
+    }
     setLoading(false);
   }, []);
+
+  // Parent digest needs an authenticated student account behind it. If a
+  // visitor lands here straight from the "Parent / Teacher" landing-page
+  // pill without being signed in, send them to /login instead of rendering
+  // a blank/null page.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/login");
+    }
+  }, [authLoading, user, router]);
 
   useEffect(() => {
     if (user && !authLoading) load();
@@ -77,6 +98,45 @@ export default function ParentDigestPage() {
       </div>
     );
   }
+
+  // Parent sign-in model: parents use the same email + password as their
+  // child. If that account hasn't completed onboarding yet, there is no
+  // digest to render — point them at the onboarding wizard.
+  if (notOnboarded) {
+    return (
+      <ArcadeShell active="Dashboard">
+        <div
+          style={{
+            maxWidth: 560,
+            margin: "80px auto 0",
+            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          <div style={{ fontSize: 48 }}>📬</div>
+          <h1 className="h-display" style={{ fontSize: 28, margin: 0 }}>
+            No weekly digest yet
+          </h1>
+          <p style={{ color: "var(--ink-dim)", fontSize: 14, margin: 0 }}>
+            Parents sign in with the same email and password as their child.
+            The weekly summary appears here once the student finishes
+            onboarding and starts learning.
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 8 }}>
+            <Link href="/onboarding" className="chunky-btn cyan" style={{ textDecoration: "none" }}>
+              ▶ Finish onboarding
+            </Link>
+            <Link href="/dashboard" className="pill" style={{ textDecoration: "none" }}>
+              Go to dashboard
+            </Link>
+          </div>
+        </div>
+      </ArcadeShell>
+    );
+  }
+
   if (!digest) return null;
 
   const masteryValue =
@@ -88,7 +148,7 @@ export default function ParentDigestPage() {
         {/* Header */}
         <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <span className="label" style={{ fontSize: 11, color: "var(--neon-cyan)" }}>
-            Parent view
+            Parent view · signed in with {digest.student_name}&rsquo;s account
           </span>
           <h1 className="h-display" style={{ fontSize: 36, lineHeight: 1.05, margin: 0 }}>
             {digest.student_name}

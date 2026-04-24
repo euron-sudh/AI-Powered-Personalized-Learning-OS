@@ -74,6 +74,7 @@ function Frame({ children }: { children: React.ReactNode }) {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -103,6 +104,11 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2) {
+      setError("Please enter your name.");
+      return;
+    }
     if (password !== confirm) {
       setError("Passwords do not match.");
       return;
@@ -113,7 +119,20 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Pass the name as Supabase Auth user metadata. The onboarding wizard
+    // (frontend/src/app/onboarding/page.tsx) reads `user.user_metadata.name`
+    // to pre-fill the name step, so the student doesn't have to type it
+    // twice.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: trimmedName,
+          full_name: trimmedName,
+        },
+      },
+    });
     if (error) {
       setError(error.message);
       setLoading(false);
@@ -296,6 +315,19 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <label>
+            <div className="label" style={{ marginBottom: 6 }}>Name</div>
+            <input
+              id="name"
+              type="text"
+              required
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="What should we call you?"
+              style={inputStyle}
+            />
+          </label>
           <label>
             <div className="label" style={{ marginBottom: 6 }}>Email</div>
             <input
