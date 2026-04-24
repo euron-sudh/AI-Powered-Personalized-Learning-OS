@@ -1,8 +1,8 @@
-**Last Updated:** 2026-04-21
+**Last Updated:** 2026-04-24
 
 # LearnOS — AI-Powered Personalized Learning Platform
 
-A warm, gamified, K-12 education platform that adapts in real time using speech-to-speech conversation, live video sentiment analysis, and AI-generated personalized curricula. Includes spaced-repetition flashcards, multi-day AI projects, story mode, doubt scanner, podcast-style audio lessons, career glimpses, wellness check-ins with Pomodoro, and a next-best-action coach.
+A warm, gamified, K-12 education platform that adapts in real time using native-audio speech-to-speech conversation (Gemini Live), live video sentiment analysis, and AI-generated personalized curricula. Includes proactive visual tool calls (Mermaid diagrams, Wikipedia images, YouTube clips) mid-conversation, spaced-repetition flashcards, multi-day AI projects, story mode, doubt scanner, podcast-style audio lessons, career glimpses, wellness check-ins with Pomodoro, and a next-best-action coach.
 
 ---
 
@@ -76,12 +76,19 @@ A warm, gamified, K-12 education platform that adapts in real time using speech-
 - Prerequisites are preserved; re-ordering is transparent to the student
 
 ### Voice Tutoring (Speech-to-Speech)
-- Real-time bidirectional audio via **OpenAI Realtime API** (WebSocket)
-- Server-side Voice Activity Detection (VAD) with 800 ms silence threshold
-- Natural interruption — student speech cancels in-progress AI response
-- Full conversation transcript (student + AI) with download button
-- Lesson-context-aware: AI tutor is briefed on the current chapter title
-- Available in-lesson (Voice tab) and as a standalone page (`/voice`)
+- Real-time bidirectional audio via **Google Gemini Live** (`gemini-2.5-flash-native-audio-preview-09-2025`) — native-audio model, no separate TTS step
+- FastAPI backend WebSocket proxy at `/api/voice/gemini` keeps the API key server-side and overlaps the upstream dial with JWT verification to minimize connect latency
+- VAD tuned for child pacing: `silenceDurationMs: 1000` — snappy replies without cutting off natural pauses
+- `activityHandling: NO_INTERRUPTION` keeps AI turns intact even with speaker-to-mic bleed; mic track is physically disabled while the AI is speaking
+- Full conversation transcript (student + AI) with a Devanagari-filter so Indian-accented English never renders in Hindi script
+- **Proactive visual tool calls mid-speech** (see AI Integration): the tutor automatically renders a diagram / Wikipedia image / YouTube clip while it's still talking — students learn better with a picture on screen
+- Auto-connects the instant the lesson page mounts (parallel with chapter fetch) — tutor is usually ready before the content finishes loading
+- Available inside every lesson page (`/learn/[subjectId]/[chapterId]`)
+
+### Chapter Completion
+- **Mark a chapter complete** from either the chapter-list row or inside the live lesson
+- First completion awards **+25 XP** and increments the legacy `StudentProgress.chapters_completed` aggregate
+- Endpoint is idempotent: re-marking a completed chapter is a no-op with no additional XP
 
 ### Video Sentiment Analysis
 - Live webcam feed via WebRTC (no video stored)
@@ -178,12 +185,12 @@ A warm, gamified, K-12 education platform that adapts in real time using speech-
 Onboarding Curriculum Teaching   Voice    Sentiment  Activities
   Router    Generator  Engine    Engine   Analyzer   Evaluator
                              │
-          ┌──────────────────┼──────────────────┐
-          ▼                  ▼                  ▼
-    Claude API         OpenAI Realtime     Claude Vision
-  (curriculum,         (speech-to-speech   (frame sentiment
-   teaching, eval,      WebSocket)          analysis)
-   adjustment)
+          ┌──────────────────┼──────────────────┬──────────────────┐
+          ▼                  ▼                  ▼                  ▼
+    Claude API      Gemini Live (S2S)    Claude Vision      YouTube Data API
+  (curriculum,     (WS proxy, tool       (frame sentiment   (short-video search
+   teaching,        calls: diagrams,      analysis)          for show_video tool)
+   eval, adjust)    images, videos)
           │
           ▼
     Supabase (PostgreSQL + Auth + Storage + Realtime)
@@ -200,9 +207,10 @@ Onboarding Curriculum Teaching   Voice    Sentiment  Activities
 | Diagrams | Mermaid.js |
 | Formulas | KaTeX |
 | Backend | Python 3.11+, FastAPI, Uvicorn, Pydantic v2 |
-| AI Curriculum & Teaching | Anthropic Claude Opus 4 (anthropic SDK) |
-| AI Voice | OpenAI Realtime API (WebSocket, server VAD) |
+| AI Curriculum & Teaching | Anthropic Claude (`claude-sonnet-4-6` for curriculum, `claude-opus-4-6` for high-stakes evaluation) |
+| AI Voice | Google Gemini Live (`gemini-2.5-flash-native-audio-preview-09-2025`), WebSocket proxy, server VAD |
 | AI Sentiment | Claude Vision API |
+| Video search | YouTube Data API v3 (backend-proxied, safe-search strict, short clips only) |
 | Auth | Supabase Auth (email/password, Google OAuth, JWT verification) |
 | Database | Supabase PostgreSQL (SQLAlchemy async + asyncpg) |
 | Realtime | Supabase Realtime (live sentiment dashboard) |
@@ -227,7 +235,9 @@ project4/
 │   │   │   ├── onboarding.py          # Student profile + marksheet upload
 │   │   │   ├── curriculum.py          # Generate, fetch, and adjust curriculum
 │   │   │   ├── lessons.py             # Lesson content + streaming chat
-│   │   │   ├── voice.py               # OpenAI Realtime WebSocket proxy
+│   │   │   ├── voice_gemini.py        # Gemini Live WebSocket proxy (primary)
+│   │   │   ├── voice.py               # Deprecated OpenAI Realtime endpoints (not registered; kept for reference)
+│   │   │   ├── youtube.py             # YouTube Data API search proxy (for show_video tool)
 │   │   │   ├── video.py               # Sentiment HTTP + WebSocket endpoints
 │   │   │   ├── activities.py          # Activity fetch, submit, evaluate
 │   │   │   ├── progress.py            # Student progress & analytics
@@ -237,7 +247,7 @@ project4/
 │   │   │   ├── teaching_engine.py     # Streaming Socratic tutor
 │   │   │   ├── activity_evaluator.py  # AI grading & feedback
 │   │   │   ├── sentiment_analyzer.py  # Claude Vision frame analysis
-│   │   │   ├── voice_manager.py       # OpenAI Realtime session creation
+│   │   │   ├── voice_manager.py       # (legacy, unused by voice_gemini — kept for the voice.py router reference)
 │   │   │   └── syllabus_data.py       # Official board syllabus data
 │   │   ├── models/                    # SQLAlchemy ORM models
 │   │   ├── schemas/                   # Pydantic request/response schemas
@@ -273,7 +283,7 @@ project4/
 │   │   │   └── video-session/         # YouTube cards + live sentiment
 │   │   ├── hooks/
 │   │   │   ├── useSupabaseAuth.ts     # Auth state management
-│   │   │   ├── useVoiceChat.ts        # OpenAI Realtime voice (WebSocket)
+│   │   │   ├── useVoiceChat.ts        # Gemini Live voice hook (WS proxy, tool handlers, VAD gate, Devanagari filter)
 │   │   │   ├── useVideoFeed.ts        # WebRTC camera + frame capture
 │   │   │   └── useSentiment.ts        # Live sentiment WebSocket client
 │   │   ├── components/
@@ -298,8 +308,10 @@ project4/
 - Python 3.11+
 - Docker Desktop (for Redis)
 - A [Supabase](https://supabase.com) project
-- An [Anthropic](https://console.anthropic.com) API key
-- An [OpenAI](https://platform.openai.com) API key (Realtime API access required)
+- An [Anthropic](https://console.anthropic.com) API key (curriculum, teaching, evaluation, Vision)
+- A [Google AI Studio](https://aistudio.google.com/apikey) key (Gemini Live voice)
+- An [OpenAI](https://platform.openai.com) API key (TTS for the audio-podcast feature only — voice no longer uses OpenAI Realtime)
+- A [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com) key (optional — enables the `show_video` tool; skip and the tutor will fall back to diagrams only)
 
 ### 1. Clone and configure
 
@@ -375,7 +387,9 @@ SUPABASE_DB_URL=postgresql+asyncpg://postgres:<password>@db.<ref>.supabase.co:54
 
 # AI
 ANTHROPIC_API_KEY=<claude-api-key>
-OPENAI_API_KEY=<openai-api-key>
+GEMINI_API_KEY=<gemini-api-key>           # required for voice tutor
+OPENAI_API_KEY=<openai-api-key>           # used only for TTS podcast generation
+YOUTUBE_DATA_API_KEY=<youtube-data-v3-key># optional — enables show_video tool
 
 # Redis
 REDIS_URL=redis://localhost:6379
@@ -445,12 +459,18 @@ All tables managed via Alembic migrations. Supabase Auth handles `auth.users`.
 | GET | `/api/lessons/{chapter_id}/content` | Get or generate chapter content |
 | POST | `/api/lessons/{chapter_id}/chat` | Streaming teaching chat (SSE) |
 | GET | `/api/lessons/{chapter_id}/history` | Fetch chat history |
+| POST | `/api/lessons/{chapter_id}/complete` | Mark chapter complete (idempotent, awards +25 XP first time) |
 
 ### Voice
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/voice/session` | Create OpenAI Realtime ephemeral token |
-| WS | `/api/voice/ws` | Bidirectional proxy to OpenAI Realtime API |
+| WS | `/api/voice/gemini` | Authenticated bidirectional proxy to Gemini Live. First client frame is `{"auth":"<supabase-jwt>"}`; server replies with `{"authed":true}`, then the client sends the Gemini `setup` frame and realtime audio chunks. |
+| GET | `/api/voice/gemini/health` | Proxy liveness probe (`{proxy:true, gemini_key_configured:bool}`) |
+
+### YouTube search (powers the `show_video` tool)
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/youtube/search?q=<query>` | Top embeddable, safe-search, short (< 4 min) YouTube video for the query. 1-hour in-process cache per query. Returns `{video_id, title}` or `{video_id: null}` if nothing matched. Uses `videoEmbeddable=true`, `videoSyndicated=true`, `safeSearch=strict`. |
 
 ### Video & Sentiment
 | Method | Endpoint | Description |
@@ -567,14 +587,25 @@ All tables managed via Alembic migrations. Supabase Auth handles `auth.users`.
 | Adaptive adjustment | Re-orders remaining chapters by weak topics, preserves prerequisites |
 | Sentiment analysis | Claude Vision classifies JPEG frames into 6 emotions with confidence |
 
-### OpenAI Realtime API
+### Google Gemini Live (voice)
 
-- Model: `gpt-4o-realtime-preview`
-- Modalities: audio + text
-- Voice: `alloy`
-- Turn detection: `server_vad`, threshold 0.5, 800 ms silence duration
-- Transcription: `whisper-1` for student speech
-- FastAPI acts as a transparent bidirectional WebSocket proxy
+- Model: `gemini-2.5-flash-native-audio-preview-09-2025` (pinned — it's the only native-audio revision where tool calling + NO_INTERRUPTION both work cleanly)
+- Voice: `Aoede` (soft/warm, child-friendly)
+- Modality: audio input → audio output; text transcripts emitted in parallel via `inputAudioTranscription` / `outputAudioTranscription`
+- Turn detection: `automaticActivityDetection` with `silenceDurationMs: 1000` — balances snappy replies with kid-style pauses
+- `activityHandling: NO_INTERRUPTION` keeps tutor turns intact against speaker-to-mic bleed; client physically disables the mic track while AI audio is playing as a belt-and-suspenders measure
+- `temperature: 0.2` for factual stability
+- FastAPI (`voice_gemini.py`) is a transparent WS proxy: auth verification and Gemini dial overlap; client → Gemini and Gemini → client run as two concurrent asyncio tasks
+
+### Tool calls wired into the tutor
+
+The voice tutor can render visuals on the lesson stage mid-sentence via Gemini function calls. Every tool call is acked with a `toolResponse.functionResponses` frame so Gemini doesn't stall.
+
+| Tool | Purpose |
+|---|---|
+| `show_diagram(mermaid_code, title, image_query)` | Render a Mermaid diagram on the lesson stage. `image_query` resolves to a real Wikipedia lead image (`/api/rest_v1/page/summary/{q}`) that appears alongside the diagram. Prompt requires ≥ 6 nodes with emoji labels, classDef-themed colors per subject, and two hierarchy levels. |
+| `show_video(query, title, start_seconds?, end_seconds?)` | Search YouTube (via `/api/youtube/search`) for a short embeddable clip and render it inline in a locked-down `youtube.com/embed` iframe. No hallucinated IDs — the backend does the lookup. |
+| `show_image(url, title, alt)` | Display a specific Wikimedia Commons URL. Use is rare; `show_diagram(image_query=…)` is preferred because it never hallucinates URLs. |
 
 ---
 
@@ -612,6 +643,7 @@ Use a managed Redis provider (Redis Cloud, Upstash) in production and update `RE
 | **Wave 6** | Wellness & projects | Mood check-in, Pomodoro, multi-day AI project builder |
 | **Wave 7** | Coach | Next-best-action recommendation engine on the dashboard |
 | **Theme** | Visual refresh | Warm cream / parchment palette, glossy gradient stats, adventure hero, kid-friendly doodles |
+| **Wave 8** | Voice migration | OpenAI Realtime → Gemini Live native-audio, added tool-call visuals (diagrams, Wikipedia images, YouTube short clips), proactive-visual prompt rules, chapter completion endpoint + UI |
 
 ---
 
